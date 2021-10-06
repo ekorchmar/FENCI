@@ -1,0 +1,832 @@
+{
+    "pig iron": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [0, 0, 23],
+            "max": [20, 82, 27]
+        },
+        "tier": 1,
+        "weight": 1.25,
+        "occurence": 3
+    },
+    "iron": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [9, 0, 24],
+            "max": [36, 25, 54]
+        },
+        "tier": 1,
+        "weight": 1,
+        "occurence": 3
+    },
+    "copper": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [38, 40, 39],
+            "max": [59, 60, 69]
+        },
+        "tier": 1,
+        "weight": 0.75,
+        "occurence": 3
+
+    },
+    "steel": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [210, 5, 57],
+            "max": [230, 19, 80]
+        },
+        "tier": 2,
+        "weight": 1,
+        "occurence": 3
+    },
+    "fae iron": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [350, 14, 75, 60],
+            "max": [359, 40, 100, 80]
+        },
+        "tier": 2,
+        "weight": 0.75,
+        "attacks_color": [201, 65, 120],
+        "occurence": 2
+    },
+    "bronze": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [23, 72, 15],
+            "max": [46, 87, 45]
+        },
+        "tier": 2,
+        "weight": 1,
+        "occurence": 3
+    },
+    "quicksilver": {
+        "physics": "metal",
+        "hsva_values":
+            {
+                "min": [209, 0, 50],
+                "max": [216, 20, 70]
+            },
+        "tier": 3,
+        "weight": 0.75,
+        "attacks_color": [180, 183, 188],
+        "occurence": 2
+    },
+    "kobold ore": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [220, 22, 25],
+            "max": [234, 50, 43]
+        },
+        "tier": 3,
+        "weight": 1.25,
+        "attacks_color": [65, 93, 201],
+        "occurence": 2
+    },
+    "sanchezium": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [196, 78, 67],
+            "max": [199, 85, 85]
+        },
+        "tier": 3,
+        "weight": 1
+    },
+    "mythril": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [177, 37, 65],
+            "max": [212, 52, 85]
+        },
+        "tier": 4,
+        "weight": 0.75,
+        "attacks_color": [123, 215, 242],
+        "occurence": 1
+    },
+    "dwarfish steel": {
+        "physics": "metal",
+        "hsva_values": {
+                    "min": [230, 0, 23],
+                    "max": [243, 25, 30]
+                },
+        "tier": 4,
+        "weight": 1.25,
+        "attacks_color": [64, 64, 64],
+        "occurence": 2
+    },
+    "damascus steel": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [0, 0, 50],
+            "max": [0, 0, 70]
+        },
+        "tier": 4,
+        "weight": 1,
+        "occurence": 3
+    },
+
+    "nickel": {
+        "physics": "precious",
+        "hsva_values":
+            {
+                "min": [21, 0, 70],
+                "max": [25, 8, 80]
+            },
+        "tier": 1,
+        "weight": 1,
+        "occurence": 2
+    },
+    "gilded": {
+        "physics": "precious",
+        "hsva_values":
+            {
+                "min": [41, 60, 70],
+                "max": [53, 87, 80]
+            },
+        "tier": 2,
+        "weight": 1,
+        "occurence": 3
+    },
+    "silver": {
+        "physics": "precios",
+        "hsva_values":
+            {
+                "min": [0, 0, 50],
+                "max": [0, 0, 70]
+            },
+        "tier": 2,
+        "weight": 1,
+        "occurence": 2
+    },
+    "golden": {
+        "physics": "precious",
+        "hsva_values":
+            {
+                "min": [41, 60, 70],
+                "max": [53, 87, 80]
+            },
+        "tier": 3,
+        "weight": 1.25,
+        "attacks_color": [255, 215, 0],
+        "occurence": 1
+    },
+    "platinum": {
+        "physics": "precious",
+        "hsva_values":
+            {
+                "min": [0, 0, 56],
+                "max": [0, 0, 77]
+            },
+        "tier": 4,
+        "weight": 1.25,
+        "attacks_color": [200, 200, 200],
+        "occurence": 1
+    },
+    "moonglow silver": {
+        "physics": "precious",
+        "hsva_values":
+            {
+                "min": [138, 25, 18, 50],
+                "max": [180, 100, 43, 70]
+            },
+        "tier": 4,
+        "weight": 0.5,
+        "attacks_color": [45, 255, 232],
+        "occurence": 1
+    },
+
+    "birch": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [41, 70, 67],
+                "max": [54, 100, 82]
+            },
+        "tier": 1,
+        "weight": 0.3,
+        "occurence": 2
+    },
+    "spruce": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [20, 61, 18],
+                "max": [30, 73, 28]
+            },
+        "tier": 1,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "barn wood": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [54, 7, 31],
+                "max": [70, 20, 48]
+            },
+        "tier": 1,
+        "weight": 0.8,
+        "occurence": 2
+    },
+    "palm tree": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [26, 60, 21],
+                "max": [42, 80, 40]
+            },
+        "tier": 1,
+        "weight": 0.3,
+        "occurence": 1
+    },
+    "pine": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [24, 46, 46],
+                "max": [32, 60, 60]
+            },
+        "tier": 2,
+        "weight": 0.3,
+        "occurence": 2
+    },
+    "maple": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [26, 68, 71],
+                "max": [33, 80, 83]
+            },
+        "tier": 2,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "dreamthorn": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [331, 54, 18],
+                "max": [340, 65, 30]
+            },
+        "tier": 2,
+        "weight": 0.8,
+        "attacks_color": [160, 69, 197],
+        "occurence": 1
+    },
+    "oak": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [20, 42, 12],
+                "max": [29, 55, 17]
+            },
+        "tier": 3,
+        "weight": 0.8,
+        "occurence": 3
+    },
+    "chestnut": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [9, 65, 22],
+                "max": [28, 100, 35]
+            },
+        "tier": 3,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "mahogany": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [10, 74, 31],
+                "max": [20, 95, 45]
+            },
+        "tier": 3,
+        "weight": 0.3,
+        "occurence": 1
+    },
+    "baobab": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [33, 34, 45],
+                "max": [42, 39, 53]
+            },
+        "tier": 4,
+        "weight": 0.8,
+        "occurence": 1
+    },
+    "sequoia": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [343, 39, 35],
+                "max": [359, 57, 55]
+            },
+        "tier": 4,
+        "weight": 0.5,
+        "occurence": 1
+    },
+    "ironwood": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [32, 46, 15],
+                "max": [41, 47, 20]
+            },
+        "tier": 4,
+        "weight": 1.1,
+        "occurence": 1
+    },
+    "mallorn": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [56, 63, 34],
+                "max": [73, 77, 49]
+            },
+        "tier": 4,
+        "weight": 0.3,
+        "attacks_color": [17, 97, 57],
+        "occurence": 1
+    },
+    "warped stem": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [176, 66, 19],
+                "max": [184, 86, 31]
+            },
+        "tier": 4,
+        "weight": 0.5,
+        "attacks_color": [34, 13, 89],
+        "occurence": 1
+    },
+
+    "fish bone": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [47, 0, 72, 40],
+                "max": [59, 20, 100, 100]
+            },
+        "tier": 1,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "cattle horn": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [27, 76, 20],
+                "max": [45, 89, 39]
+            },
+        "tier": 2,
+        "weight": 0.8,
+        "occurence": 3
+    },
+    "game antler": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [47, 40, 52],
+                "max": [53, 44, 72]
+            },
+        "tier": 2,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "mollusc shell": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [302, 6, 67],
+                "max": [329, 49, 92]
+            },
+        "tier": 2,
+        "weight": 0.3,
+        "occurence": 1
+    },
+    "fossil": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [21, 0, 15],
+                "max": [29, 46, 22]
+            },
+        "tier": 3,
+        "weight": 0.8,
+        "occurence": 1
+    },
+    "demon horn": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [41, 60, 70],
+                "max": [53, 87, 80]
+            },
+        "tier": 3,
+        "weight": 0.5,
+        "attacks_color": [196, 62, 41],
+        "occurence": 1
+    },
+    "ivory": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [50, 66, 87],
+                "max": [60, 100, 97]
+            },
+        "tier": 3,
+        "weight": 0.7,
+        "occurence": 2
+    },
+    "unicorn horn": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [300, 80, 59],
+                "max": [330, 100, 69]
+            },
+        "tier": 3,
+        "weight": 0.5,
+        "attacks_color": [255, 71, 209],
+        "occurence": 1
+    },
+    "cursed bones": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [45, 34, 82],
+                "max": [45, 70, 95]
+            },
+        "tier": 3,
+        "weight": 0.5,
+        "attacks_color": [64, 64, 64],
+        "occurence": 2
+    },
+    "moonbeast antler": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [175, 85, 70],
+                "max": [190, 100, 100]
+            },
+        "tier": 4,
+        "weight": 0.5,
+        "attacks_color": [255, 255, 255],
+        "occurence": 1
+    },
+    "dragon scale": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [0, 100, 33],
+                "max": [359, 100, 40]
+            },
+        "tier": 4,
+        "weight": 0.8,
+        "attacks_color": [255, 64, 64],
+        "occurence": 1
+    },
+    "wishbone": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [35, 30, 83],
+                "max": [43, 35, 100]
+            },
+        "tier": 4,
+        "weight": 0.3,
+        "occurence": 1
+    },
+
+    "flint": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [47, 32, 38],
+                "max": [54, 57, 73]
+            },
+        "tier": 1,
+        "weight": 1,
+        "occurence": 3
+    },
+    "onix": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [230, 30, 20],
+                "max": [246, 43, 20]
+            },
+        "tier": 1,
+        "weight": 1,
+        "occurence": 1
+    },
+    "riverglass": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [113, 43, 54, 25],
+                "max": [157, 65, 77, 75]
+            },
+        "tier": 2,
+        "weight": 1,
+        "occurence": 1
+    },
+    "jade": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [100, 44, 13],
+                "max": [120, 100, 30]
+            },
+        "tier": 2,
+        "weight": 1,
+        "attacks_color": [0, 67, 43],
+        "occurence": 2
+    },
+    "niflheim ice": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [196, 70, 54, 70],
+                "max": [216, 95, 77, 80]
+            },
+        "tier": 3,
+        "weight": 1,
+        "attacks_color": [214, 255, 250],
+        "occurence": 1
+    },
+    "bloodreef coral": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [335, 58, 72],
+                "max": [382, 100, 83]
+            },
+        "tier": 3,
+        "weight": 1,
+        "occurence": 1
+    },
+    "quartz": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [197, 32, 88, 50],
+                "max": [292, 55, 95, 90]
+            },
+        "tier": 3,
+        "weight": 1,
+        "occurence": 2
+    },
+    "soulcrystal": {
+            "physics": "mineral",
+            "hsva_values":
+                {
+                    "min": [272, 53, 56, 50],
+                    "max": [286, 60, 63, 50]
+                },
+            "tier": 4,
+            "weight": 1,
+            "attacks_color": [193, 84, 201],
+            "occurence": 1
+        },
+    "obsidian": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [260, 5, 24],
+                "max": [272, 10, 29]
+            },
+        "tier": 4,
+        "weight": 1,
+        "occurence": 2
+    },
+    "diamond": {
+        "physics": "mineral",
+        "hsva_values":
+            {
+                "min": [191, 100, 86],
+                "max": [191, 100, 86]
+            },
+        "tier": 4,
+        "weight": 1,
+        "occurence": 1
+    },
+
+    "tanned skin": {
+        "physics": "leather",
+        "hsva_values":
+            {
+                "min": [12, 47, 17],
+                "max": [33, 98, 57]
+            },
+        "tier": 1,
+        "weight": 0.5,
+        "occurence": 3
+    },
+    "roc feather": {
+        "physics": "leather",
+        "hsva_values":
+            {
+                "min": [260, 70, 47],
+                "max": [300, 100, 69]
+            },
+        "tier": 1,
+        "weight": 0.5,
+        "occurence": 1
+    },
+    "monster hide": {
+        "physics": "leather",
+        "hsva_values":
+            {
+                "min": [37, 38, 25],
+                "max": [67, 52, 40]
+            },
+        "tier": 2,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "serpent scales": {
+        "physics": "leather",
+        "hsva_values":
+            {
+                "min": [96, 37, 24],
+                "max": [138, 72, 54]
+            },
+        "tier": 3,
+        "weight": 0.5,
+        "occurence": 2
+    },
+    "dragonhide": {
+        "physics": "leather",
+        "hsva_values":
+            {
+                "min": [0, 90, 33],
+                "max": [359, 90, 40]
+            },
+        "tier": 4,
+        "weight": 0.5,
+        "occurence": 1
+    },
+
+    "rags": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [18, 38, 24],
+                "max": [49, 50, 39]
+            },
+        "tier": 1,
+        "weight": 0.2,
+        "occurence": 3
+    },
+    "linen": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [28, 28, 67],
+                "max": [59, 36, 86]
+            },
+        "tier": 1,
+        "weight": 0.2,
+        "occurence": 3
+    },
+    "wool": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [33, 0, 25],
+                "max": [50, 46, 35]
+            },
+        "tier": 2,
+        "weight": 0.2,
+        "occurence": 2
+    },
+    "silk": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [0, 12, 59],
+                "max": [359, 25, 69]
+            },
+        "tier": 2,
+        "weight": 0.2,
+        "occurence": 1
+    },
+    "elven cloth": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [100, 66, 21],
+                "max": [111, 86, 29]
+            },
+        "tier": 3,
+        "weight": 0.2,
+        "occurence": 1
+    },
+    "fur": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [33, 35, 25],
+                "max": [50, 52, 35]
+            },
+        "tier": 3,
+        "weight": 0.2,
+        "occurence": 2
+    },
+    "Djinn's™": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [213, 50, 23],
+                "max": [220, 73, 42]
+            },
+        "tier": 3,
+        "weight": 0.2,
+        "occurence": 3
+    },
+    "spidersilk": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [180, 12, 70],
+                "max": [202, 25, 88]
+            },
+        "tier": 4,
+        "weight": 0.2,
+        "occurence": 2
+    },
+    "unicorn kashmir": {
+        "physics": "cloth",
+        "hsva_values":
+            {
+                "min": [250, 80, 69],
+                "max": [306, 100, 90]
+            },
+        "tier": 4,
+        "weight": 0.2,
+        "occurence": 1
+    },
+
+    "cattail": {
+        "physics": "reed",
+        "hsva_values":
+            {
+                "min": [92, 32, 17],
+                "max": [106, 39, 29]
+            },
+        "tier": 1,
+        "weight": 0.3,
+        "occurence": 2
+    },
+    "sugarcane": {
+        "physics": "reed",
+        "hsva_values":
+            {
+                "min": [117, 36, 37],
+                "max": [127, 55, 48]
+            },
+        "tier": 1,
+        "weight": 0.3,
+        "occurence": 2
+    },
+    "bamboo": {
+        "physics": "reed",
+        "hsva_values":
+            {
+                "min": [67, 67, 32],
+                "max": [95, 100, 40]
+            },
+        "tier": 2,
+        "weight": 0.3,
+        "occurence": 3
+    },
+    "Giant's beanstalk": {
+        "physics": "reed",
+        "hsva_values":
+            {
+                "min": [90, 55, 24],
+                "max": [117, 100, 31]
+            },
+        "tier": 3,
+        "weight": 0.3,
+        "occurence": 1
+    },
+    "Stygian papyrus": {
+        "physics": "reed",
+        "hsva_values":
+            {
+                "min": [228, 21, 17],
+                "max": [246, 43, 23]
+            },
+        "tier": 4,
+        "weight": 0.3,
+        "attacks_color": [58, 25, 60],
+        "occurence": 1
+    }
+}

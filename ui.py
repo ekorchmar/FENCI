@@ -1,0 +1,368 @@
+# after tech demo:
+# todo:
+#  sparks in inventory when weapon is damaged
+#  character portrait, stats and name in topleft
+#  Dialogues
+
+from base_class import *
+
+
+class Inventory:
+    slots_order = 'main_hand', 'off_hand', 'hat', 'backpack'
+
+    def __init__(
+            self,
+            character: Character,
+            rectangle: r = INVENTORY_SPACE,
+            bg_color=colors["base"],
+            foreground=DISPLAY_COLOR
+    ):
+        self.rect = rectangle
+        self.character = character
+        self.slot_rects = {}
+
+        # Create basic surface:
+        self.base = s(size=rectangle.size)
+        self.base.fill(foreground)
+
+        # Create spaces for inventory slots
+        slot_x = 0
+        for slot in self.slots_order:
+            # Prepare rectangle for the weapon:
+            slot_rect = r(slot_x, 0, self.rect.width//4, self.rect.height)
+            self.slot_rects[slot] = slot_rect
+
+            # Write name of the slot
+            slot_name_surf = ascii_draw(BASE_SIZE//2, SLOT_NAMES[slot], colors["inventory_text"])
+            slot_name_rect = slot_name_surf.get_rect(right=slot_x+slot_rect.width, top=0)
+            self.base.blit(slot_name_surf, slot_name_rect)
+
+            # Offset next rectangle
+            slot_x += slot_rect.width
+
+            # Draw a line along the right border
+            pygame.draw.line(
+                self.base,
+                bg_color,
+                v(slot_x, 0),
+                v(slot_x, self.rect.height),
+                BASE_SIZE // 6
+            )
+
+        # Form content on surface
+        self.surface = None
+        self.bars = {}
+        self.update()
+
+    def update(self):
+        surface = self.base.copy()
+        for slot in self.slots_order:
+
+            content = self.character.slots[slot]
+            if not content:
+                continue
+
+            #  1. Get a portrait of each weapon from each of character slots
+            portrait = content.portrait(rect=self.slot_rects[slot])
+            surface.blit(portrait, self.slot_rects[slot])
+
+            # 2. Form a durability bar (backpacked equipment can not be damaged)
+            if not slot == 'backpack':
+                durability = Bar(BASE_SIZE // 2, 17, colors["inventory_durability"], 100, show_number=True, cache=False)
+                bar_surf, bar_rect = durability.display(content.durability)
+                bar_left = (self.slot_rects[slot].width - bar_rect.width)//2
+                bar_rect.move_ip(bar_left + self.slot_rects[slot].left, BASE_SIZE//2 + 3)
+                surface.blit(bar_surf, bar_rect)
+
+            # 3. Write down weapon class and tier
+            class_string = f'{content.builder["class"]}'
+            class_surf = ascii_draw(BASE_SIZE // 2, class_string, colors["inventory_text"])
+            class_rect = class_surf.get_rect(left=self.slot_rects[slot].left + BASE_SIZE//2)
+
+            tier_string = f'Tier {content.tier}'
+            tier_surf = ascii_draw(BASE_SIZE//2, tier_string, colors["inventory_text"])
+            tier_rect = tier_surf.get_rect(bottomright=self.slot_rects[slot].bottomright)
+
+            surface.blit(tier_surf, tier_rect)
+            surface.blit(class_surf, class_rect)
+
+        self.surface = surface
+
+    def draw(self):
+        return self.surface, self.rect
+
+
+class LootOverlayHelp:
+    def __init__(self, size=BASE_SIZE*3//4):
+        # Get text
+        top_text = ascii_draw(size, "CLOSE", c(colors["inventory_title"]))
+        middle = ascii_draw(size, "EQUIP   STASH", c(colors["inventory_title"]))
+
+        # Form surface
+        s_size = middle.get_width(), top_text.get_height() * 2
+        self.surface = s(s_size, pygame.SRCALPHA)
+
+        # Blit everything:
+        # todo: calculate dynamically depending on word length
+        self.middle_v = v(s_size[0] // 2, s_size[1] * 3 // 4)
+        self.surface.blit(top_text, top_text.get_rect(center=(s_size[0] // 2, s_size[1] // 4)))
+        self.surface.blit(middle, middle.get_rect(center=self.middle_v))
+
+    def draw(self, position):
+        position_v = v(position)
+        new_topleft = position_v - self.middle_v
+        return self.surface, self.surface.get_rect(topleft=new_topleft)
+
+
+class LootOverlay:
+    def __init__(
+            self,
+            loot_list: list[Equipment],
+            character: Character,
+            rect: r = LOOT_SPACE,
+            label_size: int = BASE_SIZE * 3 // 2,
+            label: str = 'LOOT TIME!',
+            offset: int = BASE_SIZE,
+            appear_from: v = None,
+            animation_time: float = 1.5
+    ):
+        self.loot_list = loot_list
+        self.character = character
+        self.offset = offset
+        self.loot_dict = {}
+        self.rect = rect
+
+        # Animations:
+        self.appear_from = appear_from
+        self.lifetime = 0
+        self.animation_time = animation_time
+
+        self.surface = s(LOOT_SPACE.size, pygame.SRCALPHA)
+        self.surface.fill(c(colors["loot_card"]+[127]))
+        # Draw label:
+        label_surf = ascii_draw(label_size, label, c(colors["inventory_better"]))
+        self.label_rect = label_surf.get_rect(midtop=self.surface.get_rect().midtop)
+        self.surface.blit(label_surf, self.label_rect)
+
+        self.redraw_loot()
+
+        # Draw frame:
+        frame_rect = r(
+            BASE_SIZE // 12,
+            BASE_SIZE // 12,
+            self.rect.width - BASE_SIZE // 6,
+            self.rect.height - BASE_SIZE // 6
+        )
+        pygame.draw.rect(self.surface, colors["inventory_text"], frame_rect, BASE_SIZE // 6)
+
+        # Display help:
+        self.helper = LootOverlayHelp()
+
+    def redraw_loot(self):
+        # Draw loot cards:
+        loot_card_count = len(self.loot_list)
+        x_offset = self.offset
+        y_offset = self.label_rect.height + self.offset
+        x_offset_iteration = (self.rect.width - self.offset * 2 - loot_card_count * MAX_LOOT_CARD_SPACE.width) \
+            // (loot_card_count - 1)
+
+        for loot in self.loot_list:
+            if self.character and self.character.slots[loot.prefer_slot]:
+                compare_to = self.character.slots[loot.prefer_slot]
+                if compare_to not in loot.loot_cards:
+                    loot.loot_cards[compare_to] = LootCard(loot, compare_to)
+            else:
+                compare_to = None
+
+            loot_card, loot_card_rect = loot.loot_cards[compare_to].draw(
+                position=(x_offset, y_offset), x_key='left', y_key='top'
+            )
+            self.surface.blit(loot_card, loot_card_rect)
+            # Offset loot_card_rect by parent surface topleft, to let clicks through
+            loot_card_rect.move_ip(self.rect.left, self.rect.top)
+            self.loot_dict[loot] = loot_card_rect
+            x_offset += x_offset_iteration + loot_card_rect.width
+
+        # Moved to Helper
+        # x_offset, y_offset = self.rect.width - self.offset, self.rect.height - self.offset
+        # for label in {"Left click to equip in slot, right to hide in backpack, middle to close"}:
+        #     label_surf = ascii_draw(BASE_SIZE // 2, label, c(colors["inventory_text"]))
+        #     label_rect = label_surf.get_rect(bottom=y_offset, right=x_offset)
+        #     self.surface.blit(label_surf, label_rect)
+        #     y_offset -= BASE_SIZE // 3 + label_rect.height
+
+    def draw(self):
+        surface = self.surface.copy()
+        # Blit cursor helper on self:
+        cursor_v = v(pygame.mouse.get_pos()) - v(self.rect.topleft)
+        surface.blit(*self.helper.draw(cursor_v))
+
+        # If no appearance point is set, no animation is required
+        if self.appear_from is None or self.lifetime >= self.animation_time:
+            return surface, self.rect
+
+        # Else, find new position and scaled size
+        progress = self.lifetime / self.animation_time
+        self.lifetime += FPS_TICK
+
+        # Position:
+        start_v = self.appear_from
+        end_v = v(self.rect.center)
+        current_v = v(start_v.x * (1-progress) + end_v.x * progress, start_v.y * (1-progress) + end_v.y * progress)
+
+        # Size:
+        current_size = int(self.rect.width * progress), int(self.rect.height * progress)
+
+        surface = pygame.transform.smoothscale(surface, current_size)
+        rect = surface.get_rect(center=current_v)
+
+        return surface, rect
+
+    def catch(self, position, mouse_state):
+        # If animation is not finished, instantly complete it, and return no click
+        if self.lifetime < self.animation_time:
+            self.lifetime = self.animation_time
+            return None, None
+
+        if not any(mouse_state):
+            # Return None, prefered loot slot
+            for loot in self.loot_dict:
+                if self.loot_dict[loot].collidepoint(position):
+                    return None, loot.prefer_slot
+
+        for loot in self.loot_dict:
+            if self.loot_dict[loot].collidepoint(position):
+                if mouse_state[0]:
+                    return loot, loot.prefer_slot
+                elif mouse_state[2]:
+                    return loot, 'backpack'
+
+        return None, None
+
+
+class Indicator:
+    def __init__(self, surface):
+        self.surface = surface
+        self.empty = s(self.surface.get_size(), pygame.SRCALPHA)
+        self.value = False
+
+    def set(self, value):
+        self.value = value
+
+    def draw(self, position=None):
+        options = {}
+        if position is not None:
+            options["topleft"] = position
+
+        if self.value:
+            return self.surface, self.surface.get_rect(**options)
+
+        return self.empty, self.surface.get_rect(**options)
+
+
+class ProgressionBars:
+    def __init__(
+            self,
+            content: dict[str, [Bar, Indicator]],
+            draw_order: list[str],
+            base_color=DISPLAY_COLOR,
+            rect=LEVEL_BAR_SPACE,
+            font_size=BASE_SIZE*2//3,
+            offset=BASE_SIZE//3
+    ):
+        # Initiate a surface:
+        self.surface = s(rect.size, pygame.SRCALPHA)
+        self.rect = rect
+        self.base_color = c(base_color)
+        self.font_size = font_size
+        self.offset = offset
+
+        # Contents (Bars and Indicators)
+        self.draw_order = draw_order
+        self.content = content
+
+    def update(self, values: list):
+        self.surface.fill(self.base_color)
+        # Draw from top and right:
+        x, y = self.rect.width - self.offset, self.offset
+
+        for i in range(len(self.draw_order)):
+            name = self.draw_order[i]
+            graphic = self.content[name]
+            value = values[i]
+
+            if isinstance(graphic, Bar):
+                surface, rect = graphic.display(value)
+                rect.right, rect.top = x, y
+                self.surface.blit(surface, rect)
+                name_x = x-rect.width
+
+                # Draw name
+                name_surface = ascii_draw(self.font_size, f'{name}:', c(colors['inventory_durability']))
+                name_rect = name_surface.get_rect(right=name_x, top=y)
+                self.surface.blit(name_surface, name_rect)
+
+            elif isinstance(graphic, Indicator):
+                graphic.set(value)
+                surface, rect = graphic.draw()
+                rect.right, rect.top = x, y
+                self.surface.blit(surface, rect)
+
+            else:
+                raise TypeError(f"Can't handle contents in progression bar:{graphic}")
+
+            y += rect.height
+
+    def draw(self):
+        return self.surface, self.rect
+
+
+class HeldMouse:
+    def __init__(self, execute, options_dict: dict, text: str, size=BASE_SIZE, timer=1, color=colors["crit_kicker"]):
+        # Base:
+        text_surface = ascii_draw(size, text, color)
+        self.base_surface = s((text_surface.get_width(), text_surface.get_height() * 4), pygame.SRCALPHA)
+        self.base_surface.blit(text_surface, (0, 0))
+
+        # Drawing constants:
+        self.size = size
+        self.color = color
+
+        # Drawing position:
+        self.center_offset = v(0, 0)
+        self.bound_rect = r(
+            text_surface.get_width()//2 - size,
+            text_surface.get_height()//2 + size,
+            size*2,
+            size*2
+        )
+
+        # Time count:
+        self.held_timer = 0
+        self.max_timer = timer
+
+        # When completed:
+        self.execute = execute
+        self.options = options_dict
+
+    def draw(self, position: v):
+        surface = self.base_surface.copy()
+        pygame.draw.arc(
+            surface,
+            self.color,
+            self.bound_rect,
+            start_angle=math.pi*(-0.5 + (2 * self.held_timer/self.max_timer)),
+            stop_angle=-math.pi/2,
+            width=self.size//4
+        )
+        rect = surface.get_rect(center=position)
+        rect.move_ip(self.center_offset)
+        return surface, rect
+
+    def hold(self):
+        """Return True or statement result when completed"""
+        if self.held_timer >= self.max_timer:
+            return self.execute(**self.options) or True
+
+        self.held_timer += FPS_TICK
+        return False

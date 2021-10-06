@@ -1,0 +1,43 @@
+{
+  "paint8": {
+      "black":   [64, 64, 64],
+      "red":     [255, 0, 0],
+      "green":   [0, 255, 0],
+      "yellow":  [255, 255, 0],
+      "blue":    [0, 0, 255],
+      "magenta": [255, 0, 255],
+      "cyan":    [0, 255, 255],
+      "white":   [255, 255, 255]
+  },
+  "disabled_weapon": [127, 127, 127],
+  "base": [0, 0, 0],
+  "background": [19, 16, 17],
+  "dmg_kicker": [255, 0, 0],
+  "crit_kicker": [255, 127, 127],
+  "sp_color": [0, 96, 255],
+  "stunned": [130, 130, 200],
+  "effect_timer": [127, 127, 127],
+  "bar_base": [220, 220, 220],
+  "loot_card": [0, 0, 0],
+  "inventory_text": [116, 114, 93],
+  "inventory_description": [72, 71, 62],
+  "inventory_better": [93, 146, 102],
+  "inventory_worse": [146, 93, 106],
+  "pause_popup": [127, 127, 50],
+  "respawn_encourage": [108, 234, 35],
+  "game_over": [98, 24, 24],
+  "inventory_title": [255, 255, 240],
+  "inventory_durability": [65, 64, 57],
+  "inventory_broken": [98, 24, 24],
+  "lightning": [253, 208, 35],
+  "dust": [138, 110, 86, 150],
+  "indicator_good": [143, 200, 152],
+  "player": {
+    "attacks_color": [127, 127, 255, 127],
+    "hp_color": [19, 153, 41]
+  },
+  "enemy": {
+    "attacks_color": [200, 0, 0, 127],
+    "hp_color": [93, 29, 29]
+  }
+}

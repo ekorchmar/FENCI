@@ -1,0 +1,184 @@
+{
+  "body": {
+    "human": {
+      "size": 1,
+      "agility": 1,
+      "max_speed": 7.5,
+      "stamina": 300.0,
+      "stamina_restoration": 120,
+      "hp_restoration": 0.015,
+      "health": 150,
+      "color": [187, 187, 160],
+      "blood": [204, 0, 0],
+      "hand": "m"
+    },
+    "goblin": {
+      "size": 0.6,
+      "agility": 1.25,
+      "max_speed": 8,
+      "stamina": 300.0,
+      "stamina_restoration": 100,
+      "hp_restoration": 0.005,
+      "health": 100,
+      "color": [
+        65,
+        146,
+        75
+      ],
+      "blood": [80, 204, 40],
+      "hand": "m"
+    }
+  },
+  "soul": {
+    "goblin": {
+      "aggression": 0.8,
+      "skill": 0.3,
+      "flexibility": 0.7,
+      "courage": 0.2
+    },
+    "human": {
+      "aggression": 0.5,
+      "skill": 0.5,
+      "flexibility": 0.5,
+      "courage": 0.5
+    }
+  },
+  "mind": {
+    "human": {
+        "idle": [
+          "( o ‿o)",
+          0
+        ],
+        "blink": [
+          "( – ‿–)",
+          0
+        ],
+        "idle_rare": [
+          "(o _ o)",
+          "(o_ o )",
+          "(o_ o )",
+          "(o ‿ o)",
+          1.5
+        ],
+        "talk": [
+          "( o .o)",
+          "( o _o)",
+          "( o  ̯o)",
+          0.4
+        ],
+        "hurt": [
+          "(#> o<)",
+          0
+        ],
+        "active": [
+          "( > _<)",
+          0
+        ],
+        "bashing": [
+          "(!> o<)",
+          0
+        ]
+        ,
+        "jumping": [
+          "( > _<)",
+          0
+        ],
+        "running": [
+          "( o _o)",
+          0
+        ],
+        "pog": [
+          "(*^ ▽^)",
+          0
+        ],
+        "flying": [
+          "( 0 ̯o)",
+          0
+        ],
+        "exhausted": [
+          "Zz- .o)",
+          0
+        ],
+        "dead": [
+          "( x _X)",
+          0
+        ],
+        "channeling": [
+          "( o _o)",
+          0
+        ],
+        "skewered": [
+          "(#T oT)",
+          0
+        ],
+        "scared": [
+          "( T oT)",
+          0
+        ]
+    },
+    "goblin": {
+        "idle": [
+          "(^o >o)",
+          0
+        ],
+        "blink": [
+          "(^– >–)",
+          0
+        ],
+        "idle_rare": [
+          "(^ovo^)",
+          "(o< o^)",
+          "(o< o^)",
+          "(^ovo^)",
+          1.5
+        ],
+        "hurt": [
+          "(#> ><)",
+          0
+        ],
+        "active": [
+          "(^> ><)",
+          0
+        ],
+        "jumping": [
+          "(^> ><)",
+          0
+        ],
+        "running": [
+          "(^o >o)",
+          0
+        ],
+        "pog": [
+          "(^⊙ >⊙)",
+          0
+        ],
+        "flying": [
+          "(^0 >o)",
+          0
+        ],
+        "exhausted": [
+          "Zz- >-)",
+          0
+        ],
+        "dead": [
+          "(^x >x)",
+          0
+        ],
+        "channeling": [
+          "(^ovo^)",
+          0
+        ],
+        "skewered": [
+          "(^T >T)",
+          0
+        ],
+        "scared": [
+          "(^T >T)",
+          0
+        ]
+      },
+    "skeleton": {
+      "idle": "( •̟̟̟•)"
+    }
+  }
+}

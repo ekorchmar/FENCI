@@ -1,8 +1,7 @@
 # todo:
-#  Roll AW is attached to mouse, not to player character
+#  nerf long sword damage
 #  pause_ensemble/unpause countdown
 #  Airborne AND disabled characters damage own team on contact
-#  swordbreaker gives stamina conditionally and snap aims, also held in forward position
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
@@ -368,9 +367,13 @@ class Scene:
                     )
 
                     strategy = ascii_draw(BASE_SIZE // 2, character.ai.strategy, c(255, 0, 0))
-                    place = character.position.x, character.position.y - BASE_SIZE * 3
-                    strategy_rect = strategy.get_rect(center=place)
+                    state = ascii_draw(BASE_SIZE // 2, character.state, c(255, 0, 0))
+                    strategy_place = character.position.x, character.position.y - BASE_SIZE * 3
+                    strategy_rect = strategy.get_rect(center=strategy_place)
+                    state_place = character.position.x, character.position.y - BASE_SIZE * 4
+                    state_rect = state.get_rect(center=state_place)
                     draw_group.append((strategy, strategy_rect))
+                    draw_group.append((state, state_rect))
 
             global fps_querried_time
             global fps_count
@@ -486,30 +489,6 @@ class Scene:
                     for enemy_weapon in kebab.weapon_slots:
                         if kebab.slots[enemy_weapon]:
                             already_hit.append(kebab.slots[enemy_weapon])
-
-                # Process detachment damage now too:
-                detached = spear.detached
-
-                survived, damage = detached.hurt(
-                    damage=spear.detach_damage,
-                    vector=spear.detach_vector,
-                    offender=self.player,
-                    duration=detached.immune_timer * 2,
-                    deflectable=False  # Can't be blocked
-                )
-
-                if not survived:
-                    self.undertake(detached)
-                # Cause FOF reaction in bots
-                else:
-                    self.alert_ai(detached)
-
-                self.splatter(
-                    point=v(detached.position[:]),
-                    target=detached,
-                    damage=spear.detach_damage,
-                    weapon=spear
-                )
 
             except AttributeError:
                 continue
@@ -733,7 +712,7 @@ class Scene:
                 collision_v = weapon.position - target.position
 
                 # Shield hits processed here
-                if weapon.ramming and not target.immune_timer > 0:
+                if weapon.collision_group != target.collision_group and weapon.ramming and not target.immune_timer > 0:
                     shield = weapon.slots["off_hand"]
 
                     # Calculate collision vector
@@ -772,6 +751,53 @@ class Scene:
                         weapon.anchor(min(weapon.state_timer, 0.5))
                         weapon.set_state('active', 0.2)
 
+                # Process flying disabled characters hitting teammates
+                elif (target.is_flying_meat() or weapon.is_flying_meat()) and \
+                        target.collision_group == weapon.collision_group:
+                    # Test if collision speed above PT/2
+                    relative_v = weapon.speed - target.speed
+                    if 4 * relative_v.length_squared() < POKE_THRESHOLD ** 2:
+                        # Simple collision
+                        collision_v.scale_to_length(POKE_THRESHOLD)
+                        if not (weapon.shielded or weapon.anchor_timer > 0):
+                            weapon.push(collision_v, 0.2, 'active')
+                        if not (target.shielded or weapon.anchor_timer > 0):
+                            target.push(-collision_v, 0.2, 'active')
+
+                    else:
+                        # Pinball time! Damage the slower one
+                        assigned = [weapon, target]
+                        assigned.sort(key=lambda x: x.speed.length_squared())
+                        target, weapon = assigned
+
+                        damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),
+                                               relative_v.length_squared())
+                        impact_damage = 0.05 * weapon.weight * damage_modifier
+
+                        print(relative_v.length_squared(), POKE_THRESHOLD ** 2)
+
+                        survived, damage = target.hurt(
+                            damage=impact_damage,
+                            vector=weapon.speed,
+                            offender=weapon,
+                            deflectable=False  # Can't be blocked
+                        )
+
+                        if not survived:
+                            self.undertake(target)
+                        # Cause FOF reaction in bots
+                        else:
+                            self.alert_ai(target)
+
+                        self.splatter(
+                            point=v(target.position[:]),
+                            target=target,
+                            damage=impact_damage
+                        )
+
+                        # Slow down hitting character
+                        weapon.speed *= 0.5 * weapon.weight/target.weight
+
                 else:
                     collision_v.scale_to_length(POKE_THRESHOLD)
                     if not (weapon.shielded or weapon.anchor_timer > 0):
@@ -795,7 +821,7 @@ class Scene:
                 except AttributeError:
                     continue
 
-    def splatter(self, point, target, damage, weapon):
+    def splatter(self, point, target, damage, weapon=None):
         # Spawn kicker
         kicker = Kicker(
             point,
@@ -948,7 +974,12 @@ class Scene:
             character.flip()
 
         self.dead_characters.remove(character)
-        self.characters.append(character)
+
+        # Put players first in the list
+        if not character.ai:
+            self.characters.insert(0, character)
+        else:
+            self.characters.append(character)
         self.log_weapons()
 
     def toggle_pause(self, skip_banner=False):
@@ -984,3 +1015,16 @@ class Scene:
             character.equip(Nothing(), slot or dropped_item.preferred_slot)
 
         self.log_weapons()
+
+    def echo(self, character, text, color):
+        offset = v(3 * BASE_SIZE, -4 * BASE_SIZE) if character.position.x < self.box.center[0] \
+            else v(3 * BASE_SIZE, 4 * BASE_SIZE)
+
+        self.particles.append(
+            SpeechBubble(
+                offset,
+                c(color),
+                character,
+                text
+            )
+        )

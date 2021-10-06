@@ -1,6 +1,6 @@
 # todo:
 #  stop fleeing if not making progress
-#  Waiting AI slowly moves towards right half of the screen
+#  Waiting AI always reacts to enemy moving toward, with delay randomized from flexibility
 #  ?? Add orks using Swords, Spears and Falchions; axes and maces in future
 # After tech demo
 # todo:

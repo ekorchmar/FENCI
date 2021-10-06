@@ -1,5 +1,5 @@
 # todo:
-#  implement direction arrow for dagger-provided rolls
+#  scene bounds damage disabled AI
 #  ?? spear has a backswing before stab attack or another accomodation to help short range
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
 #  Katar: offhand weapon that can't parry, but has non-interrupting stab attack with low sp cost
@@ -892,7 +892,7 @@ class Spear(Pointed):
     stab_modifier = 0.75
     hitting_surface = 'shaft'
     pushback = 2.5
-    upside = ["Activate to stab", "Stab on the run to skewer and bleed enemy"]
+    upside = ["Activate to stab", "Stab on the run to skewer enemy", "Shake off enemy to bleed it"]
     downside = ["No swing attacks"]
     class_name = "Spear"
     stab_dash_modifier = 0
@@ -908,11 +908,6 @@ class Spear(Pointed):
         self.kebab = None
         self.skewer_duration = self.max_skewer_duration = 0
         self.kebab_weight = None
-
-        # Detach damage
-        self.detached = None
-        self.detach_damage = 0
-        self.detach_vector = v()
 
     def generate(self, size, tier=None):
 
@@ -1031,9 +1026,6 @@ class Spear(Pointed):
 
             self.kebab.anchor(self.skewer_duration, position=self.tip_v)
 
-            # Bleed target
-            self.kebab.bleed(self.bleed, self.skewer_duration)
-
             # Anchor self and increase stamina
             attacker.anchor(self.skewer_duration*0.5)
             self.stamina_ignore_timer = self.skewer_duration + 1
@@ -1050,7 +1042,7 @@ class Spear(Pointed):
 
         stats_dict["BLEED"] = {
             "value": self.bleed,
-            "text": f'{100*self.bleed:.1f}%'
+            "text": f'{100*self.bleed:.1f}%/s'
         }
 
         if "BLEED" in comparison_dict:
@@ -1072,20 +1064,19 @@ class Spear(Pointed):
             self.kebab.anchor_point = v(self.tip_v[:])
             self.kebab.set_state("skewered", 0.2)
 
-            # If tip reached SWING_THRESHOLD/2, detach target
-            if abs(self.angular_speed) > SWING_THRESHOLD*0.5:
+            # If tip reached SWING_THRESHOLD3/4, detach target
+            if abs(self.angular_speed) > SWING_THRESHOLD*0.75:
                 # Unanchor and push in same direction
                 self.kebab.anchor_point = None
                 self.kebab.anchor_timer = 0
                 push_v = v(self.tip_delta)
-                push_v.scale_to_length(2*character.max_speed*character.weight/self.kebab_weight)
+                push_v.scale_to_length(character.max_speed*character.weight/self.kebab_weight)
 
-                # Queue damage for scene to process
-                self.detached = self.kebab
-                self.detach_damage = self.detached.max_hp * self.bleed
-                self.detach_vector = push_v
+                # Throw charcter and bleed it
+                self.kebab.push(push_v, self.kebab.hit_immunity*2)
+
                 # Refresh bleeding duration:
-                self.kebab.bleeding_timer = max(self.kebab.bleeding_timer, self.kebab.hit_immunity*2)
+                self.kebab.bleed(self.bleed, self.kebab.hit_immunity*2)
 
                 # Reset own skewer and restore stamina
                 self.skewer_duration = 0
@@ -1097,9 +1088,6 @@ class Spear(Pointed):
             self.kebab = None
             self.skewer_duration = 0
             self.kebab_weight = None
-
-            self.detached = None
-            self.detach_damage = 0
 
 
 class Short(Pointed):
@@ -1332,7 +1320,7 @@ class Dagger(Short, Bladed):
 
             try:
                 if not drawn[2]:
-                    drawn = drawn[0], drawn[1], [[[arrow_surface, arrow_rect]]]
+                    drawn = drawn[0], drawn[1], [[arrow_surface, arrow_rect]]
                 else:
                     drawn = drawn[0], drawn[1], drawn[2].append([arrow_surface, arrow_rect])
             except IndexError:
@@ -1826,8 +1814,6 @@ class Shield(OffHand):
                 color = c(colors["inventory_broken"])
 
             portrait = tint(portrait, color)
-        if isinstance(self, Spear):
-            portrait = pygame.transform.flip(portrait, True, True)
         new_width = portrait.get_width()
 
         surface.blit(portrait, portrait.get_rect(left=max(0, (rect.width - new_width)//2), top=offset*0.5))

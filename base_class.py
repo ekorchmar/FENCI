@@ -1,5 +1,5 @@
 # todo:
-#  stat card for Character; display name/tier
+#  stat card for Character; display AI stats
 #  loot cards use arrows to show better stats ⇧ ⇩
 #  button(character) class, with associated action on click,  or button press
 # after tech demo:
@@ -797,6 +797,9 @@ class Character:
     def ignores_collision(self):
         return self.state in AIRBORNE or self.phasing
 
+    def is_flying_meat(self):
+        return self.state in DISABLED
+
     def reset(self):
         self.anchor_timer = 0
         self.anchor_point = None
@@ -845,11 +848,9 @@ class Character:
         else:
             self.bleeding_intensity = 0
 
-        # Cleanse chain-stuns
-        if self.state in DISABLED:
+        # Cleanse chain-stuns from players
+        if self.state in DISABLED and not self.ai:
             if self.disabled_timer >= 3:
-                if self.ai:
-                    self.ai.analyze(self.ai.scene)
                 self.set_state('idle', 0)
             else:
                 self.disabled_timer += FPS_TICK
@@ -858,17 +859,25 @@ class Character:
 
 
 class Particle:
-    def __init__(self, position, lifetime, *args, **kwargs):
+
+    @staticmethod
+    def _monitor_decoy():
+        return True
+
+    def __init__(self, position, lifetime, surface=None, rect=None):
         self.position = position[:]
         self.lifetime = self.max_lifetime = lifetime
-        self.surface = None
+        self.surface = surface
+        self.rect = rect
         self.cache = None
 
     def draw(self, pause=False):
-        if not pause:
-            self.lifetime -= FPS_TICK
-        else:
+        if not pause and self.cache:
             return self.cache
+
+        self.lifetime -= FPS_TICK
+        self.cache = self.surface, self.rect
+        return self.cache
 
 
 class Card:

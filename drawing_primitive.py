@@ -329,28 +329,31 @@ def ascii_draw_cascaded(font_size: int, ascii_string: str, draw_color, max_width
 
 
 def ascii_draws(font_size: int, draw_order):
-    # todo: rewrite with glue_horizontal
     """
     Create multicolor surface from list of string&color tuples
     Example (iron hilt):
         ascii_draws(14, [('•~[', iron.generate[0)])
     """
-    previously_drawn = 0
     surfaces: list = []
     for tpl in draw_order:
         # May be less efficient than calculating offset, but it's done once per item
-        string_input = previously_drawn * ' ' + tpl[0]
-        color_input = tpl[1]
+        string_input, color_input = tpl
         surface = ascii_draw(font_size, string_input, color_input)
-        surfaces.append((surface, surface.get_rect()))
-        previously_drawn = len(string_input)
-    # Blit all layers on last one
-    surfaces[-1][0].blits(surfaces[:-1], False)
-    return surfaces[-1][0]
+        surfaces.append(surface)
+    return glue_horizontal(*surfaces)
 
 
-def ascii_draw_rows(rows: list[list[str]]):
-    pass
+def ascii_draw_rows(font_size, rows: list[list]):
+    """Take input in form of multiple rows of ascii_draws. Assume rows are already of same length"""
+    # Form list of surfaces from each row
+    surfaces = [ascii_draws(font_size, [row]) for row in rows]
+    row_x, row_y = surfaces[0].get_size()
+    initial_y = 0
+    resulting_surface = s((row_x, row_y * len(rows)), pygame.SRCALPHA)
+    for surface in surfaces:
+        resulting_surface.blit(surface, (0, initial_y))
+        initial_y += row_y
+    return resulting_surface
 
 
 def rot_center(image: s, angle: float, center: v):

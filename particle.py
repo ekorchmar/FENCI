@@ -247,10 +247,6 @@ class Droplet(Particle):
 
 class AttackWarning(Particle):
 
-    @staticmethod
-    def _monitor_decoy():
-        return True
-
     def __init__(
             self,
             relative_position,
@@ -262,8 +258,7 @@ class AttackWarning(Particle):
             monitor=None
     ):
         self.surface = ascii_draw(size, text, custom_color or pygame.color.Color(character.attacks_color))
-        self.lifetime = lifetime
-        self.max_lifetime = lifetime
+        self.lifetime = self.max_lifetime = lifetime
         self.character = character
         self.position = relative_position
         self.cache = None
@@ -408,7 +403,37 @@ class Stunned(Particle):
 
 
 class SpeechBubble(Particle):
-    pass
+    def __init__(
+        self,
+        relative_position,
+        color,
+        character,
+        text,
+        lifetime: float = REMAINS_SCREENTIME * 0.5,
+        size: int = BASE_SIZE // 2
+    ):
+        decorated_rows = [[row, color] for row in frame_text([text]).splitlines()]
+        self.surface = ascii_draw_rows(size, decorated_rows)
+        self.lifetime = self.max_lifetime = lifetime
+        self.character = character
+        self.position = relative_position
+        self.cache = None
+
+    def draw(self, pause=False):
+        if self.cache and pause:
+            return self.cache
+
+        self.lifetime -= FPS_TICK
+
+        # Start transparent, full color before strike, than transparent again
+        transparency = lerp((200, 255), math.sin(math.pi * self.lifetime/self.max_lifetime))
+        surface = self.surface.copy()
+        surface.set_alpha(transparency)
+        placement = self.character.position + self.position
+        rect = surface.get_rect(center=placement)
+
+        self.cache = surface, rect
+        return surface, rect
 
 
 class DustCloud(Particle):
@@ -440,10 +465,6 @@ class DustCloud(Particle):
 
 class MouseHint(Particle):
 
-    @staticmethod
-    def _monitor_decoy():
-        return True
-
     def __init__(
             self,
             relative_position,
@@ -453,7 +474,9 @@ class MouseHint(Particle):
             size=BASE_SIZE,
             monitor=None
     ):
-        self.surface = ascii_draw(size, text, color)
+        decorated_rows = [[row, color] for row in frame_text([text], style='┏━┓┗┛┃').splitlines()]
+        self.surface = ascii_draw_rows(size, decorated_rows)
+
         self.lifetime = lifetime
         self.max_lifetime = lifetime
         self.position = relative_position

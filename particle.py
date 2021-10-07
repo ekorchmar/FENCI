@@ -1,6 +1,5 @@
 # todo:
 #   banner background
-#   speech bubble
 
 from base_class import *
 

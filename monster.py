@@ -1,7 +1,5 @@
 # todo:
-#  stop fleeing if not making progress
-#  Waiting AI always reacts to enemy moving toward, with delay randomized from flexibility
-#  ?? Add orks using Swords, Spears and Falchions; axes and maces in future
+#  ?? Add orks using Swords, Spears and Axes; maces in future
 # After tech demo
 # todo:
 #  ?? animate character flip
@@ -478,7 +476,7 @@ class AI:
             self.enemies[enemy] = {
                 "distance": distance,
                 "reach": reach,
-                "health": health,
+                "health": max(health, 0.01),
                 "shield": enemy.shielded,
                 "weapon": enemy_weapon
             }
@@ -522,7 +520,7 @@ class AI:
             self.friends[friend] = {
                 "distance": distance,
                 "reach": reach,
-                "health": health,
+                "health": max(health, 0.01),
                 "strategy": ai_state
             }
 
@@ -689,17 +687,21 @@ class AI:
 
         if self.strategy == 'wait':
             self.speed_limit = 0.25
-            # If enemy moves towards self with tangible speed, wake up and assess situation for the next frame
+            # If enemy moves towards self with tangible speed, wake up and assess situation
             # Only if we are not just spawning in:
-            if self.character.state != 'jumping':
+            if self.character.state != 'jumping' or self.character.phasing:
                 for enemy in filter(
                         lambda x: x.collision_group != self.character.collision_group and x.hitbox,
                         self.scene.characters
                 ):
                     if (enemy.speed.x > 0 == self.character.facing_right) and abs(enemy.speed.x) > POKE_THRESHOLD * 0.5:
-                        self.analyze(self.scene)
-                        directions = self.execute()
-                        return directions
+                        if "waking_up" not in self.strategy_dict:
+                            self.strategy_dict['waking_up'] = random.random() * self.flexibility
+
+            if 'waking_up' in self.strategy_dict:
+                self.strategy_dict['waking_up'] -= FPS_TICK
+                if self.strategy_dict['waking_up'] <= 0:
+                    self.analyze(self.scene)
 
             directions = v(), None
 
@@ -1042,12 +1044,21 @@ class AI:
 
         elif self.strategy == 'flee':
 
+            # Log current position to see if we are making progress:
+            if not self.character.channeling:
+                currrent_position = self.character.position[:]
+                if 'last_position' in self.strategy_dict:
+                    if self.strategy_dict['last_position'] == currrent_position:
+                        self.analyze(self.scene)
+                self.strategy_dict['last_position'] = currrent_position
+
+            # If target is gone, stop fleeing immediately
             if self.target is None:
                 self.analyze(self.scene)
                 return self.execute()
 
             self.speed_limit = 1.0
-            # If we are facing the enemy and not within range, flip. Querry fleeing to be executed after
+            # If we are facing the enemy and not within range, flip. Querry fleeing to keep being executed after
             # flip is complete
             try:
                 if self.target and self.character.facing_right != self.target.facing_right and\

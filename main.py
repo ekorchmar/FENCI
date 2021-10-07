@@ -10,7 +10,9 @@
 
 from scenario import *
 
-print(frame_text([" FENCI "]))
+print(frame_text([" FENCI: ASCII Game about fencing, looting and dying. "]))
+print("Actually, mostly about dying.\n")
+
 print(f"Droppable weapons: {', '.join(Wielded.registry.keys())or 'None'}")
 print(f"Droppable hats: {', '.join(Hat.registry.keys()) or 'None'}")
 for tier in range(5):
@@ -19,8 +21,8 @@ for tier in range(5):
 
 sh = SceneHandler(1, [Goblin])
 # sh = SceneHandler(1, [DebugGoblin], on_scren_enemies=[1, 1], loot_drops=10)
-sh.player.equip(Spear(BASE_SIZE, tier_target=2), 'main_hand')
-sh.player.equip(Shield(BASE_SIZE, tier_target=2), 'off_hand')
+# sh.player.equip(Spear(BASE_SIZE, tier_target=2), 'main_hand')
+# sh.player.equip(Shield(BASE_SIZE, tier_target=2), 'off_hand')
 sh.scene.log_weapons()
 
 

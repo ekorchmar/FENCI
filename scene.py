@@ -1,7 +1,5 @@
 # todo:
-#  nerf long sword damage
 #  pause_ensemble/unpause countdown
-#  Airborne AND disabled characters damage own team on contact
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
@@ -137,8 +135,8 @@ class Scene:
 
         # Debug:
         if debug:
-            morph_equipment(self.player)
-            self.log_weapons()
+            # print("No debug action set at the moment.")
+            self.echo(self.player, "Geronimo!", colors["lightning"])
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -202,8 +200,8 @@ class Scene:
 
             # Spawn blood particles for continiously bleeding characters
             for bleeding_character in filter(lambda x: x.bleeding_timer > 0, self.characters):
-                # On average, 3 droplets per second
-                if isinstance(bleeding_character, Character) and random.random() < 3*FPS_TICK:
+                # On average, 10 droplets per second
+                if isinstance(bleeding_character, Character) and random.random() < 10*FPS_TICK:
                     droplet = Droplet(
                         position=v(bleeding_character.position),
                         character=bleeding_character,
@@ -774,8 +772,6 @@ class Scene:
                                                relative_v.length_squared())
                         impact_damage = 0.05 * weapon.weight * damage_modifier
 
-                        print(relative_v.length_squared(), POKE_THRESHOLD ** 2)
-
                         survived, damage = target.hurt(
                             damage=impact_damage,
                             vector=weapon.speed,
@@ -820,6 +816,38 @@ class Scene:
                         self.log_weapons()
                 except AttributeError:
                     continue
+
+        # Process characters hitting walls:
+        for character in filter(
+            lambda x: x.wall_collision_v != v() and character.hp > 0,
+            self.characters
+        ):
+
+            if character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD ** 2 or character.immune_timer > 0:
+                character.wall_collision_v = v()
+                continue
+
+            damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),
+                                   character.wall_collision_v.length_squared())
+            impact_damage = 0.025 * character.weight * damage_modifier
+            survived, damage = character.hurt(
+                damage=impact_damage,
+                vector=v(),
+                deflectable=False  # Can't be blocked
+            )
+
+            if not survived:
+                self.undertake(character)
+            # Cause FOF reaction in bots
+            else:
+                self.alert_ai(character)
+
+            self.splatter(
+                point=v(character.position[:]),
+                target=character,
+                damage=impact_damage
+            )
+            character.wall_collision_v = v()
 
     def splatter(self, point, target, damage, weapon=None):
         # Spawn kicker

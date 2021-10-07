@@ -227,7 +227,7 @@ class Equipment:
                 if "painted" in self.builder["constructor"][part].get("tags", ()):
                     painted = True
             for part in part_material_dict:
-                m_name = "Painted" + part_material_dict[part] if painted else part_material_dict[part].capitalize()
+                m_name = "Painted " + part_material_dict[part] if painted else part_material_dict[part].capitalize()
                 return f'{m_name} {self.builder["class"].lower()}'
 
         # Order parts by being important (hitting surface), then alphabetically
@@ -384,6 +384,8 @@ class Character:
         self.disabled_timer = 0  # to cleanse if disabled for too long
         self.immune_timer = 0
         self.life_timer = 0
+
+        self.wall_collision_v: v = v()
 
         # Stat cards:
         self.name = name or f"{self.__class__.__name__} Lv.??"
@@ -615,8 +617,11 @@ class Character:
                         to_center = v(center) - v(self.position)
                         to_center.scale_to_length(POKE_THRESHOLD * 2)
                         to_center.y *= 0.6
+                        # Log own speed for the scene to handle damage
+                        self.wall_collision_v = v(self.speed)
                         self.speed = v()
                         self.push(to_center, 0.4, state='flying')
+                        break
 
             # Voluntary movement is slowed instead
             else:

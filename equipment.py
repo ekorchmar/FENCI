@@ -1,8 +1,7 @@
 # todo:
-#  scene bounds damage disabled AI
-#  ?? spear has a backswing before stab attack or another accomodation to help short range
+#  Spear has a backswing before stab attack, stab is 2x longer if held for more, but mostly useful to reduce range
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
-#  Katar: offhand weapon that can't parry, but has non-interrupting stab attack with low sp cost
+#  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
 # todo:
 #  ??Mace: activateable main hand weapon
@@ -875,7 +874,7 @@ class Sword(Bladed, Pointed):
 
         # Calculate damage range depending on weight, size and tier:
         min_damage = int((40 + self.weight) * 1.08 ** (self.tier - 1))
-        max_damage = int(min_damage * (1 + blade_len / 5))
+        max_damage = int(min_damage * math.sqrt(1 + blade_len / 5))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
 
@@ -1272,7 +1271,10 @@ class Dagger(Short, Bladed):
             # Reset
             self.time_from_parry = 0
             self.last_parry = None
-            self.roll_particle.lifetime = -1
+            try:
+                self.roll_particle.lifetime = -1
+            except AttributeError:
+                pass
             return
 
         super(Dagger, self).activate(character, continuous_input)
@@ -1876,6 +1878,7 @@ class Swordbreaker(Dagger, OffHand):
     held_position = v(-55, 5)
     upside = [
         "Activate to dash and stab",
+        "Held in forward position"
         "Activate after parrying to roll thorugh",
         "Restores stamina while used"
     ]

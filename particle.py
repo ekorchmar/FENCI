@@ -1,5 +1,6 @@
 # todo:
-#   banner background
+#  grow banner abimation
+#  banner background
 
 from base_class import *
 

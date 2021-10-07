@@ -124,13 +124,15 @@ class LootOverlay:
             label: str = 'LOOT TIME!',
             offset: int = BASE_SIZE,
             appear_from: v = None,
-            animation_time: float = 1.5
+            animation_time: float = 1.5,
+            draw_shortcuts: bool = True
     ):
         self.loot_list = loot_list
         self.character = character
         self.offset = offset
         self.loot_dict = {}
         self.rect = rect
+        self.draw_shortcuts = draw_shortcuts
 
         # Animations:
         self.appear_from = appear_from
@@ -166,6 +168,7 @@ class LootOverlay:
         x_offset_iteration = (self.rect.width - self.offset * 2 - loot_card_count * MAX_LOOT_CARD_SPACE.width) \
             // (loot_card_count - 1)
 
+        card_index, card_no = 0, 1
         for loot in self.loot_list:
             if self.character and self.character.slots[loot.prefer_slot]:
                 compare_to = self.character.slots[loot.prefer_slot]
@@ -178,10 +181,22 @@ class LootOverlay:
                 position=(x_offset, y_offset), x_key='left', y_key='top'
             )
             self.surface.blit(loot_card, loot_card_rect)
+
+            # Draw shortcuts
+            if self.draw_shortcuts:
+                shortcurt_surface = ascii_draw(BASE_SIZE*2//3, f"[{card_no:.0f}]", colors["inventory_title"])
+                shortcut_rect = shortcurt_surface.get_rect(
+                    topleft=v(loot_card_rect.topleft)+v(0.5*self.offset, 0.5*self.offset)
+                )
+                self.surface.blit(shortcurt_surface, shortcut_rect)
+
             # Offset loot_card_rect by parent surface topleft, to let clicks through
             loot_card_rect.move_ip(self.rect.left, self.rect.top)
             self.loot_dict[loot] = loot_card_rect
             x_offset += x_offset_iteration + loot_card_rect.width
+
+            card_index += 1
+            card_no += 1
 
         # Moved to Helper
         # x_offset, y_offset = self.rect.width - self.offset, self.rect.height - self.offset
@@ -238,6 +253,18 @@ class LootOverlay:
                     return loot, 'backpack'
 
         return None, None
+
+    def catch_index(self, index):
+        # If animation is not finished, instantly complete it, and return no click
+        if self.lifetime < self.animation_time:
+            self.lifetime = self.animation_time
+            return None, None
+
+        try:
+            loot = self.loot_list[index]
+            return loot, loot.prefer_slot
+        except IndexError:
+            return None, None
 
 
 class Indicator:

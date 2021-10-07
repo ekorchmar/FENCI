@@ -15,7 +15,7 @@
     "goblin": {
       "size": 0.6,
       "agility": 1.25,
-      "max_speed": 8,
+      "max_speed": 6,
       "stamina": 300.0,
       "stamina_restoration": 100,
       "hp_restoration": 0.005,
@@ -27,6 +27,22 @@
       ],
       "blood": [80, 204, 40],
       "hand": "m"
+    },
+    "orc": {
+      "size": 1.1,
+      "agility": 2,
+      "max_speed": 4,
+      "stamina": 350.0,
+      "stamina_restoration": 100,
+      "hp_restoration": 0.005,
+      "health": 275,
+      "color": [
+        65,
+        82,
+        40
+      ],
+      "blood": [64, 64, 64],
+      "hand": "m"
     }
   },
   "soul": {
@@ -35,6 +51,12 @@
       "skill": 0.3,
       "flexibility": 0.7,
       "courage": 0.2
+    },
+    "orc": {
+      "aggression": 0.5,
+      "skill": 0.6,
+      "flexibility": 0.3,
+      "courage": 0.8
     },
     "human": {
       "aggression": 0.5,

@@ -1,5 +1,4 @@
 # todo:
-#  stat card for Character; display AI stats
 #  loot cards use arrows to show better stats ⇧ ⇩
 #  button(character) class, with associated action on click,  or button press
 # after tech demo:
@@ -446,6 +445,16 @@ class Character:
 
             hilt_placement = v(self.position) + v(self.body_coordinates[weapon])
 
+            # Account for weapon held differently
+            if self.slots[weapon].held_position != v():
+                held_scale_down = self.size / BASE_SIZE
+                held_offset = v(
+                    self.slots[weapon].held_position.x * held_scale_down,
+                    self.slots[weapon].held_position.y * held_scale_down
+                )
+                held_offset.x *= -1 if self.facing_right else 1
+                hilt_placement += held_offset
+
             # Modify Y coordinate in accordance to time passed (math.sin)
             if weapon == 'main_hand':  # main hand is "steadier"
                 steady = 0.1
@@ -670,6 +679,13 @@ class Character:
                 lambda x: self.slots[x] and (x != slot or self.slots[x].builder["class"] == "Swordbreaker"),
                 self.weapon_slots
         ):
+            # If we are a Dagger ready to roll, break, as activation should always be allowed:
+            try:
+                if self.slots[slot].last_parry is not None:
+                    break
+            except AttributeError:
+                pass
+
             if self.slots[other_slot].in_use or self.slots[other_slot].activation_offset != v():
                 return
             self.slots[other_slot].inertia_vector = v()
@@ -1069,11 +1085,14 @@ class StatCard(Card):
 
     def __init__(self, character):
         # Generate a surface
+        self.character = character
         self.compared_surface = None  # Should never be drawn
-        uncut_surface = s(MAX_LOOT_CARD_SPACE.size, pygame.SRCALPHA)
         self.rect = MAX_LOOT_CARD_SPACE.copy()
-        uncut_surface.fill(color=c(colors["loot_card"]))
+        self.redraw()
 
+    def redraw(self):
+        uncut_surface = s(MAX_LOOT_CARD_SPACE.size, pygame.SRCALPHA)
+        uncut_surface.fill(color=c(colors["loot_card"]))
         next_element_top = self.xy_offset
 
         common_options = {
@@ -1083,47 +1102,47 @@ class StatCard(Card):
         differing_options = [
             {
                 "font_size": BASE_SIZE * 2 // 3,
-                "text": f"{character.name}",
+                "text": f"{self.character.name}",
                 "color": c(colors["inventory_title"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"HP: {character.hp:.1f}/{character.max_hp:.0f}",
+                "text": f"HP: {self.character.hp:.1f}/{self.character.max_hp:.0f}",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"SP: {character.stamina:.1f}/{character.max_stamina:.0f}",
+                "text": f"SP: {self.character.stamina:.1f}/{self.character.max_stamina:.0f}",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"HP/s: {100*character.hp_restoration:.1f}%",
+                "text": f"HP/s: {100*self.character.hp_restoration:.1f}%",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"SP/s: ~{character.stamina_restoration:.0f}",
+                "text": f"SP/s: ~{self.character.stamina_restoration:.0f}",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"SIZE: {character.size/BASE_SIZE:.2f}",
+                "text": f"SIZE: {self.character.size/BASE_SIZE:.2f}",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"WEIGHT: {0.75*character.weight:.0f} lbs",
+                "text": f"WEIGHT: {0.75*self.character.weight:.0f} lbs",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"AGILITY: {character.agility:.1f}",
+                "text": f"AGILITY: {self.character.agility:.1f}",
                 "color": c(colors["inventory_text"])
             },
             {
                 "font_size": BASE_SIZE // 2,
-                "text": f"SPEED: {character.max_speed:.1f}",
+                "text": f"SPEED: {self.character.max_speed:.1f}",
                 "color": c(colors["inventory_text"])
             }
         ]
@@ -1135,16 +1154,58 @@ class StatCard(Card):
                 xy_topleft=(self.xy_offset, next_element_top)
             )
 
-        # todo: if character.ai, add AI stats
+        # AI stats
+        if self.character.ai:
+            next_element_top += self.xy_offset
+            ai_options = [
+                {
+                    "font_size": BASE_SIZE * 2 // 3,
+                    "text": f"Mind:",
+                    "color": c(colors["inventory_title"])
+                },
+                {
+                    "font_size": BASE_SIZE // 2,
+                    "text": f"MORALE: {self.character.ai.morale:.1f}",
+                    "color": c(colors["inventory_text"])
+                },
+                {
+                    "font_size": BASE_SIZE // 2,
+                    "text": f"AGGRESSION: {self.character.ai.aggression:.1f}",
+                    "color": c(colors["inventory_text"])
+                },
+                {
+                    "font_size": BASE_SIZE // 2,
+                    "text": f"SKILL: {self.character.ai.skill:.1f}",
+                    "color": c(colors["inventory_text"])
+                },
+                {
+                    "font_size": BASE_SIZE // 2,
+                    "text": f"FLEXIBILITY: {self.character.ai.flexibility:.1f}",
+                    "color": c(colors["inventory_text"])
+                },
+                {
+                    "font_size": BASE_SIZE // 2,
+                    "text": f"COURAGE: {self.character.ai.courage:.1f}",
+                    "color": c(colors["inventory_text"])
+                }
+            ]
+
+            for i in range(len(ai_options)):
+                next_element_top += blit_cascade_text(
+                    **common_options,
+                    **ai_options[i],
+                    xy_topleft=(self.xy_offset, next_element_top)
+                )
 
         # Add bottom offset:
         next_element_top += self.xy_offset
 
         # Cut off surface by bottom content line and draw a frame around the card
-        self.rect.inflate_ip(self.rect.width, next_element_top)
+        self.rect.update(0, 0, self.rect.width, next_element_top)
         self.surface = s((MAX_LOOT_CARD_SPACE.width, next_element_top), pygame.SRCALPHA)
         self.surface.blit(uncut_surface, (0, 0))
 
+        # Draw frame
         frame_rect = r(
             BASE_SIZE // 12,
             BASE_SIZE // 12,

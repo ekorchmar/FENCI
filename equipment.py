@@ -1,5 +1,5 @@
 # todo:
-#  Spear has a backswing before stab attack, stab is 2x longer if held for more, but mostly useful to reduce range
+#  Spear has a backswing before stab attack, stab is longer if held for more, but mostly useful to reduce range
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
@@ -81,14 +81,14 @@ class Wielded(Equipment):
         # Calculate hitbox and position
         if character.position:
             self.hilt_v = v(character.body_coordinates[self.prefer_slot]) + v(character.position)
-            if self.held_position != v():
-                held_scale_down = character.size / BASE_SIZE
-                held_offset = v(
-                    self.held_position.x * held_scale_down,
-                    self.held_position.y * held_scale_down
-                )
-                held_offset.x *= -1 if character.facing_right else 1
-                self.hilt_v += held_offset
+            # if self.held_position != v():
+            #     held_scale_down = character.size / BASE_SIZE
+            #     held_offset = v(
+            #         self.held_position.x * held_scale_down,
+            #         self.held_position.y * held_scale_down
+            #     )
+            #     held_offset.x *= -1 if character.facing_right else 1
+            #     self.hilt_v += held_offset
 
             if self.length:
                 self.tip_v = v()
@@ -390,14 +390,14 @@ class Wielded(Equipment):
         self.hilt_v = hilt_placement.xy + self.activation_offset
 
         # Account for weapon held differently
-        if self.held_position != v():
-            held_scale_down = character.size / BASE_SIZE
-            held_offset = v(
-                self.held_position.x * held_scale_down,
-                self.held_position.y * held_scale_down
-            )
-            held_offset.x *= -1 if character.facing_right else 1
-            self.hilt_v += held_offset
+        # if self.held_position != v():
+        #     held_scale_down = character.size / BASE_SIZE
+        #     held_offset = v(
+        #         self.held_position.x * held_scale_down,
+        #         self.held_position.y * held_scale_down
+        #     )
+        #     held_offset.x *= -1 if character.facing_right else 1
+        #     self.hilt_v += held_offset
 
         # Log location of the tip, if there is one
         if self.length:
@@ -666,6 +666,7 @@ class Bladed(Wielded):
 
 class Pointed(Wielded):
     """Spears, Daggers, Swords"""
+    stab_cost = 0.5
     stab_modifier = 1.0
     stab_dash_modifier = 1.0
 
@@ -676,12 +677,18 @@ class Pointed(Wielded):
             return
 
         # Need at least half max stamina
-        if character.stamina <= character.max_stamina * 0.5:
+        if character.stamina <= character.max_stamina * self.stab_cost:
             character.set_state('exhausted', 1)
             return
 
+        self._stab(character)
+
+    def _stab(self, character, supplemental_v=None):
+        if supplemental_v is None:
+            supplemental_v = v()
+
         # Drain stamina. Drain more if character speed has opposite direction
-        character.stamina *= 0.5
+        character.stamina *= self.stab_cost
 
         # Drain more unless we are a Short:
         if not isinstance(self, Short):
@@ -699,11 +706,11 @@ class Pointed(Wielded):
         dash_vector.from_polar((abs_speed*self.stab_dash_modifier, -self.last_angle))
         character.speed += dash_vector
 
-        # Lock all other currently equipped equipment, unless we are using swordbreaker
+        # Lock all other currently equipped equipment, unless we are using swordbreaker or equipment is Swordbreaker
         if not isinstance(self, Swordbreaker):
             for slot in character.weapon_slots:
 
-                if self != character.slots[slot]:
+                if self != character.slots[slot] and not isinstance(character.slots[slot], Swordbreaker):
                     weapon = character.slots[slot]
                     # Daggers and Swordbreakers are kept active
                     weapon.disabled = True
@@ -715,6 +722,7 @@ class Pointed(Wielded):
             6.25 * BASE_SIZE * character.agility * self.stab_modifier * self.agility_modifier,
             -self.last_angle
         ))
+        self.inertia_vector += supplemental_v
 
         # Dashing backwards is slower
         if (self.inertia_vector.x > 0) != character.facing_right:
@@ -725,7 +733,8 @@ class Pointed(Wielded):
         self.lock(angle=self.last_angle, duration=duration, inertia=self.inertia_vector)
 
         # Dash!
-        character.push(character.speed, duration, state="active")
+        if dash_vector != v():
+            character.push(character.speed, duration, state="active")
 
     def is_dangerous(self):
         parent = super().is_dangerous()
@@ -891,7 +900,7 @@ class Spear(Pointed):
     stab_modifier = 0.75
     hitting_surface = 'shaft'
     pushback = 2.5
-    upside = ["Activate to stab", "Stab on the run to skewer enemy", "Shake off enemy to bleed it"]
+    upside = ["Activate to stab and skewer enemy", "Shake off skewered enemy to bleed it"]
     downside = ["No swing attacks"]
     class_name = "Spear"
     stab_dash_modifier = 0
@@ -1007,7 +1016,6 @@ class Spear(Pointed):
         #  5. Target is not shielded
         if all([
             self.in_use,
-            (attacker.speed.x > 0) == attacker.facing_right,
             not self.kebab,
             0 < dealt_damage < victim.hp,
             not victim.shielded

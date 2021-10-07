@@ -1,8 +1,12 @@
 # todo:
-#  pause_ensemble/unpause countdown
+#  cap blunt impact damages by 15% of max health; use size instead of weight
+#  loot cards in loot overlay provide position and x_key, y_key to display neighboring card for comparison
+#  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
+#  ?? Picking nothing restores some durability to damaged weapon
+#  ?? screenshake
 # After tech demo
 # todo: when mousing over loot cards in loot overlay, show compared cards
 # todo: cut off all surfaces by bounding box
@@ -103,6 +107,8 @@ class Scene:
     def update_input(self):
 
         spacebar, debug, wheel = False, False, False
+        number_keys = [False]*9
+
         for event in pygame.event.get():  # User did something
 
             if event.type == pygame.QUIT:  # If user closed the window
@@ -124,6 +130,10 @@ class Scene:
 
                 if event.key == pygame.K_f:
                     debug = True
+
+                # Get pressed number keys
+                for index_key in enumerate(range(pygame.K_1, pygame.K_9)):
+                    number_keys[index_key[0]] = (event.key == index_key[1])
 
         self.mouse_target = v(pygame.mouse.get_pos())
         self.mouse_state = pygame.mouse.get_pressed(num_buttons=3)
@@ -214,7 +224,7 @@ class Scene:
             self.player.backpack_swap(scene=self)
             self.loot_overlay.redraw_loot()
 
-        # Process clicks on loot overlay
+        # Process clicks and keypresses on loot overlay
         self.draw_helper = False
         if self.loot_overlay:
             if self.loot_overlay.rect.collidepoint(self.mouse_target):
@@ -224,32 +234,7 @@ class Scene:
                 # Pass mouse click to loot overlay:
                 if any(self.mouse_state):
                     result = self.loot_overlay.catch(self.mouse_target, self.mouse_state)
-                    if result[0]:
-                        dropped = self.player.equip(*result)
-                        if dropped:
-                            self.item_drop(
-                                character=self.player,
-                                dropped_item=dropped,
-                                equip=False
-                            )
-                        result[0].reset(self.player)
-                        self.log_weapons()
-                        self.loot_overlay = None
-
-                        # Show info banner:
-                        text = f"Stashed Tier {result[0].tier} {result[0].builder['class'].lower()} in backpack!" if \
-                            result[1] == "backpack" else \
-                            f"Equipped Tier {result[0].tier} {result[0].builder['class'].lower()}"
-
-                        looted_banner = Banner(
-                            text=text,
-                            size=BASE_SIZE * 2,
-                            position=self.box.center[:],
-                            color=c(colors["inventory_better"]),
-                            max_width=self.box.width,
-                            lifetime=3
-                        )
-                        self.particles.append(looted_banner)
+                    self._from_loot_overlay(*result)
 
                     if self.mouse_state[1]:
                         self.loot_overlay = None
@@ -258,6 +243,10 @@ class Scene:
 
                 # Fully heal player no matter the picked option:
                 self.player.hp, self.player.stamina = self.player.max_hp, self.player.max_stamina
+
+            if any(number_keys):
+                result = self.loot_overlay.catch_index(number_keys.index(True))
+                self._from_loot_overlay(*result)
 
         # Allow to drop weapons in pause or loot overlay:
         if (self.loot_overlay or self.paused) and self.inventory.rect.collidepoint(self.mouse_target):
@@ -295,6 +284,36 @@ class Scene:
         # Save to determine if mouse buttons are held for the next frame
         self.last_mouse_state = self.mouse_state[:]
 
+    def _from_loot_overlay(self, item, slot):
+        if not item:
+            return
+
+        dropped = self.player.equip(item, slot)
+        if dropped:
+            self.item_drop(
+                character=self.player,
+                dropped_item=dropped,
+                equip=False
+            )
+        item.reset(self.player)
+        self.log_weapons()
+        self.loot_overlay = None
+
+        # Show info banner:
+        text = f"Stashed Tier {item.tier} {item.builder['class'].lower()} in backpack!" if \
+            slot == "backpack" else \
+            f"Equipped Tier {item.tier} {item.builder['class'].lower()}"
+
+        looted_banner = Banner(
+            text=text,
+            size=BASE_SIZE * 2,
+            position=self.box.center[:],
+            color=c(colors["inventory_better"]),
+            max_width=self.box.width,
+            lifetime=3
+        )
+        self.particles.append(looted_banner)
+
     def draw(self):
         draw_group = []
 
@@ -302,10 +321,11 @@ class Scene:
         for character in self.characters:
             draw_group.extend(character.draw(freeze=self.paused))
 
+            # Spawn dust clouds under rolling or ramming characters
             try:
                 if character.rolling > 0 or character.ramming:
-                    # Spawn on average 10/s:
-                    if random.random() < 10*FPS_TICK:
+                    # Spawn on average 10/s for standard size:
+                    if random.random() < 10*FPS_TICK*character.size/BASE_SIZE:
                         self.particles.append(DustCloud(character.position))
             except AttributeError:
                 pass
@@ -476,21 +496,6 @@ class Scene:
         collision_quintet = []  # Hitting weapon, target, target's owner
         already_hit = []  # Do not iterate over each weapon more than once
 
-        # Skewered characters are already_hit:
-        for weapon in self.player.weapon_slots:
-            try:
-                spear = self.player.slots[weapon]
-
-                kebab = spear.kebab
-                if isinstance(kebab, Character):
-                    already_hit.append(kebab)
-                    for enemy_weapon in kebab.weapon_slots:
-                        if kebab.slots[enemy_weapon]:
-                            already_hit.append(kebab.slots[enemy_weapon])
-
-            except AttributeError:
-                continue
-
         def log_colision(weapon_1, weapon_owner, victim, victim_owner, contact_point):
             collision_quintet.append((weapon_1, weapon_owner, victim, victim_owner, contact_point))
             already_hit.extend([weapon_1, victim])
@@ -514,113 +519,135 @@ class Scene:
                 char != character and not char.ignores_collision()
             ]
 
-            for weapon in iteration_list[character]:
-                # Spawn mouse-hint particle for player Daggers roll
-                try:
-                    if weapon.last_parry and not weapon.roll_particle:
-                        offset = v(-2*BASE_SIZE, 0) if weapon.prefer_slot == 'main_hand' else v(2*BASE_SIZE, 0)
+            # Don't check weapons of disabled characters:
+            if character.state not in DISABLED:
+                for weapon in iteration_list[character]:
+                    # Spawn mouse-hint particle for player Daggers roll
+                    try:
+                        if weapon.last_parry and not weapon.roll_particle:
+                            offset = v(-2*BASE_SIZE, 0) if weapon.prefer_slot == 'main_hand' else v(2*BASE_SIZE, 0)
 
-                        weapon.roll_particle = MouseHint(
-                            relative_position=offset,
-                            lifetime=weapon.roll_window,
-                            text="ROLL!",
-                            size=BASE_SIZE * 2 // 3,
-                            color=c(colors["indicator_good"]),
-                            monitor=weapon.has_roll
-                        )
-                        self.particles.append(weapon.roll_particle)
+                            weapon.roll_particle = MouseHint(
+                                relative_position=offset,
+                                lifetime=weapon.roll_window,
+                                text="ROLL!",
+                                size=BASE_SIZE * 2 // 3,
+                                color=c(colors["indicator_good"]),
+                                monitor=weapon.has_roll
+                            )
+                            self.particles.append(weapon.roll_particle)
 
-                except AttributeError:
-                    pass
+                    except AttributeError:
+                        pass
 
-                # Don't iterate over non-dangerous, disabled or deflected weapons:
-                if (
-                        (not weapon.dangerous and abs(weapon.angular_speed) < SWING_THRESHOLD * 0.5) or
-                        weapon.disabled or
-                        not weapon.hitbox() or
-                        weapon in set(already_hit)
-                ):
-                    continue
-                weapon_cleared = False
-
-                # We might need to calculate weapon tip trail to find collisions "between" frames
-                if weapon.tip_delta:
-                    tip_trail = weapon.tip_v, weapon.tip_v - weapon.tip_delta
-                else:
-                    tip_trail = None
-
-                # First, attempt to collide with all other weapons from different characters
-                for foe in target_characters:
-                    if weapon_cleared:
+                    # Don't iterate over non-dangerous, disabled or deflected weapons:
+                    if (
+                            (not weapon.dangerous and abs(weapon.angular_speed) < SWING_THRESHOLD * 0.5) or
+                            weapon.disabled or
+                            not weapon.hitbox() or
+                            weapon in set(already_hit)
+                    ):
                         continue
+                    weapon_cleared = False
 
-                    for target_weapon in iteration_list[foe]:
-                        # 1 Frame = 1 hit
-                        if target_weapon in set(already_hit) or target_weapon.disabled or not target_weapon.hitbox():
+                    # We might need to calculate weapon tip trail to find collisions "between" frames
+                    if weapon.tip_delta:
+                        tip_trail = weapon.tip_v, weapon.tip_v - weapon.tip_delta
+                    else:
+                        tip_trail = None
+
+                    # First, attempt to collide with all other weapons from different characters
+                    for foe in target_characters:
+                        if weapon_cleared:
                             continue
 
-                        # If hitboxes intersect, extend output pairs and add both to already_hit
+                        # Skewered by weapon characters are not colliding with it neither with body nor weapons:
                         try:
-                            if intersect_lines(weapon.hitbox(), target_weapon.hitbox()):
-                                collision_point = (weapon.hitbox()[0][0] + weapon.hitbox()[1][0]) // 2, \
-                                                  (weapon.hitbox()[0][1] + weapon.hitbox()[1][1]) // 2
-                                weapon_cleared = True
-                                log_colision(weapon, character, target_weapon, foe, collision_point)
+                            kebab = weapon.kebab
+                            if foe == kebab:
+                                continue
+                        except AttributeError:
+                            pass
+
+                        for target_weapon in iteration_list[foe]:
+                            # 1 Frame = 1 hit
+                            if (
+                                    target_weapon in set(already_hit) or
+                                    target_weapon.disabled or
+                                    not target_weapon.hitbox()
+                            ):
+                                continue
+
+                            # If hitboxes intersect, extend output pairs and add both to already_hit
+                            try:
+                                if intersect_lines(weapon.hitbox(), target_weapon.hitbox()):
+                                    collision_point = (weapon.hitbox()[0][0] + weapon.hitbox()[1][0]) // 2, \
+                                                      (weapon.hitbox()[0][1] + weapon.hitbox()[1][1]) // 2
+                                    weapon_cleared = True
+                                    log_colision(weapon, character, target_weapon, foe, collision_point)
+                                    break
+
+                                # Intersect target weapon with tip trail
+                                if tip_trail and intersect_lines(tip_trail, target_weapon.hitbox()):
+                                    collision_point = (weapon.hitbox()[0][0] + weapon.hitbox()[1][0]) // 2, \
+                                                      (weapon.hitbox()[0][1] + weapon.hitbox()[1][1]) // 2
+                                    weapon_cleared = True
+                                    log_colision(weapon, character, target_weapon, foe, collision_point)
+                                    break
+                            except TypeError:
+                                # Sometimes hitbox may disappear for a frame after roll; this is normal
                                 break
 
-                            # Intersect target weapon with tip trail
-                            if tip_trail and intersect_lines(tip_trail, target_weapon.hitbox()):
-                                collision_point = (weapon.hitbox()[0][0] + weapon.hitbox()[1][0]) // 2, \
-                                                  (weapon.hitbox()[0][1] + weapon.hitbox()[1][1]) // 2
-                                weapon_cleared = True
-                                log_colision(weapon, character, target_weapon, foe, collision_point)
-                                break
-                        except TypeError:
-                            # Sometimes hitbox may disappear for a frame after roll; this is normal
+                    # If weapon was hit, skip attempt to hit characters
+                    # Clear weapon if it's not dangerous, as it is not a threat to characters:
+                    if not weapon.dangerous or weapon_cleared:
+                        continue
+
+                    # Now iterate over all characters bodies
+                    for foe in target_characters:
+                        if weapon_cleared:
                             break
 
-                # If weapon was hit, skip attempt to hit characters
-                # Clear weapon if it's not dangerous, as it is not a threat to characters:
-                if not weapon.dangerous or weapon_cleared:
-                    continue
+                        # Ignore Players that were hit recently (or this frame)
+                        if foe.immune_timer > 0:
+                            continue
 
-                # Now iterate over all characters bodies
-                for foe in target_characters:
-                    if weapon_cleared:
-                        break
+                        if foe in set(already_hit):
+                            continue
 
-                    # Ignore Players that were hit recently (or this frame)
-                    if foe.immune_timer > 0:
-                        continue
+                        if foe.phasing:
+                            continue
 
-                    if foe in set(already_hit):
-                        continue
-
-                    if foe.phasing:
-                        continue
-
-                    # Attempt to collide with each of character's hitboxes:
-                    for rectangle in foe.hitbox:
-                        if rectangle.collidepoint(weapon.tip_v):
-                            weapon_cleared = True
-                            log_colision(weapon, character, foe, foe, weapon.tip_v)
-                            break
+                        # Skewered by weapon characters are not colliding with it:
                         try:
-                            clipped_line = rectangle.clipline(tip_trail)
-                            if clipped_line:
-                                weapon_cleared = True
-                                log_colision(weapon, character, foe, foe, clipped_line[0])
-                                break
+                            kebab = weapon.kebab
+                            if foe == kebab:
+                                continue
+                        except AttributeError:
+                            pass
 
-                            # Swords and axes should also attempt to intersect with full hitbox length:
-                            clipped_line = rectangle.clipline(weapon.hitbox())
-                            if isinstance(weapon, Bladed) and clipped_line:
+                        # Attempt to collide with each of character's hitboxes:
+                        for rectangle in foe.hitbox:
+                            if rectangle.collidepoint(weapon.tip_v):
                                 weapon_cleared = True
-                                log_colision(weapon, character, foe, foe, clipped_line[0])
+                                log_colision(weapon, character, foe, foe, weapon.tip_v)
                                 break
-                        except TypeError:
-                            # Sometimes hitbox may disappear for a frame after roll; this is normal
-                            break
+                            try:
+                                clipped_line = rectangle.clipline(tip_trail)
+                                if clipped_line:
+                                    weapon_cleared = True
+                                    log_colision(weapon, character, foe, foe, clipped_line[0])
+                                    break
+
+                                # Swords and axes should also attempt to intersect with full hitbox length:
+                                clipped_line = rectangle.clipline(weapon.hitbox())
+                                if isinstance(weapon, Bladed) and clipped_line:
+                                    weapon_cleared = True
+                                    log_colision(weapon, character, foe, foe, clipped_line[0])
+                                    break
+                            except TypeError:
+                                # Sometimes hitbox may disappear for a frame after roll; this is normal
+                                break
 
             # Also attempt to collide own body with ALL characters
             for rectangle in character.hitbox:
@@ -763,9 +790,9 @@ class Scene:
                             target.push(-collision_v, 0.2, 'active')
 
                     else:
-                        # Pinball time! Damage the slower one
+                        # Pinball time! Damage the slower one (or non-skewerd one)
                         assigned = [weapon, target]
-                        assigned.sort(key=lambda x: x.speed.length_squared())
+                        assigned.sort(key=lambda x: (x.state == 'skewered', x.speed.length_squared()))
                         target, weapon = assigned
 
                         damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),
@@ -1011,23 +1038,38 @@ class Scene:
         self.log_weapons()
 
     def toggle_pause(self, skip_banner=False):
-        if not self.paused and not skip_banner:
-            self.pause_popups = Banner(
-                "[PAUSED]",
-                BASE_SIZE * 2,
-                self.box.center[:],
-                colors["pause_popup"],
-                lifetime=1.2,
-                animation_duration=0.3,
-                tick_down=False
-            )
+        if not self.paused:
+
+            if not skip_banner:
+                self.pause_popups = Banner(
+                    "[PAUSED]",
+                    BASE_SIZE * 2,
+                    self.box.center[:],
+                    colors["pause_popup"],
+                    lifetime=1.2,
+                    animation_duration=0.3,
+                    tick_down=False
+                )
+
+            # Update stat cards for every character
+            for character in self.characters:
+                for compare_key in character.stat_cards:
+                    character.stat_cards[compare_key].redraw()
+
         elif self.paused and not skip_banner:
             self.pause_popups.tick_down = True
 
         self.paused = not self.paused
 
-    def count_enemies(self):
-        return len(list(filter(lambda x: x.collision_group != self.player.collision_group, self.characters)))
+    def count_enemies_value(self):
+        return sum(
+            enemy.difficulty
+            for enemy in (
+                filter(
+                    lambda x: x.collision_group != self.player.collision_group,
+                    self.characters
+                )
+            ))
 
     def item_drop(self, character, dropped_item, slot=None, equip=True):
         # Animate remains

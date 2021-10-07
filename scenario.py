@@ -1,8 +1,8 @@
 # todo:
-#  loot generates equally for all SLOTS, not classes
 #  return to menu after death or clearing Campaign
-#  on_screen_enemies => on_screen_value
-#  Player.fate: dict
+#  Player.fate: dict to remember player choices for future scenario
+#  todo: scenario feeds dict with debug info into scene for display debug
+
 from scene import *
 from monster import *
 from artifact import *
@@ -76,7 +76,7 @@ class SceneHandler:
             monsters: list[Character] = None,
             loot_drops: int = 4,
             monster_total_cost: int = 100,
-            on_scren_enemies=(3, 5),
+            on_scren_enemies_value=(6, 10),
             player: Player = None,
             scene: Scene = None,
             enemy_color=c(100, 0, 0),
@@ -105,7 +105,7 @@ class SceneHandler:
         self.scene = scene or Scene(self.player, SCREEN, SCENE_BOUNDS)
 
         # Create backlog of monsters:
-        self.on_scren_enemies_range = on_scren_enemies
+        self.on_scren_enemies_value_range = on_scren_enemies_value
         self.monsters = monsters or []
         enemy_cost = sum(enemy.difficulty for enemy in self.monsters)
         # Fill level up to missing value by monsters of specified classes
@@ -119,10 +119,22 @@ class SceneHandler:
                 monster_class(position=None, tier=self.tier, team_color=enemy_color)
             )
 
-        # Create backlog of loot:
-        loot_classes = tuple(Wielded.registry.values())
+        # Create backlog of loot
+        # Spread by class:
+        loot_by_slot = dict()
+        for loot_class in tuple(Wielded.registry.values()):
+            if loot_class.prefer_slot in loot_by_slot:
+                loot_by_slot[loot_class.prefer_slot].append(loot_class)
+            else:
+                loot_by_slot[loot_class.prefer_slot] = [loot_class]
+
+        loot_slots = list(loot_by_slot.keys())
+        loot_slot_weights = [LOOT_OCCURRENCE_WEIGHTS[slot] for slot in loot_slots]
+
         self.loot = []
         for _ in range(3 * loot_drops):
+            # Choose slot to generate piece of loot for:
+            loot_classes = loot_by_slot[random.choices(population=loot_slots, weights=loot_slot_weights)[0]]
             loot_class = random.choice(loot_classes)
             self.loot.append(loot_class(tier_target=tier, size=BASE_SIZE))
         # Better loot last:
@@ -161,8 +173,10 @@ class SceneHandler:
         self.loot_dropped = 0
 
         # Spawn monsters for scene inception:
-        for _ in range(self.on_scren_enemies_range[0]):
+        on_screen_value = 0
+        while on_screen_value < self.on_scren_enemies_value_range[0]:
             self.spawn_monster(force=True)
+            on_screen_value = self.scene.count_enemies_value()
 
     def execute(self):
         # 1. Iterate the scene
@@ -207,7 +221,7 @@ class SceneHandler:
             self.loot_querried or self.deserved_loot_drops > self.loot_dropped
         ])
         # 2.3. Drop loot for player if scene is clear and progress is achieved
-        if not self.scene.loot_overlay and self.loot_querried and self.scene.count_enemies() == 0 and not any([
+        if not self.scene.loot_overlay and self.loot_querried and self.scene.count_enemies_value() == 0 and not any([
             weapon
             for weapon in self.player.weapon_slots
             if self.player.slots[weapon] and self.player.slots[weapon].activation_offset != v()
@@ -268,9 +282,9 @@ class SceneHandler:
             return
 
         # Calculate current progression dependent variables:
-        current_on_scren_enemies = round(lerp(self.on_scren_enemies_range, self.relative_progression))
+        current_on_scren_enemies = round(lerp(self.on_scren_enemies_value_range, self.relative_progression))
         current_spawn_delay = lerp(self.spawn_delay_range, self.relative_progression)
-        present_enemies = self.scene.count_enemies()
+        present_enemies_value = self.scene.count_enemies_value()
 
         # Execute querried spawn if timer reached 0:
         if self.spawn_queued and self.spawn_timer <= 0:
@@ -278,23 +292,23 @@ class SceneHandler:
             self.spawn_queued = None
 
         # If there are no enemies and none are querried to spawn, reduce spawn_timer to 0.5:
-        elif self.spawn_queued is None and present_enemies == 0 and any(self.monsters):
+        elif self.spawn_queued is None and present_enemies_value == 0 and any(self.monsters):
             self.spawn_queued = self.monsters.pop()
             self.spawn_timer = 0.5
 
         # Drop timer if spawn is querried but scene is empty:
-        elif self.spawn_timer > 0.5 and present_enemies == 0 and any(self.monsters):
+        elif self.spawn_timer > 0.5 and present_enemies_value == 0 and any(self.monsters):
             self.spawn_timer = 0.5
 
         # If a spawn is queued, tick down timer
         elif self.spawn_timer > 0 and not self.scene.paused:
             # Tick down slower is scene is close to full
-            tick_down_speed = 1-present_enemies/current_on_scren_enemies
+            tick_down_speed = 1 - present_enemies_value / current_on_scren_enemies
             iteration_tick = lerp((0, FPS_TICK), tick_down_speed)
             self.spawn_timer -= iteration_tick if tick_down_speed == 1 else 2*iteration_tick
 
         # If there are less enemies than needed and no spawn is queued, queue one
-        elif self.spawn_queued is None and present_enemies < current_on_scren_enemies and any(self.monsters):
+        elif self.spawn_queued is None and present_enemies_value < current_on_scren_enemies and any(self.monsters):
             self.spawn_queued = self.monsters.pop()
             self.spawn_timer = current_spawn_delay
 

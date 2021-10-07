@@ -1,13 +1,16 @@
 # todo:
-#  ?? Add orks using Swords, Spears and Axes; maces in future
+#  Add orc faces
+#  Add orc equipment
+#  Add Axes for orcs
 # After tech demo
 # todo:
 #  ?? animate character flip
-# Todo: hat oscillates instead of face
-# Todo: Animal(Character) subclass
-# Todo: Monsters: Goblin, Wolf, Rat, Elf, Orc
-# ?? Todo: cache character_positions to be redrawn at most 10 times/s
-# Todo: generate equipment for Goblin, Elf, Orc
+#  hat oscillates instead oor together with face
+#  Animal(Character) subclass
+#   Monsters: Goblin, Wolf, Rat, Elf, Orc
+#  ?? cache character_positions to be redrawn at most 10 times/s
+#  generate equipment for Goblin, Elf, Orc
+#  AI can use off-hand weapons, not just shields
 # todo: celebration state if away from enemy and flexibility >> skill or all enemies dead
 # todo: randomly exchange wait <=> to wander: move to a new position, not too close to arena edge
 # todo: make goblins use appropriate swords: scavenged look a bit too chaotic
@@ -214,6 +217,15 @@ class Humanoid(Character):
                     show_number=False,
                     cache=False
                 )
+
+            # Prevent weapons from dealing absurd damage:
+            for weapon in self.weapon_slots:
+                try:
+                    self.slots[weapon].tip_delta = v()
+                    self.slots[weapon].angular_speed = 0
+                except AttributeError:
+                    continue
+
         # Tick down cooldown untill next roll
         else:
             if self.roll_cooldown <= 0:
@@ -374,7 +386,7 @@ class AI:
 
         self.stab_reach_rx = self.weapon.length + 2 * max_speed_component + stab_modifier
         self.stab_reach_ry = self.weapon.length + 1.2 * max_speed_component + stab_modifier
-        self.stab_stamina_cost = self.character.max_stamina * 0.5
+        self.stab_stamina_cost = self.character.max_stamina * self.weapon.stab_cost
 
     def calculate_roll(self):
         if not isinstance(self.weapon, Falchion):
@@ -1191,6 +1203,18 @@ class Goblin(Humanoid):
             name=f"Goblin Lv.{tier:.0f}"
         )
 
+        # Generate and equip weapon:
+        self.equip(self._main_hand_goblin(tier), 'main_hand')
+
+        # 34% of the time also generate a light Shield
+        if random.random() > 0.66:
+
+            self.equip(self._shield_goblin(tier, team_color), 'off_hand')
+
+        self.ai = AI(self, **ai_stats)
+
+    @staticmethod
+    def _main_hand_goblin(tier):
         def goblin_blade_material():
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
@@ -1313,40 +1337,35 @@ class Goblin(Humanoid):
             main_equipment_dict = {"constructor": sword_builder, "tier": tier}
             main_hand_weapon = Sword(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
 
-        # Equip whatever is generated:
-        self.equip(main_hand_weapon, 'main_hand')
+        return main_hand_weapon
 
-        # 34% of the time also generate a light Shield
-        if random.random() > 0.66:
-
-            shield_builder = {
-                "frame": {
-                    "material": Material.pick(["reed"], tier)
-                }
+    @staticmethod
+    def _shield_goblin(tier, team_color):
+        shield_builder = {
+            "frame": {
+                "material": Material.pick(["reed"], tier)
             }
+        }
 
-            # Some bone-physics material should be excluded:
-            bone_exclude = {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'}
-            goblin_exclude = {'mythril', 'mallorn'}
+        # Some bone-physics material should be excluded:
+        bone_exclude = {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'}
+        goblin_exclude = {'mythril', 'mallorn'}
 
-            shield_builder["plate"] = {
-                    "material": Material.pick(
-                        ['metal', 'wood', 'leather', 'bone'],
-                        tier,
-                        lambda x: x.name not in bone_exclude and x.name not in goblin_exclude and x.weight <= 0.5
-                    )
-                }
+        shield_builder["plate"] = {
+            "material": Material.pick(
+                ['metal', 'wood', 'leather', 'bone'],
+                tier,
+                lambda x: x.name not in bone_exclude and x.name not in goblin_exclude and x.weight <= 0.5
+            )
+        }
 
-            # If specified, paint plate team color; otherwise let .generate handle it
-            if team_color and Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
-                shield_builder['plate']['color'] = team_color
-                shield_builder['plate']['tags'] = ['painted']
+        # If specified, paint plate team color; otherwise let .generate handle it
+        if team_color and Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
+            shield_builder['plate']['color'] = team_color
+            shield_builder['plate']['tags'] = ['painted']
 
-            off_equipment_dict = {"constructor": shield_builder, "tier": tier}
-            off_hand_weapon = Shield(BASE_SIZE, tier_target=tier, equipment_dict=off_equipment_dict)
-            self.equip(off_hand_weapon, 'off_hand')
-
-        self.ai = AI(self, **ai_stats)
+        off_equipment_dict = {"constructor": shield_builder, "tier": tier}
+        return Shield(BASE_SIZE, tier_target=tier, equipment_dict=off_equipment_dict)
 
 
 class Human(Humanoid):
@@ -1366,7 +1385,31 @@ class Human(Humanoid):
 
 
 class Orc(Humanoid):
-    difficulty = 4
+    difficulty = 3
+    hit_immunity = 1.5
+
+    def __init__(self, position, tier, team_color=None):
+        # Modify stats according to tier
+        body_stats = character_stats["body"]["orc"]
+        ai_stats = character_stats["soul"]["orc"]
+        portraits = character_stats["mind"]["goblin"]
+
+        body_stats["health"] += 20 * (tier - 1)
+        body_stats["max_speed"] += tier / 2
+        ai_stats["skill"] += 0.15 * (tier - 1)
+
+        super().__init__(
+            position,
+            **body_stats,
+            **colors['enemy'],
+            faces=portraits,
+            name=f"Orc Lv.{tier:.0f}"
+        )
+
+        self.equip(Sword(BASE_SIZE, tier_target=tier), 'main_hand')
+        self.equip(Shield(BASE_SIZE, tier_target=tier), 'off_hand')
+
+        self.ai = AI(self, **ai_stats)
 
 
 class DebugGoblin(Goblin):

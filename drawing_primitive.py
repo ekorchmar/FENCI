@@ -76,6 +76,7 @@ MAX_LOOT_CARD_SPACE = r(
     INVENTORY_SPACE.width // 3,
     WINDOW_SIZE[1] - 4*BASE_SIZE
 )
+
 # Initial player position
 # Initial position is (1/6, 1/2) of bounding box,
 PLAYER_SPAWN = v(
@@ -104,7 +105,13 @@ SLOT_NAMES = {
     "hat": 'Hat',
     "backpack": 'Backpack'
 }
+
 PLAYER_SLOTS = ("main_hand", "hat", "off_hand")  # ordered for mouse input
+LOOT_OCCURRENCE_WEIGHTS = {
+    "main_hand": 1,
+    "off_hand": 0.75,
+    "hat": 0.4
+}
 
 # Sets of character and AI states
 DISABLED = {'flying', 'hurt', 'skewered'}

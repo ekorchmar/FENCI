@@ -1,5 +1,6 @@
 # todo:
-#  Spear has a backswing before stab attack, use held_position
+#  extract activation methods that may be shared between weapon classes;
+#  _on_equip hook to calculate and cache character-specific weapon constants
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
@@ -69,10 +70,13 @@ class Wielded(Equipment):
     held_position = v()
 
     def reset(self, character):
-        self.last_angle = math.copysign(180, self.last_angle) - self.last_angle
+        self.last_angle = self.default_angle if character.facing_right else \
+            math.copysign(180, self.default_angle)-self.default_angle
+
         self.angular_speed = 0
         self.in_use = False
-        self.disabled = False
+        self.disabled = True  # Will be overriden frame after
+        self.dangerous = False
         self.lock_timer = 0
         self.activation_offset = v()
         self.inertia_vector = v()
@@ -81,14 +85,6 @@ class Wielded(Equipment):
         # Calculate hitbox and position
         if character.position:
             self.hilt_v = v(character.body_coordinates[self.prefer_slot]) + v(character.position)
-            # if self.held_position != v():
-            #     held_scale_down = character.size / BASE_SIZE
-            #     held_offset = v(
-            #         self.held_position.x * held_scale_down,
-            #         self.held_position.y * held_scale_down
-            #     )
-            #     held_offset.x *= -1 if character.facing_right else 1
-            #     self.hilt_v += held_offset
 
             if self.length:
                 self.tip_v = v()
@@ -99,7 +95,6 @@ class Wielded(Equipment):
             self.tip_v = None
 
     def __init__(self, size, color=None, tier_target=None, equipment_dict=None):
-        # todo: add naming
         super().__init__(size, color=None, tier_target=None, equipment_dict=equipment_dict)
         self.hilt = None
 
@@ -900,10 +895,17 @@ class Spear(Pointed):
     stab_modifier = 0.75
     hitting_surface = 'shaft'
     pushback = 2.5
-    upside = ["Activate to stab and skewer enemy", "Shake off skewered enemy to bleed it"]
+    upside = [
+        "Activate to stab and skewer enemy",
+        "Shake off skewered enemy to bleed it",
+        "Hold activation to hold closer"
+    ]
     downside = ["No swing attacks"]
     class_name = "Spear"
     stab_dash_modifier = 0
+
+    _max_fallback = 1.0
+    _fallback_distance = 0.4
 
     def __init__(self, *args, **kwargs):
         self.bleed = 0.0
@@ -916,6 +918,11 @@ class Spear(Pointed):
         self.kebab = None
         self.skewer_duration = self.max_skewer_duration = 0
         self.kebab_size = None
+
+        # Held position is dynamic:
+        self.held_position = v()
+        self.active_this_frame = False
+        self.held_back_duration = 0
 
     def generate(self, size, tier=None):
 
@@ -1059,7 +1066,28 @@ class Spear(Pointed):
 
     def aim(self, hilt_placement, aiming_vector, character):
 
+        # Reset held counters
+        if self.disabled:
+            self.in_use = False
+            self.held_position = v()
+            self.held_back_duration = 0
+            self.active_this_frame = 0
+
+        elif self.held_position != v() and not self.active_this_frame and not self.disabled and not self.in_use:
+            # Execute stab
+            self.held_back_duration = 0
+            # Transfer held_position to activation_offset
+            self.activation_offset += self.held_position
+            self.held_position = v()
+            self.in_use = False
+
+            # Calculate supplement_v
+            supplement_v = self.held_position * -0.2 * FPS_TICK
+            self._stab(character, supplement_v)
+
         super(Spear, self).aim(hilt_placement, aiming_vector, character)
+        self.active_this_frame = False
+
         # If character is skewered, tick down skewer timer, anchor it for own tip position
         if self.skewer_duration > 0:
             # Temproarily modify agility modifier:
@@ -1095,6 +1123,46 @@ class Spear(Pointed):
             self.kebab = None
             self.skewer_duration = 0
             self.kebab_size = None
+
+    def activate(self, character, continuous_input):
+
+        # AI doesn't need this. Not even balance-wise, this branches of simple stab only for player convenience
+        if character.ai:
+            super(Spear, self).activate(character, continuous_input)
+            return
+
+        # Need at least half max stamina or already moving held_offset
+        if not continuous_input and character.stamina <= character.max_stamina * self.stab_cost:
+            character.set_state('exhausted', 1)
+            return
+
+        self.active_this_frame = True
+        self.in_use = True
+
+        if self.held_back_duration < self._max_fallback:
+            self.held_back_duration += FPS_TICK
+            decrement_v = v()
+            decrement_args = self._fallback_distance * self.length * FPS_TICK / self._max_fallback, self.last_angle
+            decrement_v.from_polar(decrement_args)
+            if not character.facing_right:
+                decrement_v.x *= -1
+            self.held_position += decrement_v
+
+        # Actual stab will be execectuted by .aim
+
+    def reset(self, character):
+        super(Spear, self).reset(character)
+
+        # Held position is dynamic:
+        self.held_position = v()
+        self.active_this_frame = False
+        self.held_back_duration = 0
+
+        self.reduced_agility_modifier = self.agility_modifier
+        self.saved_agility_modifier = self.agility_modifier
+        self.kebab = None
+        self.skewer_duration = self.max_skewer_duration = 0
+        self.kebab_size = None
 
 
 class Short(Pointed):

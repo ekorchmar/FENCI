@@ -1,5 +1,4 @@
 # todo:
-#  cap blunt impact damages by 15% of max health; use size instead of weight
 #  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
@@ -700,7 +699,7 @@ class Scene:
             if isinstance(weapon, Wielded):
                 if isinstance(target, Character):
                     collision_v = target.speed + weapon.tip_delta
-                    # todo: 'SKEWERED!' kicker
+                    # todo: 'SKEWERED!', 'BLEEDING!' etc. kicker
                     damage = round(weapon.deal_damage(vector=collision_v, victim=target, attacker=owner))
                     survived, actual_damage = opponent.hurt(
                         damage=damage,
@@ -744,7 +743,7 @@ class Scene:
                             )
                             self.particles.append(spark)
                 else:
-                    raise ValueError("What are we hitting again?")
+                    raise ValueError(f"What are we hitting again? {target}")
 
             # Process body checks
             elif isinstance(weapon, Character) and isinstance(target, Character):
@@ -795,8 +794,11 @@ class Scene:
                         weapon.set_state('active', 0.2)
 
                 # Process flying disabled characters hitting teammates
-                elif (target.is_flying_meat() or weapon.is_flying_meat()) and \
-                        target.collision_group == weapon.collision_group:
+                elif (
+                        (target.is_flying_meat() or weapon.is_flying_meat()) and
+                        target.collision_group == weapon.collision_group and
+                        (target.immune_timer <= 0) and (weapon.immune_timer <= 0)
+                ):
                     # Test if collision speed above PT/2
                     relative_v = weapon.speed - target.speed
                     if 4 * relative_v.length_squared() < POKE_THRESHOLD ** 2:
@@ -808,9 +810,9 @@ class Scene:
                             target.push(-collision_v, 0.2, 'active')
 
                     else:
-                        # Pinball time! Damage the slower one (or non-skewerd one)
+                        # Pinball time! Damage the vulnearable or non-skewerd one or slower one
                         assigned = [weapon, target]
-                        assigned.sort(key=lambda x: (x.state == 'skewered', x.speed.length_squared()))
+                        assigned.sort(key=lambda x: (x.immune_timer, x.state == 'skewered', x.speed.length_squared()))
                         target, weapon = assigned
 
                         damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),

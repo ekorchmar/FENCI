@@ -762,7 +762,7 @@ class Character:
         for slot in self.weapon_slots:
             weapon = self.slots[slot]
             weapon.reset(self)
-            weapon.lock(0.3)
+            weapon.lock(0.2)
 
         if not dormant and self.ai:
             self.ai.analyze(self.ai.scene)

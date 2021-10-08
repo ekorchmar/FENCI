@@ -1,5 +1,5 @@
 # todo:
-#  Spear has a backswing before stab attack, stab is longer if held for more, but mostly useful to reduce range
+#  Spear has a backswing before stab attack, use held_position
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
@@ -915,7 +915,7 @@ class Spear(Pointed):
         self.saved_agility_modifier = self.agility_modifier
         self.kebab = None
         self.skewer_duration = self.max_skewer_duration = 0
-        self.kebab_weight = None
+        self.kebab_size = None
 
     def generate(self, size, tier=None):
 
@@ -1022,12 +1022,12 @@ class Spear(Pointed):
         ]):
             self.kebab = victim
             self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
-            self.kebab_weight = victim.weight
+            self.kebab_size = victim.size
 
             # Temporarily modify agility modifier depending on target weight
             self.reduced_agility_modifier = min(
                 self.agility_modifier*0.5,
-                self.agility_modifier * self.weight / self.kebab_weight
+                self.agility_modifier * attacker.size / self.kebab_size
             )
             self.saved_agility_modifier = self.agility_modifier
 
@@ -1077,7 +1077,7 @@ class Spear(Pointed):
                 self.kebab.anchor_point = None
                 self.kebab.anchor_timer = 0
                 push_v = v(self.tip_delta)
-                push_v.scale_to_length(character.max_speed*character.weight/self.kebab_weight)
+                push_v.scale_to_length(character.max_speed*character.size/self.kebab_size)
 
                 # Throw charcter and bleed it
                 self.kebab.push(push_v, self.kebab.hit_immunity*2)
@@ -1094,7 +1094,7 @@ class Spear(Pointed):
             self.agility_modifier = self.saved_agility_modifier
             self.kebab = None
             self.skewer_duration = 0
-            self.kebab_weight = None
+            self.kebab_size = None
 
 
 class Short(Pointed):

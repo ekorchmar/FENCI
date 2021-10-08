@@ -269,6 +269,7 @@ class Character:
     collision_group = 1
     hit_immunity = 0.6
     difficulty = 0
+    has_blood = True
 
     def __init__(
             self,

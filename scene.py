@@ -1,6 +1,5 @@
 # todo:
 #  cap blunt impact damages by 15% of max health; use size instead of weight
-#  loot cards in loot overlay provide position and x_key, y_key to display neighboring card for comparison
 #  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
@@ -77,6 +76,7 @@ class Scene:
         self.pause_popups = None
         self.loot_overlay = None
         self.draw_helper = False
+        self.draw_group_append = []
 
     def log_weapons(self):
         for character in self.characters:
@@ -232,14 +232,28 @@ class Scene:
                 self.draw_helper = True
 
                 # Pass mouse click to loot overlay:
-                if any(self.mouse_state):
-                    result = self.loot_overlay.catch(self.mouse_target, self.mouse_state)
+                result = self.loot_overlay.catch(self.mouse_target, self.mouse_state)
+                if all(result):
                     self._from_loot_overlay(*result)
 
+                    # Middle click closes overlay
                     if self.mouse_state[1]:
                         self.loot_overlay = None
 
-                # todo: If any loot cards are moused over and there is a valid comparison, draw a loot card under mouse
+                # If any loot cards are moused over and there is a valid comparison, draw a loot card nearby
+                elif result[0]:
+                    display_card_position = self.loot_overlay.show_neighbor_dict[result[0]]
+                    # Check if we have a comparable weapon equipped:
+                    own_equipment = self.player.slots[result[0].prefer_slot]
+                    if own_equipment:
+                        card_surface, card_rect = (own_equipment.loot_cards[None].draw(**display_card_position))
+                        # Mark 'Equipped':
+                        card_surface = card_surface.convert_alpha()
+                        card_surface.blit(
+                            ascii_draw(BASE_SIZE*2//3, f"[Equipped]", colors["inventory_title"]),
+                            (self.loot_overlay.offset*0.5, self.loot_overlay.offset*0.5)
+                        )
+                        self.draw_group_append.append([card_surface, card_rect])
 
                 # Fully heal player no matter the picked option:
                 self.player.hp, self.player.stamina = self.player.max_hp, self.player.max_stamina
@@ -352,56 +366,6 @@ class Scene:
         for particle in set(exhausted):
             self.particles.remove(particle)
 
-        # Display hitboxes if Tab is toggled
-        if self.display_debug:
-            for character in self.characters:
-                for hand in character.weapon_slots:
-                    hitbox = character.slots[hand].hitbox()
-                    if hitbox and hitbox[0] and hitbox[1]:
-                        hilt = r(*hitbox[0], 10, 10)
-                        tip = r(*hitbox[1], 10, 10)
-                        pygame.draw.rect(self.window, (255, 0, 0), hilt)
-                        pygame.draw.rect(self.window, (0, 255, 0), tip)
-
-                for hitbox in character.hitbox:
-                    pygame.draw.rect(self.window, (255, 255, 0), hitbox, width=2)
-
-                if character.ai:
-                    topleft = character.position + character.body_coordinates[character.ai.slot] - \
-                              v(character.ai.stab_reach_rx, character.ai.stab_reach_ry)
-                    reach_rect = r(topleft, (character.ai.stab_reach_rx * 2, character.ai.stab_reach_ry * 2))
-
-                    if character.facing_right:
-                        angle_range = -math.pi / 2, +math.pi / 2
-                    else:
-                        angle_range = +math.pi / 2, -math.pi / 2
-
-                    pygame.draw.arc(
-                        self.window,
-                        (64, 0, 0),
-                        reach_rect,
-                        *angle_range,
-                        width=2
-                    )
-
-                    strategy = ascii_draw(BASE_SIZE // 2, character.ai.strategy, c(255, 0, 0))
-                    state = ascii_draw(BASE_SIZE // 2, character.state, c(255, 0, 0))
-                    strategy_place = character.position.x, character.position.y - BASE_SIZE * 3
-                    strategy_rect = strategy.get_rect(center=strategy_place)
-                    state_place = character.position.x, character.position.y - BASE_SIZE * 4
-                    state_rect = state.get_rect(center=state_place)
-                    draw_group.append((strategy, strategy_rect))
-                    draw_group.append((state, state_rect))
-
-            global fps_querried_time
-            global fps_count
-
-            fps_querried_time += CLOCK.get_time()
-            if fps_querried_time >= 1000:
-                fps_count = ascii_draw(40, str(int(CLOCK.get_fps())), (255, 255, 0))
-                fps_querried_time = 0
-            self.window.blit(fps_count, (0, 0))
-
         # Draw UI elements:
         for ui in (self.inventory, self.progression):
             draw_group.append(ui.draw())
@@ -473,9 +437,63 @@ class Scene:
                         draw_compared=True
                     ))
 
+        # Display hitboxes if Tab is toggled
+        if self.display_debug:
+            for character in self.characters:
+                for hand in character.weapon_slots:
+                    hitbox = character.slots[hand].hitbox()
+                    if hitbox and hitbox[0] and hitbox[1]:
+                        hilt = r(*hitbox[0], 10, 10)
+                        tip = r(*hitbox[1], 10, 10)
+                        pygame.draw.rect(self.window, (255, 0, 0), hilt)
+                        pygame.draw.rect(self.window, (0, 255, 0), tip)
+
+                for hitbox in character.hitbox:
+                    pygame.draw.rect(self.window, (255, 255, 0), hitbox, width=2)
+
+                if character.ai:
+                    topleft = character.position + character.body_coordinates[character.ai.slot] - \
+                              v(character.ai.stab_reach_rx, character.ai.stab_reach_ry)
+                    reach_rect = r(topleft, (character.ai.stab_reach_rx * 2, character.ai.stab_reach_ry * 2))
+
+                    if character.facing_right:
+                        angle_range = -math.pi / 2, +math.pi / 2
+                    else:
+                        angle_range = +math.pi / 2, -math.pi / 2
+
+                    pygame.draw.arc(
+                        self.window,
+                        (64, 0, 0),
+                        reach_rect,
+                        *angle_range,
+                        width=2
+                    )
+
+                    strategy = ascii_draw(BASE_SIZE // 2, character.ai.strategy, c(255, 0, 0))
+                    state = ascii_draw(BASE_SIZE // 2, character.state, c(255, 0, 0))
+                    strategy_place = character.position.x, character.position.y - BASE_SIZE * 3
+                    strategy_rect = strategy.get_rect(center=strategy_place)
+                    state_place = character.position.x, character.position.y - BASE_SIZE * 4
+                    state_rect = state.get_rect(center=state_place)
+                    draw_group.append((strategy, strategy_rect))
+                    draw_group.append((state, state_rect))
+
+            global fps_querried_time
+            global fps_count
+
+            fps_querried_time += CLOCK.get_time()
+            if fps_querried_time >= 1000:
+                fps_count = ascii_draw(40, str(int(CLOCK.get_fps())), (255, 255, 0))
+                fps_querried_time = 0
+            self.window.blit(fps_count, (0, 0))
+
         # Draw held mouse if exists
         if self.held_mouse is not None:
             draw_group.append(self.held_mouse.draw(v(self.mouse_target)))
+
+        if self.draw_group_append:
+            draw_group.extend(self.draw_group_append)
+            self.draw_group_append = []
 
         try:
             pygame.display.update(self.window.blits(draw_group, doreturn=1))
@@ -799,6 +817,9 @@ class Scene:
                                                relative_v.length_squared())
                         impact_damage = 0.05 * weapon.weight * damage_modifier
 
+                        # Cap impact damage at 15% of target health:
+                        impact_damage = min(impact_damage, 0.15*target.max_hp)
+
                         survived, damage = target.hurt(
                             damage=impact_damage,
                             vector=weapon.speed,
@@ -857,6 +878,10 @@ class Scene:
             damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),
                                    character.wall_collision_v.length_squared())
             impact_damage = 0.025 * character.weight * damage_modifier
+
+            # Cap at 15% max_hp
+            impact_damage = min(impact_damage, 0.15 * character.max_hp)
+
             survived, damage = character.hurt(
                 damage=impact_damage,
                 vector=v(),
@@ -887,17 +912,34 @@ class Scene:
         )
         self.particles.append(kicker)
 
-        # Spawn a blood particle 50% of the time for each 7 damage suffered
-        # Spawn 1 instantly always:
-        first_blood = Droplet(point, target, spawn_delay=0)
-        self.particles.append(first_blood)
+        if target.has_blood:
+            # Spawn a blood particle 50% of the time for each 7 damage suffered
+            # Spawn 1 instantly always:
+            first_blood = Droplet(point, target, spawn_delay=0)
+            self.particles.append(first_blood)
 
-        for _ in range(int(damage // 7)):
-            if random.random() > 0.5:
-                continue
+            for _ in range(int(damage // 7)):
+                if random.random() > 0.5:
+                    continue
 
-            blood = Droplet(point, target)
-            self.particles.append(blood)
+                blood = Droplet(point, target)
+                self.particles.append(blood)
+        else:
+            # Spawn Sparks of body color
+            for _ in range(int(damage // 7)):
+                if random.random() > 0.5:
+                    continue
+
+                if weapon:
+                    vector = weapon.tip_delta * -4
+                else:
+                    vector = v()
+                    vector.from_polar((
+                        2*POKE_THRESHOLD,
+                        random.uniform(-180, 180)
+                    ))
+                blood = Spark(target.position, vector, attack_color=target.color, angle_spread=(-60, 60))
+                self.particles.append(blood)
 
     def undertake(self, character):
 

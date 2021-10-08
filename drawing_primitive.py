@@ -1,5 +1,6 @@
-# todo: ascii_draw_rows function to draw multiple rows for speech bubbles, hats and axes
+# todo:
 # After tech demo
+#  Material collections
 # todo: sparks to leave shapes of lines
 # todo: dialogue graphic
 # todo: language json

@@ -1,3 +1,4 @@
+# todo:
 # after tech demo:
 # todo:
 #  sparks in inventory when weapon is damaged
@@ -130,7 +131,8 @@ class LootOverlay:
         self.loot_list = loot_list
         self.character = character
         self.offset = offset
-        self.loot_dict = {}
+        self.loot_dict = dict()
+        self.show_neighbor_dict = dict()
         self.rect = rect
         self.draw_shortcuts = draw_shortcuts
 
@@ -182,6 +184,17 @@ class LootOverlay:
             )
             self.surface.blit(loot_card, loot_card_rect)
 
+            # Update loot_neighbor_dict to collect options to display comparison loot
+            leftside = x_offset < LOOT_SPACE.width * 0.5
+            self.show_neighbor_dict[loot] = {
+                "x_key": 'left' if leftside else 'right',
+                "y_key": 'bottom',
+                "position": v(loot_card_rect.bottomright) if leftside else v(loot_card_rect.bottomleft)
+            }
+
+            self.show_neighbor_dict[loot]["position"] += v(self.rect.topleft)
+            self.show_neighbor_dict[loot]["position"] += v(self.offset, 0) if leftside else v(-self.offset, 0)
+
             # Draw shortcuts
             if self.draw_shortcuts:
                 shortcurt_surface = ascii_draw(BASE_SIZE*2//3, f"[{card_no:.0f}]", colors["inventory_title"])
@@ -197,14 +210,6 @@ class LootOverlay:
 
             card_index += 1
             card_no += 1
-
-        # Moved to Helper
-        # x_offset, y_offset = self.rect.width - self.offset, self.rect.height - self.offset
-        # for label in {"Left click to equip in slot, right to hide in backpack, middle to close"}:
-        #     label_surf = ascii_draw(BASE_SIZE // 2, label, c(colors["inventory_text"]))
-        #     label_rect = label_surf.get_rect(bottom=y_offset, right=x_offset)
-        #     self.surface.blit(label_surf, label_rect)
-        #     y_offset -= BASE_SIZE // 3 + label_rect.height
 
     def draw(self):
         surface = self.surface.copy()
@@ -235,15 +240,15 @@ class LootOverlay:
 
     def catch(self, position, mouse_state):
         # If animation is not finished, instantly complete it, and return no click
-        if self.lifetime < self.animation_time:
+        if any(mouse_state) and self.lifetime < self.animation_time:
             self.lifetime = self.animation_time
             return None, None
 
         if not any(mouse_state):
-            # Return None, prefered loot slot
+            # Return loot, None slot
             for loot in self.loot_dict:
                 if self.loot_dict[loot].collidepoint(position):
-                    return None, loot.prefer_slot
+                    return loot, None
 
         for loot in self.loot_dict:
             if self.loot_dict[loot].collidepoint(position):

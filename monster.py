@@ -1413,6 +1413,7 @@ class Orc(Humanoid):
 
 
 class DebugGoblin(Goblin):
+
     def __init__(self, *args, **kwargs):
         super(DebugGoblin, self).__init__(*args, **kwargs)
         self.max_speed = 0

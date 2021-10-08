@@ -845,8 +845,8 @@ class Character:
 
     def breath(self):
         if self.stamina < self.max_stamina and self.state not in DISABLED:
-            # Restore slower when stamina is low
-            exhaust_mod = max(self.stamina / self.max_stamina, 0.6)
+            # Restore slower when stamina is critical low
+            exhaust_mod = max(self.stamina / self.max_stamina, 0.2)
             # Restore slower when moving
             if self.speed.xy != [0, 0]:
                 exhaust_mod *= 0.5
@@ -856,7 +856,11 @@ class Character:
             # Hurt characters restore stamina very fast:
             if self.immune_timer > 0:
                 exhaust_mod *= 5
-            self.stamina = min(self.stamina + self.stamina_restoration * FPS_TICK * exhaust_mod, self.max_stamina)
+
+            # 30 SP/s is hard lower limit
+            stamina_increment = max(self.stamina_restoration * exhaust_mod, 30)
+
+            self.stamina = min(self.stamina + stamina_increment * FPS_TICK, self.max_stamina)
 
         # HP is passively healed
         if 0 < self.hp < self.max_hp:

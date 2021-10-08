@@ -1,5 +1,4 @@
 # todo:
-#  extract activation methods that may be shared between weapon classes;
 #  _on_equip hook to calculate and cache character-specific weapon constants
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
@@ -231,7 +230,7 @@ class Wielded(Equipment):
             self.stamina_ignore_timer -= FPS_TICK
 
         # If weapon is locked, tick down timer and move by inertia offset(unless disabled) if needed:
-        if self.lock_timer >= 0:
+        if self.lock_timer > 0:
             self.lock_timer -= FPS_TICK
 
             if self.inertia_vector != v() and not self.disabled:
@@ -380,19 +379,12 @@ class Wielded(Equipment):
                 self.last_angle = -180 - self.last_angle
             self.angular_speed *= -1
 
+        self._calculate_hitbox(hilt_placement)
+
+    def _calculate_hitbox(self, hilt_placement):
         # Calculate hitboxes
         # Move hilt and tip hitbox:
         self.hilt_v = hilt_placement.xy + self.activation_offset
-
-        # Account for weapon held differently
-        # if self.held_position != v():
-        #     held_scale_down = character.size / BASE_SIZE
-        #     held_offset = v(
-        #         self.held_position.x * held_scale_down,
-        #         self.held_position.y * held_scale_down
-        #     )
-        #     held_offset.x *= -1 if character.facing_right else 1
-        #     self.hilt_v += held_offset
 
         # Log location of the tip, if there is one
         if self.length:
@@ -621,6 +613,10 @@ class Wielded(Equipment):
 class Bladed(Wielded):
     """Maces, Axes, Swords"""
 
+    def __init__(self, *args, **kwargs):
+        super(Bladed, self).__init__(*args, **kwargs)
+        self.spin_remaining = 0
+
     def is_dangerous(self):
         if self.tip_v is None:
             return False
@@ -631,7 +627,7 @@ class Bladed(Wielded):
 
     def deal_damage(self, vector=v(), victim=None, attacker=None):
         # Process limit cases:
-        if abs(self.angular_speed) <= SWING_THRESHOLD:
+        if abs(self.angular_speed) <= SWING_THRESHOLD or self.spin_remaining > 0:
             return self.damage_range[0]
 
         if abs(self.angular_speed) >= 1.6 * SWING_THRESHOLD:
@@ -657,6 +653,41 @@ class Bladed(Wielded):
         # coefficient = (1/0.216))*(damage_max - damage_mid_point) * (SWING_THRESHOLD ** -3)
 
         return damage
+
+    def _spin(self, speed, abs_angle):
+        """Force self to spin with set speed for duration"""
+        if speed == 0:
+            print(f"Someone attempts to spin {self} with no spin")
+            return
+
+        self.angular_speed = speed
+        self.spin_remaining = abs_angle
+        self.stamina_ignore_timer = abs_angle / abs(self.angular_speed) * FPS_TICK
+
+        # Reset position:
+        self.lock_timer = 0
+        self.activation_offset = v()
+
+    def aim(self, hilt_placement, aiming_vector, character):
+        if self.spin_remaining <= 0:
+            super(Bladed, self).aim(hilt_placement, aiming_vector, character)
+            return
+
+        elif self.disabled:
+            self.spin_remaining = 0
+            super(Bladed, self).aim(hilt_placement, aiming_vector, character)
+            return
+
+        else:
+            # Spin without any restrictions and stamina consumption
+            self.stamina_ignore_timer -= FPS_TICK
+            self.spin_remaining -= abs(self.angular_speed)
+            self.last_angle += self.angular_speed
+            self._calculate_hitbox(hilt_placement)
+
+    def reset(self, character):
+        super(Bladed, self).reset(character)
+        self.spin_remaining = 0
 
 
 class Pointed(Wielded):
@@ -1009,8 +1040,8 @@ class Spear(Pointed):
         self.bleed = 0.15 * triangle_roll(self.weight/12 - 0.033*(10-shaft_len), 0.07)
 
     def deal_damage(self, vector=v(), victim=None, attacker=None):
-        # If we already skewering someone, spear deals crit damage:
-        dealt_damage = self.damage_range[1] if self.kebab else super(Spear, self).deal_damage(v(), victim, attacker)
+
+        dealt_damage = super(Spear, self).deal_damage(v(), victim, attacker)
         # Only player characters can skewer:
         if attacker.ai is not None:
             return dealt_damage
@@ -1027,24 +1058,27 @@ class Spear(Pointed):
             0 < dealt_damage < victim.hp,
             not victim.shielded
         ]):
-            self.kebab = victim
-            self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
-            self.kebab_size = victim.size
-
-            # Temporarily modify agility modifier depending on target weight
-            self.reduced_agility_modifier = min(
-                self.agility_modifier*0.5,
-                self.agility_modifier * attacker.size / self.kebab_size
-            )
-            self.saved_agility_modifier = self.agility_modifier
-
-            self.kebab.anchor(self.skewer_duration, position=self.tip_v)
-
-            # Anchor self and increase stamina
-            attacker.anchor(self.skewer_duration*0.5)
-            self.stamina_ignore_timer = self.skewer_duration + 1
+            self._skewer(attacker, victim)
 
         return dealt_damage
+
+    def _skewer(self, character, victim):
+        self.kebab = victim
+        self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
+        self.kebab_size = victim.size
+
+        # Temporarily modify agility modifier depending on target weight
+        self.reduced_agility_modifier = min(
+            self.agility_modifier*0.5,
+            self.agility_modifier * character.size / self.kebab_size
+        )
+        self.saved_agility_modifier = self.agility_modifier
+
+        self.kebab.anchor(self.skewer_duration, position=self.tip_v)
+
+        # Anchor self and increase stamina
+        character.anchor(self.skewer_duration*0.5)
+        self.stamina_ignore_timer = self.skewer_duration + 1
 
     def show_stats(self, compare_to=None):
         stats_dict: dict = super().show_stats(compare_to=compare_to)
@@ -1136,6 +1170,11 @@ class Spear(Pointed):
             character.set_state('exhausted', 1)
             return
 
+        self._hold_back(character)
+
+        # Actual stab will be execectuted by .aim
+
+    def _hold_back(self, character):
         self.active_this_frame = True
         self.in_use = True
 
@@ -1147,8 +1186,6 @@ class Spear(Pointed):
             if not character.facing_right:
                 decrement_v.x *= -1
             self.held_position += decrement_v
-
-        # Actual stab will be execectuted by .aim
 
     def reset(self, character):
         super(Spear, self).reset(character)
@@ -1317,7 +1354,7 @@ class Dagger(Short, Bladed):
             self.last_parry = opponent
 
     def aim(self, hilt_placement, aiming_vector, character):
-        super(Dagger, self).aim(hilt_placement, aiming_vector, character)
+        Wielded.aim(self, hilt_placement, aiming_vector, character)
 
         if (
                 self.last_parry is None or
@@ -2057,4 +2094,4 @@ class Swordbreaker(Dagger, OffHand):
         if self.stamina_ignore_timer > 0:
             if character.stamina < character.max_stamina:
                 character.stamina += character.max_stamina * 0.02 * FPS_TICK
-        return super().aim(hilt_placement, aiming_vector, character)
+        return Wielded.aim(self, hilt_placement, aiming_vector, character)

@@ -145,7 +145,8 @@ class Scene:
         # Debug:
         if debug:
             # print("No debug action set at the moment.")
-            self.echo(self.player, "Geronimo!", colors["lightning"])
+            # self.echo(self.player, "Geronimo!", colors["lightning"])
+            self.player.slots['main_hand']._spin(-3*SWING_THRESHOLD, 360 * 3)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:

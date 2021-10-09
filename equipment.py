@@ -1,5 +1,4 @@
 # todo:
-#  _on_equip hook to calculate and cache character-specific weapon constants
 #  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
@@ -83,7 +82,11 @@ class Wielded(Equipment):
 
         # Calculate hitbox and position
         if character.position:
-            self.hilt_v = v(character.body_coordinates[self.prefer_slot]) + v(character.position)
+            self.hilt_v = (
+                v(character.body_coordinates[self.prefer_slot]) +
+                v(character.position) +
+                v(self.held_position)
+            )
 
             if self.length:
                 self.tip_v = v()
@@ -309,7 +312,7 @@ class Wielded(Equipment):
 
             max_speed = MAX_SPEED * exhaust_mod
             # Calculate acceleration
-            acceleration = character.agility * self.agility_modifier * exhaust_mod * FPS_TICK * 6.67
+            acceleration = self.character_specific['acceleration'] * exhaust_mod
             acceleration = math.copysign(acceleration, angle_delta)
 
             # Calculate new speed
@@ -358,7 +361,7 @@ class Wielded(Equipment):
 
         # If speed is changing, drain stamina; disabled or recently locked weapons don't drain stamina
         if speed_delta != 0 and not self.disabled and self.stamina_ignore_timer <= 0:
-            character.stamina -= self.stamina_drain * 250 * FPS_TICK * self.aim_drain_modifier
+            character.stamina -= self.character_specific["stamina_drain"]
             # If stamina is empty, lock the weapon
             if character.stamina <= 0 < self.aim_drain_modifier:
                 character.stamina = 0
@@ -518,7 +521,7 @@ class Wielded(Equipment):
         # else:
         #     self.activation_offset.scale_to_length(BASE_SIZE * 0.5)
         if other_weapon.tip_delta:
-            self.activation_offset += other_weapon.tip_delta * FPS_TARGET * 0.05
+            self.activation_offset += other_weapon.tip_delta * other_weapon.weight / self.weight
         self.inertia_vector = v()
 
         # Separate impact force into 2 components:
@@ -609,6 +612,13 @@ class Wielded(Equipment):
     def reduce_damage(self, penalty):
         self.damage_range = int(self.damage_range[0] * (1-penalty)),  int(self.damage_range[1] * (1-penalty))
 
+    def on_equip(self, character):
+        # Reset:
+        self.character_specific = dict()
+        # Fill:
+        self.character_specific["stamina_drain"] = self.stamina_drain * 250 * FPS_TICK * self.aim_drain_modifier
+        self.character_specific["acceleration"] = character.agility * self.agility_modifier * FPS_TICK * 6.67
+
 
 class Bladed(Wielded):
     """Maces, Axes, Swords"""
@@ -635,12 +645,12 @@ class Bladed(Wielded):
 
         # Assume a cubic dependence instead of LERP becuase it has close to desired value spread
         # Calculate function constants:
-        swing_mid_point = 1.3 * SWING_THRESHOLD
-        damage_mid_point = (self.damage_range[1] + self.damage_range[0]) / 2
-        coefficient = 9.2 * (self.damage_range[1] - self.damage_range[0]) * (SWING_THRESHOLD ** -3)
+        # Moved to on_equip
 
         # Finaly, calculate damage:
-        damage = coefficient * ((abs(self.angular_speed) - swing_mid_point) ** 3) + damage_mid_point
+        damage = self.character_specific["coefficient"] * ((abs(self.angular_speed) -
+                                                            self.character_specific["swing_mid_point"]) ** 3) + \
+            self.character_specific["damage_mid_point"]
 
         # Calculation logic stays here in case I need to check myself:
         # equations: damage(swing_mid_point) = damage_mid_point
@@ -689,6 +699,13 @@ class Bladed(Wielded):
         super(Bladed, self).reset(character)
         self.spin_remaining = 0
 
+    def on_equip(self, character):
+        super(Bladed, self).on_equip(character)
+        self.character_specific["swing_mid_point"] = 1.3 * SWING_THRESHOLD
+        self.character_specific["damage_mid_point"] = (self.damage_range[1] + self.damage_range[0]) / 2
+        self.character_specific["coefficient"] = 9.2 * (self.damage_range[1] - self.damage_range[0]) * \
+            (SWING_THRESHOLD ** -3)
+
 
 class Pointed(Wielded):
     """Spears, Daggers, Swords"""
@@ -703,7 +720,7 @@ class Pointed(Wielded):
             return
 
         # Need at least half max stamina
-        if character.stamina <= character.max_stamina * self.stab_cost:
+        if character.stamina <= self.character_specific["abs_stab_cost"]:
             character.set_state('exhausted', 1)
             return
 
@@ -726,10 +743,9 @@ class Pointed(Wielded):
                 character.stamina *= 1 - 0.2 * abs(sin)
 
         # Make character dash:
-        abs_speed = math.sqrt(self.agility_modifier) * BASE_SIZE * 15 * FPS_TICK
         duration = 0.2
         dash_vector = v()
-        dash_vector.from_polar((abs_speed*self.stab_dash_modifier, -self.last_angle))
+        dash_vector.from_polar((self.character_specific["abs_dash_speed"], -self.last_angle))
         character.speed += dash_vector
 
         # Lock all other currently equipped equipment, unless we are using swordbreaker or equipment is Swordbreaker
@@ -745,7 +761,7 @@ class Pointed(Wielded):
         # Determine activation_offset to move weapon forward (stab)
         self.inertia_vector = v()
         self.inertia_vector.from_polar((
-            6.25 * BASE_SIZE * character.agility * self.stab_modifier * self.agility_modifier,
+            self.character_specific["stab_inertia_v"],
             -self.last_angle
         ))
         self.inertia_vector += supplemental_v
@@ -786,6 +802,14 @@ class Pointed(Wielded):
         relative_poke = (poke_strength - POKE_THRESHOLD) / (2 * POKE_THRESHOLD)
         damage = round(lerp(self.damage_range, relative_poke))
         return damage
+
+    def on_equip(self, character):
+        super(Pointed, self).on_equip(character)
+        self.character_specific["abs_stab_cost"] = character.max_stamina * self.stab_cost
+        self.character_specific["abs_dash_speed"] = math.sqrt(self.agility_modifier) * BASE_SIZE * 15 * FPS_TICK * \
+            self.stab_dash_modifier
+        self.character_specific["stab_inertia_v"] = 6.25 * BASE_SIZE * character.agility * self.stab_modifier * \
+            self.agility_modifier
 
 
 class Sword(Bladed, Pointed):
@@ -1181,7 +1205,7 @@ class Spear(Pointed):
         if self.held_back_duration < self._max_fallback:
             self.held_back_duration += FPS_TICK
             decrement_v = v()
-            decrement_args = self._fallback_distance * self.length * FPS_TICK / self._max_fallback, self.last_angle
+            decrement_args = self.character_specific["hb_decrement"], self.last_angle
             decrement_v.from_polar(decrement_args)
             if not character.facing_right:
                 decrement_v.x *= -1
@@ -1200,6 +1224,10 @@ class Spear(Pointed):
         self.kebab = None
         self.skewer_duration = self.max_skewer_duration = 0
         self.kebab_size = None
+
+    def on_equip(self, character):
+        super(Spear, self).on_equip(character)
+        self.character_specific["hb_decrement"] = self._fallback_distance * self.length * FPS_TICK / self._max_fallback
 
 
 class Short(Pointed):
@@ -1471,7 +1499,7 @@ class Falchion(Sword):
     downside = ["Minimal damage on stab attacks"]
 
     def __init__(self, *args, **kwargs):
-        # To be set bby update_stats
+        # To be set by update_stats
         self.roll_cooldown = 0
         super(Falchion, self).__init__(*args, **kwargs)
         self.roll_cooldown = triangle_roll(self.roll_cooldown, 0.07)
@@ -1590,9 +1618,8 @@ class Falchion(Sword):
         roll_v = point - v(character.position)
 
         # Modify/limit roll length (^2 is faster)
-        treshold = self.calculate_roll(character)
-        if roll_v.length_squared() > (treshold * FPS_TARGET) ** 2:
-            roll_v.scale_to_length(2 * treshold)
+        if roll_v.length_squared() > (self.character_specific["roll_treshold"] * FPS_TARGET) ** 2:
+            roll_v.scale_to_length(2 * self.character_specific["roll_treshold"])
         else:
             roll_v *= FPS_TICK * 2
         character.roll(roll_v, roll_cooldown=self.roll_cooldown)
@@ -1616,7 +1643,12 @@ class Falchion(Sword):
         return stats_dict
 
     def calculate_roll(self, character):
-        return character.max_speed * self.agility_modifier * character.size / BASE_SIZE
+        return
+
+    def on_equip(self, character):
+        super(Falchion, self).on_equip(character)
+        self.character_specific["roll_treshold"] = character.max_speed * self.agility_modifier * character.size / \
+            BASE_SIZE
 
 
 class OffHand(Wielded):
@@ -1779,9 +1811,7 @@ class Shield(OffHand):
             bash_vector.from_polar((bash_intensity, bash_angle))
 
             character.push(bash_vector, 0.5, 'bashing')
-            x_component = (character.body_coordinates["main_hand"][0] - character.body_coordinates["off_hand"][0]) \
-                / self.equip_time * 0.7
-            self.inertia_vector = v(x_component, 0)
+            self.inertia_vector = v(self.character_specific["x_component"], 0)
             self.activation_offset = v(
                 character.body_coordinates["main_hand"][0] - character.body_coordinates["off_hand"][0],
                 0
@@ -1818,6 +1848,12 @@ class Shield(OffHand):
                 else:
                     angle = math.copysign(180, weapon.default_angle) - weapon.default_angle
                 weapon.lock(angle=angle, duration=lock_time)
+
+    def on_equip(self, character):
+        super(Shield, self).on_equip(character)
+        self.character_specific['x_component'] = (character.body_coordinates["main_hand"][0] -
+                                                  character.body_coordinates["off_hand"][0]) / self.equip_time * 0.7
+        self.character_specific['pushback_resistance'] = (1 - self.stamina_drain) / (self.weight + character.weight)
 
     def hitbox(self):
         return []
@@ -1889,7 +1925,7 @@ class Shield(OffHand):
 
         # Cause character movement by reduced force:
         # The more damage was blocked, the higher the pushback
-        character.speed += vector * (1 - self.stamina_drain) / (self.weight + character.weight)
+        character.speed += vector * self.character_specific['pushback_resistance']
         blowback = -vector
         blowback.scale_to_length(self.weight)
         weapon.parry(

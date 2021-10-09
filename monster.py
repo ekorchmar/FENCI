@@ -250,6 +250,9 @@ class Humanoid(Character):
                         self.rolled_through.append(dodged)
 
     def equip(self, armament, slot):
+        # Allow to update constants
+        armament.on_equip(self)
+
         # Equipping Nothing drops slot content
         if not armament:
             self.slots[slot], drop = Nothing(), self.slots[slot]
@@ -392,7 +395,7 @@ class AI:
         if not isinstance(self.weapon, Falchion):
             return
 
-        self.roll_range = 0.5 * self.weapon.calculate_roll(self.character) * FPS_TARGET
+        self.roll_range = 0.5 * self.weapon.character_specific["roll_treshold"] * FPS_TARGET
 
     def calculate_swing(self):
         if not isinstance(self.weapon, Bladed):

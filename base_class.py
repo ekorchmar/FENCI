@@ -80,7 +80,7 @@ class Material:
     @classmethod
     def init(cls):
         for sample in raw_materials:
-            Material.registry[sample] = Material(
+            cls.registry[sample] = cls(
                 sample,
                 raw_materials[sample]['hsva_values']['min'],
                 raw_materials[sample]['hsva_values']['max'],
@@ -92,8 +92,8 @@ class Material:
             )
 
             # Convert to Color object
-            if Material.registry[sample].attacks_color:
-                Material.registry[sample].attacks_color = c(Material.registry[sample].attacks_color)
+            if cls.registry[sample].attacks_color:
+                cls.registry[sample].attacks_color = c(cls.registry[sample].attacks_color)
 
 
 # Initiate material registry:
@@ -123,7 +123,7 @@ class Equipment:
 
     def __init__(self, *args, equipment_dict=None, **kwargs):
         if equipment_dict is None:
-            self.builder = {}
+            self.builder = dict()
             self.tier = None
         else:
             self.builder = equipment_dict
@@ -132,7 +132,10 @@ class Equipment:
         self.surface = None
         self.in_use = False
         self.durability = 100
-        self.loot_cards = {}
+        self.loot_cards = dict()
+
+        # Dict for character-specific variables; filled by on_equip method:
+        self.character_specific = dict()
 
     def reset(self, character):
         pass
@@ -262,6 +265,10 @@ class Equipment:
         # Preserves string literals for each of classes that are eligible to spawn
         if cls.class_name:
             cls.registry[cls.class_name] = cls
+
+    @staticmethod
+    def on_equip(character):
+        pass
 
 
 class Character:
@@ -762,6 +769,8 @@ class Character:
         for slot in self.weapon_slots:
             weapon = self.slots[slot]
             weapon.reset(self)
+            # Recalculate variables:
+            weapon.on_equip(self)
             weapon.lock(0.2)
 
         if not dormant and self.ai:

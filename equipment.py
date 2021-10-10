@@ -1,5 +1,10 @@
 # todo:
-#  Axes: Heavy, Bladed; activate while running for whirlwind attack, activate while static to power up a boomerang throw
+#  activate Axe while running for whirlwind attack,
+#  ?? activate while static to power up a boomerang throw
+#  weapon.particles: spawn particle objects for scene to pick up
+#  Spears spawn damage kickers for 'SKEWER!'(5% chance to 'KEBAB!') and 'BLEED!'
+#  equipment.slow to set limit for voluntary movement
+#  shields use equipment.slow to limit speed while lifted; depend on agility modifier
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
 # todo:
@@ -13,7 +18,9 @@
 #  Add bows, crossbows: off-hand projectile weapons; replace main weapon when used:
 #  -bow deals damage depending on drawn time
 #  -crossbow can only deals max damage, but requires being fully loaded
+
 from base_class import *
+from particle import *
 
 
 # Init equipment classes:
@@ -100,6 +107,9 @@ class Wielded(Equipment):
         super().__init__(size, color=None, tier_target=None, equipment_dict=equipment_dict)
         self.hilt = None
 
+        # Remember for generation scripts
+        self.font_size = size
+
         # Depend on Material.registry and quality
         self.length = None
         self.weight = 0
@@ -152,6 +162,9 @@ class Wielded(Equipment):
 
         # Durability counter:
         self.durability = 100
+
+        # Spawn particles for scene to pick up:
+        self.particles = []
 
     def show_stats(self, compare_to=None):
         """
@@ -601,7 +614,7 @@ class Wielded(Equipment):
 
             portrait = tint(portrait, color)
 
-        if isinstance(self, Spear):
+        if isinstance(self, (Spear, Axe)):
             portrait = pygame.transform.flip(portrait, True, True)
         new_width = portrait.get_width()
 
@@ -693,6 +706,14 @@ class Bladed(Wielded):
             self.stamina_ignore_timer -= FPS_TICK
             self.spin_remaining -= abs(self.angular_speed)
             self.last_angle += self.angular_speed
+
+            # Normalize angle to pygame constraints (-180, 180):
+            self.last_angle %= 360
+            if -360 < self.last_angle < -180:
+                self.last_angle += 360
+            if 360 < self.last_angle < 180:
+                self.last_angle -= 360
+
             self._calculate_hitbox(hilt_placement)
 
     def reset(self, character):
@@ -1474,11 +1495,155 @@ class Dagger(Short, Bladed):
 
 class Axe(Bladed):
     # class_name = "Axe"
-    action_string = "Hold action button to charge up a boomerang throw"
+    _handle_length = 3
+    max_tilt = 130
+    default_angle = 40
+    hitting_surface = 'head'
+    upside = ['Hold activation to charge whirlwind attack']
+    downside = ['Only swing attacks']
+
+    def __init__(self, size, *args, **kwargs):
+        self.wing_tips = {
+            'cw': [v(), v()],
+            'ccw': [v(), v()]
+        }
+        self.wing_tips_v = [v(), v()]
+        super(Axe, self).__init__(size * 2 // 3, *args, **kwargs)  # Axes need to use smaller font
 
     def activate(self, character, continuous_input):
         """Hold mouse button to charge a throw"""
         pass
+
+    def hitbox(self):
+        return self.wing_tips_v
+    
+    def _calculate_hitbox(self, hilt_placement):
+        super(Axe, self)._calculate_hitbox(hilt_placement)
+        new_hitbox = []
+        direction = 'cw' if self.angular_speed < 0 else 'ccw'
+        for wing_tip in self.wing_tips[direction]:
+            # Rotate tip vector by last angle
+            new_vector = v(wing_tip)
+            new_vector.rotate_ip(-self.last_angle)
+            new_vector += v(self.hilt_v)
+            new_hitbox.append(new_vector)
+
+        self.wing_tips_v = new_hitbox
+
+    def generate(self, size, tier=None):
+
+        # Fill missing parts of self.builder on the go:
+        self.builder["constructor"] = self.builder.get("constructor", {})
+        self.builder["tier"] = self.builder.get("tier", tier)
+
+        # Use this for calculations from now on
+        tier = self.builder["tier"]
+
+        self.builder["class"] = "Axe"
+
+        # Create axe head:
+        self.builder["constructor"]["head"] = self.builder["constructor"].get("head", {})
+        self.builder["constructor"]["head"]["str"] = self.builder["constructor"]["head"].get(
+            "str", random.choice(parts_dict['axe']['heads'])
+        )
+
+        self.builder["constructor"]["head"]["material"] = self.builder["constructor"]["head"].get(
+            "material", Material.pick(['precious', 'metal', 'mineral'], roll_tier(tier))
+        )
+
+        # Create a handle:
+        self.builder["constructor"]["handle"] = self.builder["constructor"].get("handle", {})
+        self.builder["constructor"]["handle"]["str"] = self.builder["constructor"]["handle"].get(
+            "str", random.choice(parts_dict['axe']['handles'])
+        )
+
+        def new_handle_material():
+            # 20% of the time, pick same metal for METALLIC hilt
+            if (
+                    random.random() > 0.8 and
+                    Material.registry[self.builder["constructor"]["head"]["material"]].physics in ('metal', 'precious')
+            ):
+                hm = self.builder["constructor"]["head"]["material"]
+            else:
+                hm = Material.pick(['bone', 'wood'], roll_tier(tier))
+            return hm
+
+        self.builder["constructor"]["handle"]["material"] = self.builder["constructor"]["handle"].get(
+            "material", new_handle_material()
+        )
+
+        # Generate colors:
+        self.builder["constructor"]['head']["color"] = self.builder["constructor"]['head'].get(
+            "color", Material.registry[self.builder["constructor"]['head']["material"]].generate()
+        )
+
+        # If axe is full-metal, use head color for handle
+        def new_handle_color():
+            if self.builder["constructor"]['head']['material'] == self.builder["constructor"]['handle']['material']:
+                return self.builder["constructor"]['head']["color"]
+            # Else, generate new
+            return Material.registry[self.builder["constructor"]['handle']["material"]].generate()
+
+        self.builder["constructor"]['handle']["color"] = self.builder["constructor"]['handle'].get(
+            "color", new_handle_color()
+        )
+
+        # Now that builder is filled, create surface:
+        handle_str = self._handle_length * ['  ' + self.builder["constructor"]["handle"]["str"] + '  ']
+        head_str = self.builder["constructor"]["head"]["str"]
+        handle_color = self.builder["constructor"]["handle"]["color"]
+        head_color = self.builder["constructor"]["head"]["color"]
+
+        self.surface = ascii_draw_rows(
+            size, [[row, head_color] for row in head_str] + [[row, handle_color] for row in handle_str]
+        )
+        self.surface = pygame.transform.rotate(self.surface, -90)
+
+        # Hold in the middle of handle
+        relative_x = len(handle_str)*0.5 / len(head_str + handle_str)
+        self.hilt = self.surface.get_width() * relative_x, self.surface.get_height() * 0.5
+
+        # Sword tip coordinate relative to hilt -- offset 1.25 character_positions
+        self.length = self.surface.get_width() - self.hilt[0]
+
+        self.hides_hand = False
+
+        self.color = Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
+
+        # Axe special: find locations of head corner vectors relative to the hilt
+        blade_start = len(handle_str) / (len(head_str) + len(handle_str))
+        self.wing_tips = {
+            'cw': [
+                v(self.surface.get_width()*blade_start, self.surface.get_height()) - v(self.hilt),
+                v(self.surface.get_rect().bottomright) - v(self.hilt)
+            ],
+            'ccw': [
+                v(self.surface.get_width()*blade_start, 0) - v(self.hilt),
+                v(self.surface.get_rect().topright) - v(self.hilt)
+            ]
+        }
+
+    def update_stats(self):
+        handle_material = Material.registry[self.builder["constructor"]["handle"]["material"]]
+        head_material = Material.registry[self.builder["constructor"]["head"]["material"]]
+
+        # Generate stats according to Material.registry
+        self.weight = 1.5 * handle_material.weight + 3 + 3 * head_material.weight
+        self.tier = int((handle_material.tier + head_material.tier) * 0.5)
+
+        # reduced for head weight, increased for hilt tier
+        # SQRT to bring closer to 1.0
+        self.agility_modifier = math.sqrt((8.0 + handle_material.tier) / (3 * head_material.weight)) * .7
+        # Increased for sword total weight, reduced for head tier (1.3-1.6)
+        # SQRT to bring closer to 1.0
+        self.stamina_drain = math.sqrt(0.3 * self.weight / (2 + head_material.tier))
+
+        # Calculate damage range depending on weight, size and tier:
+        # High tier axes scale better
+        min_damage = int((40 + self.weight) * 1.08 ** (self.tier - 1))
+        max_damage = int(min_damage * math.sqrt(2 + 0.1 * self.tier))
+        self.damage_range = min_damage, max_damage
+        self.redraw_loot()
 
 
 class Mace(Bladed):

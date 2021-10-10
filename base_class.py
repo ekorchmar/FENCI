@@ -1,6 +1,7 @@
 # todo:
 #  loot cards use arrows to show better stats ⇧ ⇩
 #  button(character) class, with associated action on click,  or button press
+#  querry equipment for equipment.slow each frame; affect voluntary movement limit
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards

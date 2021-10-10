@@ -501,7 +501,7 @@ class Bar:
 def morph_equipment(char):
     for slot in char.weapon_slots:
         char.slots[slot].builder = {}
-        char.slots[slot].generate(char.size, tier=random.randint(1, 4))
+        char.slots[slot].generate(char.slots[slot].font_size, tier=random.randint(1, 4))
         char.slots[slot].update_stats()
 
 

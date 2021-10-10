@@ -1,4 +1,6 @@
 # todo:
+#  fix middle click not closing loot overlay
+#  ignore toggle pause during loot overlay
 #  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
@@ -334,6 +336,13 @@ class Scene:
 
         # Draw all characters
         for character in self.characters:
+
+            # Querry character equipment to collect particles
+            for slot in character.slots:
+                equipment = character.slots[slot]
+                self.particles.extend(equipment.particles)
+                equipment.particles = []
+
             draw_group.extend(character.draw(freeze=self.paused))
 
             # Spawn dust clouds under rolling or ramming characters
@@ -541,6 +550,7 @@ class Scene:
             # Don't check weapons of disabled characters:
             if character.state not in DISABLED:
                 for weapon in iteration_list[character]:
+                    # todo: delegate to Dagger.particles
                     # Spawn mouse-hint particle for player Daggers roll
                     try:
                         if weapon.last_parry and not weapon.roll_particle:
@@ -906,6 +916,9 @@ class Scene:
             character.wall_collision_v = v()
 
     def splatter(self, point, target, damage, weapon=None):
+        if damage == 0:
+            return
+
         # Spawn kicker
         kicker = Kicker(
             point,

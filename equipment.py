@@ -1,8 +1,7 @@
 # todo:
-#  activate Axe while running for whirlwind attack,
+#  activate Axe while running for whirlwind attack
 #  ?? activate while static to power up a boomerang throw
-#  weapon.particles: spawn particle objects for scene to pick up
-#  Spears spawn damage kickers for 'SKEWER!'(5% chance to 'KEBAB!') and 'BLEED!'
+#  destroying shields spawns kicker
 #  equipment.slow to set limit for voluntary movement
 #  shields use equipment.slow to limit speed while lifted; depend on agility modifier
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
@@ -12,15 +11,15 @@
 #  Add hats: armor, that passively changes stats of characters. Can be light, magic or heavy
 #  activateable axes and maces
 #  If mace is channeled, slowly spin up, ignoring limitations and aiming angle
-#  activatable buckler: smaller, lighter shield with bash stun attack and lower stamina efficiency
 #  Add projectiles,
+#  activatable buckler: smaller, lighter shield with throw attack and lower stamina efficiency
 #  axe can be channelled, to immobilize self and power up a boomerang throw
 #  Add bows, crossbows: off-hand projectile weapons; replace main weapon when used:
 #  -bow deals damage depending on drawn time
 #  -crossbow can only deals max damage, but requires being fully loaded
 
 from base_class import *
-from particle import *
+from particle import Kicker, MouseHint
 
 
 # Init equipment classes:
@@ -162,9 +161,6 @@ class Wielded(Equipment):
 
         # Durability counter:
         self.durability = 100
-
-        # Spawn particles for scene to pick up:
-        self.particles = []
 
     def show_stats(self, compare_to=None):
         """
@@ -814,6 +810,25 @@ class Pointed(Wielded):
         return poke_strength >= POKE_THRESHOLD and not self.disabled
 
     def deal_damage(self, vector=v(), victim=None, attacker=None):
+        # If we stab a target that is skewered on another weapon, spawn "EXECUTION" kicker
+        if victim and attacker:
+            for weapon in attacker.weapon_slots:
+                try:
+                    if attacker.slots[weapon].kebab == victim:
+
+                        execution_kicker = Kicker(
+                            position=v(self.tip_v) + v(0, BASE_SIZE),
+                            damage_value=0,
+                            color=colors["crit_kicker"],
+                            override_string='EXECUTION!',
+                            oscillate=False
+                        )
+                        self.particles.append(execution_kicker)
+                        return self.damage_range[1]
+
+                except AttributeError:
+                    continue
+
         hitting_v = self.tip_delta + vector
 
         # Project weapon hit on weapon itself to determine "poking" component of collision vector
@@ -822,6 +837,7 @@ class Pointed(Wielded):
 
         relative_poke = (poke_strength - POKE_THRESHOLD) / (2 * POKE_THRESHOLD)
         damage = round(lerp(self.damage_range, relative_poke))
+
         return damage
 
     def on_equip(self, character):
@@ -1125,6 +1141,16 @@ class Spear(Pointed):
         character.anchor(self.skewer_duration*0.5)
         self.stamina_ignore_timer = self.skewer_duration + 1
 
+        # Add particle kicker:
+        skewer_kicker = Kicker(
+            position=v(self.tip_v)+v(0, BASE_SIZE),
+            damage_value=0,
+            color=colors["lightning"],
+            override_string='SKEWER!' if random.random() < 0.95 else 'KEBAB!',
+            oscillate=False
+        )
+        self.particles.append(skewer_kicker)
+
     def show_stats(self, compare_to=None):
         stats_dict: dict = super().show_stats(compare_to=compare_to)
 
@@ -1188,13 +1214,20 @@ class Spear(Pointed):
 
                 # Throw charcter and bleed it
                 self.kebab.push(push_v, self.kebab.hit_immunity*2)
-
-                # Refresh bleeding duration:
                 self.kebab.bleed(self.bleed, self.kebab.hit_immunity*2)
 
                 # Reset own skewer and restore stamina
                 self.skewer_duration = 0
                 character.stamina = character.max_stamina
+
+                # Add particle kicker:
+                skewer_kicker = Kicker(
+                    position=v(self.tip_v),
+                    damage_value=0,
+                    color=colors["crit_kicker"],
+                    override_string='BLEEDING!'
+                )
+                self.particles.append(skewer_kicker)
 
         # Else: make sure nothing is attached
         else:
@@ -1374,13 +1407,12 @@ class Dagger(Short, Bladed):
 
     def deal_damage(self, vector=v(), victim=None, attacker=None):
         # Determine if stabbibg or swinging damage is dealt; swinging is always min damage
-        return Pointed.deal_damage(self, vector)
+        return Pointed.deal_damage(self, vector, victim, attacker)
 
     def __init__(self, *args, **kwargs):
         self.roll_window = 0
         self.time_from_parry = 0
         self.last_parry = None
-        self.roll_particle = None
 
         super(Dagger, self).__init__(*args, **kwargs)
 
@@ -1402,6 +1434,19 @@ class Dagger(Short, Bladed):
             self.time_from_parry = 0
             self.last_parry = opponent
 
+            # Spawn mouse-hint particle for player Daggers roll
+            offset = v(-2 * BASE_SIZE, 0) if self.prefer_slot == 'main_hand' else v(2 * BASE_SIZE, 0)
+
+            roll_particle = MouseHint(
+                relative_position=offset,
+                lifetime=self.roll_window,
+                text="ROLL!",
+                size=BASE_SIZE * 2 // 3,
+                color=c(colors["indicator_good"]),
+                monitor=self.has_roll
+            )
+            self.particles.append(roll_particle)
+
     def aim(self, hilt_placement, aiming_vector, character):
         Wielded.aim(self, hilt_placement, aiming_vector, character)
 
@@ -1415,9 +1460,6 @@ class Dagger(Short, Bladed):
             self.last_parry = None
         else:
             self.time_from_parry += FPS_TICK
-
-        if self.roll_particle and self.roll_particle.lifetime < 0:
-            self.roll_particle = None
 
     def activate(self, character, continuous_input):
         # Roll through last parried enemy (only for players)
@@ -1445,7 +1487,6 @@ class Dagger(Short, Bladed):
         super(Dagger, self).reset(character)
         self.time_from_parry = 0
         self.last_parry = None
-        self.roll_particle = None
 
     def has_roll(self):
         return self.last_parry is not None
@@ -1958,6 +1999,9 @@ class Shield(OffHand):
         ):
             return
 
+        if self.disabled:
+            return
+
         self.active_this_frame = True
         self.held_counter += FPS_TICK
         self.in_use = True
@@ -2088,6 +2132,15 @@ class Shield(OffHand):
             # Return full damage and force
             return vector, damage
 
+        # Spawn 'BLOCKED' kicker
+        blocked_kicker = Kicker(
+            position=v(self.hilt_v),
+            damage_value=0,
+            color=colors["crit_kicker"],
+            override_string='BLOCKED!'
+        )
+        self.particles.append(blocked_kicker)
+
         # Cause character movement by reduced force:
         # The more damage was blocked, the higher the pushback
         character.speed += vector * self.character_specific['pushback_resistance']
@@ -2192,7 +2245,7 @@ class Swordbreaker(Dagger, OffHand):
     held_position = v(-55, 5)
     upside = [
         "Activate to dash and stab",
-        "Held in forward position"
+        "Held in forward position",
         "Activate after parrying to roll thorugh",
         "Restores stamina while used"
     ]

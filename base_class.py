@@ -1,4 +1,5 @@
 # todo:
+#  fall back to 'idle' if state animation is missing
 #  loot cards use arrows to show better stats ⇧ ⇩
 #  button(character) class, with associated action on click,  or button press
 #  querry equipment for equipment.slow each frame; affect voluntary movement limit
@@ -137,6 +138,9 @@ class Equipment:
 
         # Dict for character-specific variables; filled by on_equip method:
         self.character_specific = dict()
+
+        # Spawn particles for scene to pick up:
+        self.particles = []
 
     def reset(self, character):
         pass

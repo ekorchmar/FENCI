@@ -1,7 +1,7 @@
 # todo:
 #  return to menu after death or clearing Campaign
 #  Player.fate: dict to remember player choices for future scenario
-#  todo: scenario feeds dict with debug info into scene for display debug
+#  todo: scenario feeds dict with debug info into scene for display_debug
 
 from scene import *
 from monster import *

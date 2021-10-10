@@ -1,7 +1,7 @@
 # todo:
 #  Add orc faces
-#  Add orc equipment
-#  Add Axes for orcs
+#  Add orc equipment: Axes, Sword, Spear, Heavy Shield
+#  teach AI to use axe whirlwind
 # After tech demo
 # todo:
 #  ?? animate character flip
@@ -1389,13 +1389,13 @@ class Human(Humanoid):
 
 class Orc(Humanoid):
     difficulty = 3
-    hit_immunity = 1.5
+    hit_immunity = 1.0
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
         body_stats = character_stats["body"]["orc"]
         ai_stats = character_stats["soul"]["orc"]
-        portraits = character_stats["mind"]["goblin"]
+        portraits = character_stats["mind"]["orc"]
 
         body_stats["health"] += 20 * (tier - 1)
         body_stats["max_speed"] += tier / 2

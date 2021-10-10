@@ -1,5 +1,6 @@
 # todo:
-#  grow banner abimation
+#  'grow' banner animation
+#  sparks use varying parts of weapon and attack color for color generation
 #  banner background
 
 from base_class import *
@@ -15,24 +16,26 @@ class Kicker(Particle):
             base_speed=SWING_THRESHOLD / 4,
             lifetime=REMAINS_SCREENTIME / 1.5,
             weapon=None,
-            critcolor=None
+            critcolor=None,
+            override_string=None,
+            oscillate=True
     ):
 
-        damage_string = "{:.0f}".format(damage_value)
+        if override_string:
+            damage_string = override_string
+        else:
+            damage_string = "{:.0f}".format(damage_value)
 
-        if weapon:
-            if damage_value == 0:
-                damage_string = 'BLOCKED'
-                color = critcolor
-            elif damage_value == weapon.damage_range[1] != weapon.damage_range[0]:
-                damage_string = str(weapon.damage_range[1]) + '!'
-                color = critcolor or color
-            # Higher damage flies faster
-            try:
-                progression = (damage_value - weapon.damage_range[0])/(weapon.damage_range[1]-weapon.damage_range[0])
-                base_speed = lerp((0.5*base_speed, base_speed), progression)
-            except ZeroDivisionError:
-                pass
+            if weapon:
+                if damage_value == weapon.damage_range[1] != weapon.damage_range[0]:
+                    damage_string = str(weapon.damage_range[1]) + '!'
+                    color = critcolor or color
+                # Higher damage flies faster
+                try:
+                    progression = (damage_value - weapon.damage_range[0])/(weapon.damage_range[1]-weapon.damage_range[0])
+                    base_speed = lerp((0.5*base_speed, base_speed), progression)
+                except ZeroDivisionError:
+                    pass
 
         self.surface = ascii_draw(int(BASE_SIZE // 1.5), damage_string, color)
         self.position = position
@@ -40,6 +43,7 @@ class Kicker(Particle):
         self.lifetime = lifetime
         self.speed = v(0, -base_speed)
         self.cache = None
+        self.oscillate = oscillate
 
     def draw(self, pause=False):
         if pause and self.cache:
@@ -47,8 +51,11 @@ class Kicker(Particle):
 
         self.lifetime -= FPS_TICK
         self.position += self.speed
-        oscillation_x = BASE_SIZE * math.sin(pygame.time.get_ticks() * 0.5 * FPS_TICK) * 0.4
-        center = self.position + v(oscillation_x, 0)
+        if self.oscillate:
+            oscillation_x = BASE_SIZE * math.sin(pygame.time.get_ticks() * 0.5 * FPS_TICK) * 0.4
+            center = self.position + v(oscillation_x, 0)
+        else:
+            center = self.position
         rect = self.surface.get_rect(center=center)
 
         transparency = int(255*self.lifetime / self.max_lifetime)

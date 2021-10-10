@@ -1,5 +1,6 @@
 # todo:
 #  'grow' banner animation
+#  dust clouds take rect to randomize position in
 #  sparks use varying parts of weapon and attack color for color generation
 #  banner background
 

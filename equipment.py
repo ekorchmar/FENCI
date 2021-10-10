@@ -1,8 +1,10 @@
 # todo:
-#  activate Axe while running for whirlwind attack
+#  holding back spear offset rotates with spear
+#  Axe: prevent stamina restoration while Whirlwind powerup is used
 #  ?? activate while static to power up a boomerang throw
 #  destroying shields spawns kicker
 #  equipment.slow to set limit for voluntary movement
+#  Axe: apply fading slow after whirlwind is over
 #  shields use equipment.slow to limit speed while lifted; depend on agility modifier
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
@@ -19,7 +21,7 @@
 #  -crossbow can only deals max damage, but requires being fully loaded
 
 from base_class import *
-from particle import Kicker, MouseHint
+from particle import Kicker, MouseHint, Spark
 
 
 # Init equipment classes:
@@ -635,6 +637,7 @@ class Bladed(Wielded):
     def __init__(self, *args, **kwargs):
         super(Bladed, self).__init__(*args, **kwargs)
         self.spin_remaining = 0
+        self.locked_from_activation = False  # Support for spin-granting activation
 
     def is_dangerous(self):
         if self.tip_v is None:
@@ -688,6 +691,7 @@ class Bladed(Wielded):
         self.activation_offset = v()
 
     def aim(self, hilt_placement, aiming_vector, character):
+
         if self.spin_remaining <= 0:
             super(Bladed, self).aim(hilt_placement, aiming_vector, character)
             return
@@ -709,6 +713,8 @@ class Bladed(Wielded):
                 self.last_angle += 360
             if 360 < self.last_angle < 180:
                 self.last_angle -= 360
+
+            character.set_state('active', 0.2)
 
             self._calculate_hitbox(hilt_placement)
 
@@ -1135,7 +1141,7 @@ class Spear(Pointed):
         )
         self.saved_agility_modifier = self.agility_modifier
 
-        self.kebab.anchor(self.skewer_duration, position=self.tip_v)
+        self.kebab.anchor(self.skewer_duration, weapon=self)
 
         # Anchor self and increase stamina
         character.anchor(self.skewer_duration*0.5)
@@ -1193,7 +1199,7 @@ class Spear(Pointed):
         super(Spear, self).aim(hilt_placement, aiming_vector, character)
         self.active_this_frame = False
 
-        # If character is skewered, tick down skewer timer, anchor it for own tip position
+        # If character is skewered, tick down skewer timer
         if self.skewer_duration > 0:
             # Temproarily modify agility modifier:
             self.agility_modifier = lerp(
@@ -1201,13 +1207,10 @@ class Spear(Pointed):
                 1 - self.skewer_duration / self.max_skewer_duration
             )
             self.skewer_duration -= FPS_TICK
-            self.kebab.anchor_point = v(self.tip_v[:])
-            self.kebab.set_state("skewered", 0.2)
 
             # If tip reached SWING_THRESHOLD3/4, detach target
             if abs(self.angular_speed) > SWING_THRESHOLD*0.75:
                 # Unanchor and push in same direction
-                self.kebab.anchor_point = None
                 self.kebab.anchor_timer = 0
                 push_v = v(self.tip_delta)
                 push_v.scale_to_length(character.max_speed*character.size/self.kebab_size)
@@ -1535,12 +1538,15 @@ class Dagger(Short, Bladed):
 
 
 class Axe(Bladed):
-    # class_name = "Axe"
+    class_name = "Axe"
     _handle_length = 3
+    _max_spins = 3
+    _prepare_angle = 110
+
     max_tilt = 130
     default_angle = 40
     hitting_surface = 'head'
-    upside = ['Hold activation to charge whirlwind attack']
+    upside = [f'Hold activation to charge whirlwind attack up to {_max_spins} spins']
     downside = ['Only swing attacks']
 
     def __init__(self, size, *args, **kwargs):
@@ -1549,11 +1555,71 @@ class Axe(Bladed):
             'ccw': [v(), v()]
         }
         self.wing_tips_v = [v(), v()]
-        super(Axe, self).__init__(size * 2 // 3, *args, **kwargs)  # Axes need to use smaller font
+
+        # Activation support
+        self.charge_time = 0
+        self.full_charge_time = 1
+        self.spins_charged = 0
+        self.active_this_frame = False
+        self.active_character_speed = None
+
+        super(Axe, self).__init__(size * 2 // 3, *args, **kwargs)  # Axes need to use smaller font to fit in
+
+    def on_equip(self, character):
+        super(Axe, self).on_equip(character)
+        self.character_specific["time_per_spin"] = self.full_charge_time / self._max_spins
 
     def activate(self, character, continuous_input):
-        """Hold mouse button to charge a throw"""
-        pass
+        """Hold mouse button to charge whirlwind attack"""
+        if (
+                (self.lock_timer > 0 and not self.locked_from_activation) or
+                not continuous_input or
+                character.stamina < self.character_specific["stamina_drain"] or
+                self.charge_time == 0 and character.stamina < 0.5 * character.max_stamina
+        ):
+            return
+
+        self.active_this_frame = True
+        if self.spins_charged < self._max_spins:  # prevent not being enough for 3 spins
+            character.stamina -= self.character_specific["stamina_drain"]
+            character.set_state('active', 0.2)
+            self.charge_time += FPS_TICK
+            if self.charge_time / self.character_specific["time_per_spin"] > self.spins_charged:
+                self.spins_charged += 1
+                # Spawn counting kicker:
+                blocked_kicker = Kicker(
+                    position=v(self.tip_v),
+                    damage_value=0,
+                    color=colors["lightning"],
+                    override_string=f'{self.spins_charged:.0f}',
+                    oscillate=False
+                )
+                self.particles.append(blocked_kicker)
+
+                # Spawn sparks if max count reached
+                if self.spins_charged == self._max_spins:
+                    for _ in range(5):
+                        spark_v = v()
+                        spark_v.from_polar((1.5 * SWING_THRESHOLD, random.uniform(-180, 180)))
+                        spark = Spark(
+                            position=v(self.tip_v),
+                            weapon=None,
+                            vector=spark_v,
+                            attack_color=colors["lightning"],
+                            lifetime=REMAINS_SCREENTIME * 0.0625
+                        )
+                        self.particles.append(spark)
+
+        # Prevent use while charging:
+        self.disabled = True
+        self.lock(
+            duration=FPS_TICK,
+            angle=self._prepare_angle if character.facing_right else 180-self._prepare_angle,
+            inertia=None,
+            locked_from_activation=True
+        )
+
+        # Spin will be executed on release by .aim
 
     def hitbox(self):
         return self.wing_tips_v
@@ -1680,11 +1746,51 @@ class Axe(Bladed):
         self.stamina_drain = math.sqrt(0.3 * self.weight / (2 + head_material.tier))
 
         # Calculate damage range depending on weight, size and tier:
-        # High tier axes scale better
-        min_damage = int((40 + self.weight) * 1.08 ** (self.tier - 1))
+        # High tier axes scale better, weight is important
+        min_damage = int((450 + self.weight ** 2) / 9 * 1.08 ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(2 + 0.1 * self.tier))
         self.damage_range = min_damage, max_damage
+
+        self.full_charge_time = 2
+
         self.redraw_loot()
+
+    def lock(self, duration, angle=None, inertia=None, locked_from_activation=False):
+        self.locked_from_activation = locked_from_activation
+        super(Axe, self).lock(duration, angle, inertia)
+
+    def reset(self, character):
+        super(Axe, self).reset(character)
+        # Activation support
+        self.charge_time = 0
+        self.spins_charged = 0
+        self.active_this_frame = False
+        self.locked_from_activation = False
+        self.active_character_speed = None
+
+    def aim(self, hilt_placement, aiming_vector, character):
+        # Process spin activation:
+        if not self.active_this_frame:
+            if self.spins_charged > 0 and character.state not in DISABLED:
+                self.disabled = False
+                speed = -3*SWING_THRESHOLD if character.facing_right else 3*SWING_THRESHOLD
+                self._spin(speed=speed, abs_angle=self.spins_charged*360)
+                # Prevent character speed from changing:
+                self.active_character_speed = 2*v(character.speed)
+            elif self.spin_remaining <= 0:
+                self.active_character_speed = None
+
+            self.charge_time = 0
+            self.spins_charged = 0
+            self.active_this_frame = False
+            self.locked_from_activation = False
+
+        self.active_this_frame = False
+
+        if self.spin_remaining > 0:
+            character.speed = v(self.active_character_speed or character.speed)
+
+        super(Axe, self).aim(hilt_placement, aiming_vector, character)
 
 
 class Mace(Bladed):
@@ -1888,7 +1994,7 @@ class Shield(OffHand):
         self.redraw_loot()
 
         # Shield has chance to be dropped:
-        self.querry_destroy = False
+        self.queue_destroy = False
 
     def generate(self, size, tier=None):
 
@@ -1916,7 +2022,6 @@ class Shield(OffHand):
             "str", random.choice(parts_dict['shield']['plates'])
         )
         # Some bone-physics material should be excluded, as plates are not formed from them:
-        bone_exclude = {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'}
         # Shield plate must not be heavier than frame:
         frame_material_weight = Material.registry[self.builder["constructor"]["frame"]["material"]].weight
 
@@ -1925,7 +2030,7 @@ class Shield(OffHand):
             Material.pick(
                 ['metal', 'wood', 'leather', 'bone'],
                 roll_tier(tier),
-                lambda x: x.weight <= frame_material_weight and x.name not in bone_exclude
+                lambda x: x.weight <= frame_material_weight and x.name not in Material.collections['plateless_bone']
             )
         )
 
@@ -2166,7 +2271,16 @@ class Shield(OffHand):
                     0.1
                 )
 
-            self.querry_destroy = chance > random.random()
+            self.queue_destroy = chance > random.random()
+
+        # Spawn 'BLOCKED' kicker
+        blocked_kicker = Kicker(
+            position=v(self.hilt_v),
+            damage_value=0,
+            color=colors["crit_kicker"],
+            override_string='BLOCKED!' if not self.queue_destroy else 'DESTROYED!'
+        )
+        self.particles.append(blocked_kicker)
 
         return v(), 0
 

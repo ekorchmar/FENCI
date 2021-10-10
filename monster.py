@@ -1,10 +1,10 @@
 # todo:
-#  Add orc faces
 #  Add orc equipment: Axes, Sword, Spear, Heavy Shield
 #  teach AI to use axe whirlwind
 # After tech demo
 # todo:
 #  ?? animate character flip
+#  ?? Treasure goblins
 #  hat oscillates instead oor together with face
 #  Animal(Character) subclass
 #   Monsters: Goblin, Wolf, Rat, Elf, Orc
@@ -1219,12 +1219,19 @@ class Goblin(Humanoid):
     @staticmethod
     def _main_hand_goblin(tier):
         def goblin_blade_material():
+
+            def filter_func(x):
+                return (
+                    x.name not in Material.collections["elven"] and
+                    x.name not in Material.collections["mythical"]
+                )
+
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
-                gbm = Material.pick(["mineral"], tier)
+                gbm = Material.pick(["mineral"], tier, filter_func)
             # Otherwise 30% for any metal, except mythril
             elif tier <= 2 and random.random() > 0.7:
-                gbm = Material.pick(["metal"], tier, filter_func=lambda x: x.name != 'mythirl')
+                gbm = Material.pick(["metal"], tier, filter_func)
             # Anything bone otherwise:
             else:
                 gbm = Material.pick(["bone"], tier)
@@ -1255,7 +1262,10 @@ class Goblin(Humanoid):
                 hm = Material.pick(
                     ['metal', 'bone'],
                     tier,
-                    filter_func=lambda x: x.name != 'mythirl'
+                    filter_func=lambda x: (
+                            x.name not in Material.collections["elven"] and
+                            x.name not in Material.collections["mythical"]
+                    )
                 )
             else:
                 hm = dagger_builder["blade"]["material"]
@@ -1278,7 +1288,10 @@ class Goblin(Humanoid):
             spear_builder["shaft"]["material"] = Material.pick(
                 ["wood", "reed"],
                 tier,
-                lambda x: x.name != 'mallorn' and x.weight < 0.5
+                lambda x: (
+                            x.name not in Material.collections["elven"] and
+                            x.name not in Material.collections["mythical"]
+                    ) and x.weight < 0.5
             )
             # Tip material has same logic as dagger material
             spear_builder["tip"]["material"] = goblin_blade_material()
@@ -1295,7 +1308,10 @@ class Goblin(Humanoid):
             falchion_builder = {
                 "blade": {
                     "str": random.choice(parts_dict['falchion']['blades']),
-                    "material": Material.pick(['metal'], tier, lambda x: x.name != 'mythril')
+                    "material": Material.pick(['metal'], tier, lambda x: (
+                            x.name not in Material.collections["elven"] and
+                            x.name not in Material.collections["mythical"]
+                    ))
                 },
                 "hilt": {}
             }
@@ -1304,7 +1320,10 @@ class Goblin(Humanoid):
                 falchion_builder['hilt']['material'] = Material.pick(
                     ['metal', 'bone', 'precious', 'wood'],
                     tier,
-                    lambda x: x.name not in {'mythril', 'mallorn'}
+                    lambda x: (
+                            x.name not in Material.collections["elven"] and
+                            x.name not in Material.collections["mythical"]
+                    )
                 )
             else:
                 falchion_builder['hilt']['material'] = falchion_builder["blade"]["material"]
@@ -1324,7 +1343,7 @@ class Goblin(Humanoid):
             sword_builder = {
                 "blade": {
                     "str": blade_string,
-                    "material": Material.pick(['metal'], tier, lambda x: x.name != 'mythril')
+                    "material": Material.pick(['metal'], tier, lambda x: x.name not in Material.collections["elven"])
                 },
                 "hilt": {}
             }
@@ -1332,7 +1351,7 @@ class Goblin(Humanoid):
                 sword_builder['hilt']['material'] = Material.pick(
                     ['metal', 'bone', 'precious', 'wood'],
                     tier,
-                    lambda x: x.name not in {'mythril', 'mallorn'}
+                    lambda x: x.name not in Material.collections["elven"]
                 )
             else:
                 sword_builder['hilt']['material'] = sword_builder["blade"]["material"]
@@ -1344,23 +1363,20 @@ class Goblin(Humanoid):
 
     @staticmethod
     def _shield_goblin(tier, team_color):
-        shield_builder = {
-            "frame": {
-                "material": Material.pick(["reed"], tier)
-            }
-        }
-
-        # Some bone-physics material should be excluded:
-        bone_exclude = {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'}
-        goblin_exclude = {'mythril', 'mallorn'}
-
-        shield_builder["plate"] = {
+        shield_builder = {"frame": {
+            "material": Material.pick(["reed"], tier)
+        }, "plate": {
             "material": Material.pick(
                 ['metal', 'wood', 'leather', 'bone'],
                 tier,
-                lambda x: x.name not in bone_exclude and x.name not in goblin_exclude and x.weight <= 0.5
+                lambda x: (
+                        x.name not in Material.collections['plateless_bone'] and
+                        x.name not in Material.collections['elven'] and
+                        x.name not in Material.collections['mythical'] and
+                        x.weight <= 0.5
+                )
             )
-        }
+        }}
 
         # If specified, paint plate team color; otherwise let .generate handle it
         if team_color and Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
@@ -1388,8 +1404,7 @@ class Human(Humanoid):
 
 
 class Orc(Humanoid):
-    difficulty = 3
-    hit_immunity = 1.0
+    difficulty = 3.5
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
@@ -1397,9 +1412,9 @@ class Orc(Humanoid):
         ai_stats = character_stats["soul"]["orc"]
         portraits = character_stats["mind"]["orc"]
 
-        body_stats["health"] += 20 * (tier - 1)
-        body_stats["max_speed"] += tier / 2
-        ai_stats["skill"] += 0.15 * (tier - 1)
+        body_stats["health"] += 40 * (tier - 1)
+        body_stats["max_speed"] += tier / 3
+        ai_stats["skill"] += 0.1 * (tier - 1)
 
         super().__init__(
             position,

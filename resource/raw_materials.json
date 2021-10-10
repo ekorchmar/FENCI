@@ -628,17 +628,6 @@
         "weight": 0.5,
         "occurence": 3
     },
-    "roc feather": {
-        "physics": "leather",
-        "hsva_values":
-            {
-                "min": [260, 70, 47],
-                "max": [300, 100, 69]
-            },
-        "tier": 1,
-        "weight": 0.5,
-        "occurence": 1
-    },
     "monster hide": {
         "physics": "leather",
         "hsva_values":
@@ -827,6 +816,18 @@
         "tier": 4,
         "weight": 0.3,
         "attacks_color": [58, 25, 60],
+        "occurence": 1
+    },
+
+    "roc feather": {
+        "physics": "feather",
+        "hsva_values":
+            {
+                "min": [260, 70, 47],
+                "max": [300, 100, 69]
+            },
+        "tier": 3,
+        "weight": 0.5,
         "occurence": 1
     }
 }

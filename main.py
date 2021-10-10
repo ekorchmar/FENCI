@@ -4,6 +4,7 @@
 #  boss.py, Troll boss with modified AI
 # After tech demo
 # todo:
+#  language json
 #  seeded random
 #  Sound system
 #  split threads by Input+calculation // drawing OR try to draw less often after splitting input from drawing
@@ -19,13 +20,12 @@ for tier in range(5):
     level = filter(lambda x: artifacts[x]["tier"] == tier, list(artifacts.keys()))
     print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
-sh = SceneHandler(1, [Goblin, Orc])
-# sh = SceneHandler(1, [DebugGoblin], on_scren_enemies_value=[1, 1], loot_drops=20)
+# sh = SceneHandler(1, [Goblin, Orc])
+sh = SceneHandler(1, [DebugGoblin], on_scren_enemies_value=[1, 1], loot_drops=20)
 sh.player.equip(Axe(BASE_SIZE, tier_target=2), 'main_hand')
-sh.player.equip(Swordbreaker(BASE_SIZE, tier_target=2), 'off_hand')
+sh.player.equip(Shield(BASE_SIZE, tier_target=2), 'off_hand')
 sh.player.equip(Spear(BASE_SIZE, tier_target=2), 'backpack')
 sh.scene.log_weapons()
-sh.loot_querried = True
 
 
 while True:

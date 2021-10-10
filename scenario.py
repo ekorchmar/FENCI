@@ -1,4 +1,5 @@
 # todo:
+#  introduce monster weights to fill backlog
 #  return to menu after death or clearing Campaign
 #  Player.fate: dict to remember player choices for future scenario
 #  todo: scenario feeds dict with debug info into scene for display_debug

@@ -1,6 +1,4 @@
 # todo:
-#  fix middle click not closing loot overlay
-#  ignore toggle pause during loot overlay
 #  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
@@ -120,7 +118,7 @@ class Scene:
                 wheel = True
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
+                if event.key == pygame.K_ESCAPE and not self.loot_overlay:
                     self.toggle_pause()
 
                 if event.key == pygame.K_TAB:
@@ -231,32 +229,33 @@ class Scene:
         self.draw_helper = False
         if self.loot_overlay:
             if self.loot_overlay.rect.collidepoint(self.mouse_target):
-                # Draw help around the mouse:
-                self.draw_helper = True
+                # Middle click closes overlay
+                if self.mouse_state[1]:
+                    self.loot_overlay = None
 
-                # Pass mouse click to loot overlay:
-                result = self.loot_overlay.catch(self.mouse_target, self.mouse_state)
-                if all(result):
-                    self._from_loot_overlay(*result)
+                else:
+                    # Draw help around the mouse:
+                    self.draw_helper = True
 
-                    # Middle click closes overlay
-                    if self.mouse_state[1]:
-                        self.loot_overlay = None
+                    # Pass mouse click to loot overlay:
+                    result = self.loot_overlay.catch(self.mouse_target, self.mouse_state)
+                    if all(result):
+                        self._from_loot_overlay(*result)
 
-                # If any loot cards are moused over and there is a valid comparison, draw a loot card nearby
-                elif result[0]:
-                    display_card_position = self.loot_overlay.show_neighbor_dict[result[0]]
-                    # Check if we have a comparable weapon equipped:
-                    own_equipment = self.player.slots[result[0].prefer_slot]
-                    if own_equipment:
-                        card_surface, card_rect = (own_equipment.loot_cards[None].draw(**display_card_position))
-                        # Mark 'Equipped':
-                        card_surface = card_surface.convert_alpha()
-                        card_surface.blit(
-                            ascii_draw(BASE_SIZE*2//3, f"[Equipped]", colors["inventory_title"]),
-                            (self.loot_overlay.offset*0.5, self.loot_overlay.offset*0.5)
-                        )
-                        self.draw_group_append.append([card_surface, card_rect])
+                    # If any loot cards are moused over and there is a valid comparison, draw a loot card nearby
+                    elif result[0]:
+                        display_card_position = self.loot_overlay.show_neighbor_dict[result[0]]
+                        # Check if we have a comparable weapon equipped:
+                        own_equipment = self.player.slots[result[0].prefer_slot]
+                        if own_equipment:
+                            card_surface, card_rect = (own_equipment.loot_cards[None].draw(**display_card_position))
+                            # Mark 'Equipped':
+                            card_surface = card_surface.convert_alpha()
+                            card_surface.blit(
+                                ascii_draw(BASE_SIZE*2//3, f"[Equipped]", colors["inventory_title"]),
+                                (self.loot_overlay.offset*0.5, self.loot_overlay.offset*0.5)
+                            )
+                            self.draw_group_append.append([card_surface, card_rect])
 
                 # Fully heal player no matter the picked option:
                 self.player.hp, self.player.stamina = self.player.max_hp, self.player.max_stamina
@@ -871,7 +870,7 @@ class Scene:
             for weapon_slot in character.weapon_slots:
                 shield = character.slots[weapon_slot]
                 try:
-                    if shield.querry_destroy:
+                    if shield.queue_destroy:
                         self.item_drop(character, shield, weapon_slot)
                         # Inform AI it no longer has a shield
                         character.shielded = None

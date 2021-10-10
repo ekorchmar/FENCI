@@ -7,7 +7,7 @@
 # todo:
 #  ?? Compared surface for stat cards
 # todo: separate upside and downside lists for enemy weapons
-# todo: introduce "origin" for materials, prevent mixing evil and good material
+# todo: respect "origin" for materials, prevent mixing evil and good material
 
 
 import copy
@@ -17,6 +17,14 @@ from drawing_primitive import *
 class Material:
     _metal_bonus = 2
     registry = {}
+    collections = {
+        'plateless_bone': {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'},
+        'elven': {'mythril', 'mallorn', 'spidersilk', 'elven cloth', 'riverglass'},
+        'mythical': {'moonglow silver', "unicorn horn", "moonbeast antler", "dragon scale",
+                     "dragonhide", "unicorn kashmir", "Giant's beanstalk"},
+        'demonic': {'fae iron', 'golden', 'warped stem', 'demon horn', 'soulcrystal', 'Stygian papyrus'},
+        'ferrous': {'pig iron', 'iron', 'sanchezium', 'dwarfish steel', 'damascus steel'}
+    }
 
     def __init__(self, name, hsl_min, hsl_max, tier, physics, weight, attacks_color=None, occurence=2):
         self.name = name
@@ -341,6 +349,7 @@ class Character:
         # Anchoring:
         self.anchor_point = None
         self.anchor_timer = 0
+        self.anchor_weapon = None
 
         # To be set by character subclass or externally
         self.body_coordinates = None
@@ -403,10 +412,26 @@ class Character:
         self.name = name or f"{self.__class__.__name__} Lv.??"
         self.stat_cards = {None: StatCard(self)}
 
-    def anchor(self, duration, position=None):
+    def anchor(self, duration, position=None, weapon=None):
         self.speed = v()
-        self.anchor_point = position or v(self.position[:])
+        if position:
+            self.anchor_point = position
+        elif weapon:
+            self.anchor_weapon = weapon
+        else:
+            self.anchor_point = v(self.position)
         self.anchor_timer = duration
+
+        # Already doubled by effect timer:
+        # self.bars["anchor_timer"] = Bar(
+        #     size=BASE_SIZE // 3,
+        #     width=10,
+        #     fill_color=colors["effect_timer"],
+        #     max_value=duration,
+        #     base_color=colors["bar_base"],
+        #     show_number=False,
+        #     cache=False
+        # )
 
     def aim(self, target=None):
         # Prevent modification of mutable input:
@@ -556,10 +581,16 @@ class Character:
 
         # If character is anchored, reduce timer
         if self.anchor_timer > 0:
-            self.position = v(self.anchor_point[:])
+            self.anchor_timer -= FPS_TICK
+            if self.anchor_weapon:
+                self.position = v(self.anchor_weapon.tip_v)
+            else:
+                self.position = v(self.anchor_point)
             self.speed = v()
         else:
             self.anchor_point = None
+            self.anchor_weapon = None
+            self.bars.pop("anchor_timer", None)
 
         # If character is flying, under CC effect, or executing a manouver,
         # ignore input and keep going in existing direction
@@ -839,6 +870,7 @@ class Character:
     def reset(self):
         self.anchor_timer = 0
         self.anchor_point = None
+        self.anchor_weapon = None
         self.hp = self.max_hp
         self.immune_timer = 1
         self.stamina = self.max_stamina
@@ -856,11 +888,19 @@ class Character:
     def bleed(self, intensity, duration):
         self.bleeding_intensity = max(self.bleeding_intensity, intensity)
         self.bleeding_timer += duration
+        self.bars["bleeding_timer"] = Bar(
+            BASE_SIZE // 3,
+            10,
+            self.blood,
+            self.bleeding_timer,
+            base_color=colors["bar_base"],
+            show_number=False
+        )
 
     def breath(self):
         if self.stamina < self.max_stamina and self.state not in DISABLED:
-            # Restore slower when stamina is critical low
-            exhaust_mod = max(self.stamina / self.max_stamina, 0.2)
+            # Restore slower when stamina is low
+            exhaust_mod = max(self.stamina / self.max_stamina, 0.5)
             # Restore slower when moving
             if self.speed.xy != [0, 0]:
                 exhaust_mod *= 0.5
@@ -887,6 +927,7 @@ class Character:
             self.hp = max(self.hp - drop, 1)
         else:
             self.bleeding_intensity = 0
+            self.bars.pop("bleeding_timer", None)
 
         # Cleanse chain-stuns from players
         if self.state in DISABLED and not self.ai:
@@ -954,7 +995,9 @@ class Card:
 
 
 class LootCard(Card):
-    stats_order = ["DAMAGE", "LENGTH", "WEIGHT", "SPEED", "DRAIN", "USE TIME", "ROLL DELAY", "BLEED", "ROLL WINDOW"]
+    stats_order = [
+        "DAMAGE", "LENGTH", "WEIGHT", "SPEED", "DRAIN", "USE TIME", "ROLL DELAY", "BLEED", "ROLL WINDOW", "FULL CHARGE"
+    ]
     xy_offset = BASE_SIZE // 3
 
     def __init__(self, equipment, compare_to: [None, Equipment] = None):

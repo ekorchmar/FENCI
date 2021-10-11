@@ -76,7 +76,7 @@ class Humanoid(Character):
         # 1. Draw face
 
         # Pick facial expression
-        face_row = self.all_faces[self.visual_state]
+        face_row = self.all_faces.get(self.visual_state, self.all_faces['idle'])
         if face_row[-1] > 0:
             time_per_frame = face_row[-1] / (len(face_row) - 1)  # total time / faces number
             index = int(self.visual_timer / time_per_frame)
@@ -1438,4 +1438,15 @@ class DebugGoblin(Goblin):
 
     def move(self, *args, **kwargs):
         super(DebugGoblin, self).move(*args, **kwargs)
+        self.position = v(SCENE_BOUNDS.center)
+
+
+class DebugOrc(Orc):
+
+    def __init__(self, *args, **kwargs):
+        super(DebugOrc, self).__init__(*args, **kwargs)
+        self.max_speed = 0
+
+    def move(self, *args, **kwargs):
+        super(DebugOrc, self).move(*args, **kwargs)
         self.position = v(SCENE_BOUNDS.center)

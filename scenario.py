@@ -37,7 +37,8 @@ class Player(Humanoid):
             main_hand_lst = list(
                 filter(
                     lambda x:
-                        artifacts[x]["class"] in {"Dagger", "Sword", "Spear", "Falchion"} and artifacts[x]["tier"] == 0,
+                        artifacts[x]["class"] in {"Dagger", "Sword", "Spear", "Falchion", "Axe"} and
+                        artifacts[x]["tier"] == 0,
                     artifacts
                 )
             )

@@ -147,8 +147,16 @@ class Equipment:
         # Dict for character-specific variables; filled by on_equip method:
         self.character_specific = dict()
 
+        # Each frame, holding character will querry this variable to limit own speed
+        self.speed_limit = 1.0
+
         # Spawn particles for scene to pick up:
         self.particles = []
+
+        # Some equipment has chance to be dropped:
+        self.queue_destroy = False
+
+        self.prevent_regen = False
 
     def reset(self, character):
         pass
@@ -282,6 +290,11 @@ class Equipment:
     @staticmethod
     def on_equip(character):
         pass
+
+    def limit_speed(self):
+        current_limit = self.speed_limit
+        self.speed_limit = 1.0
+        return current_limit
 
 
 class Character:
@@ -634,7 +647,12 @@ class Character:
 
         # Limits for voluntary movement:
         if self.state not in AIRBORNE and self.state not in DISABLED and not self.ramming and not self.phasing:
-            effective_max_speed = self.max_speed*0.5 if isinstance(self.shielded, Equipment) else limit*self.max_speed
+
+            equipment_limit = 1.0
+            for equipment in self.slots:
+                equipment_limit *= self.slots[equipment].limit_speed()
+
+            effective_max_speed = min(equipment_limit, limit)*self.max_speed
 
             # Backwards is half speed, forward is full speed
             if self.speed.x > 0 == self.facing_right:
@@ -650,7 +668,7 @@ class Character:
             self.speed.xy = limited_speed_x, limited_speed_y
 
             # Enter running state if max horizontal speed is reached:
-            if (self.speed.x > 0) == self.facing_right and abs(self.speed.x) == self.max_speed:
+            if (self.speed.x > 0) == self.facing_right and abs(self.speed.x) == self.max_speed and self.state in IDLE:
                 self.set_state('running', 0.2)
 
             elif accelerate == v() and self.speed.length_squared() < self.acceleration:
@@ -898,7 +916,11 @@ class Character:
         )
 
     def breath(self):
-        if self.stamina < self.max_stamina and self.state not in DISABLED:
+        if (
+                self.stamina < self.max_stamina and
+                self.state not in DISABLED and
+                not any(self.slots[slot].prevent_regen for slot in self.slots)
+        ):
             # Restore slower when stamina is low
             exhaust_mod = max(self.stamina / self.max_stamina, 0.5)
             # Restore slower when moving
@@ -907,6 +929,7 @@ class Character:
             # Player character restores faster behind shield
             if self.ai is None and isinstance(self.shielded, Equipment):
                 exhaust_mod *= 1.5
+
             # Hurt characters restore stamina very fast:
             if self.immune_timer > 0:
                 exhaust_mod *= 5
@@ -916,9 +939,9 @@ class Character:
 
             self.stamina = min(self.stamina + stamina_increment * FPS_TICK, self.max_stamina)
 
-        # HP is passively healed
-        if 0 < self.hp < self.max_hp:
-            self.hp = min(self.hp + self.hp_restoration * self.max_hp * FPS_TICK, self.max_hp)
+            # HP is passively healed
+            if 0 < self.hp < self.max_hp:
+                self.hp = min(self.hp + self.hp_restoration * self.max_hp * FPS_TICK, self.max_hp)
 
         # Bleeding ticks down; damage is never lethal:
         if self.bleeding_timer > 0:

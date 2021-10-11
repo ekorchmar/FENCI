@@ -121,7 +121,7 @@ IDLE = {'idle', 'blinking', 'idle_rare', 'exhausted'}
 
 PASSIVE_STRATEGY = {"unknown", "passive", "wait", "wander", "flee"}
 ATTACKING_STRATEGY = {'charge', 'dogfight'}
-BUSY = {'charge', 'dogfight', 'flee', 'reroute'}
+BUSY = {'charge', 'dogfight', 'flee', 'reroute', 'skewered', 'jumping'}
 
 # Pygame display and clock
 pygame.display.set_caption("FENCI")

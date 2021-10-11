@@ -98,10 +98,10 @@ class Remains:
             # Modify:
             time -= FPS_TICK
             if time <= 0:
-                # Stop moving and dust particles
+                # Stop moving and add dust particles
                 if speed_v.y > 0 and self.particle_dump is not None:
                     for _ in range(random.randint(3, 4)):
-                        self.particle_dump.append(DustCloud(rect.center, max_opacity=127))
+                        self.particle_dump.append(DustCloud(rect, max_opacity=127))
 
                 speed_v = v()
             else:
@@ -445,11 +445,13 @@ class SpeechBubble(Particle):
 
 
 class DustCloud(Particle):
-    def __init__(self, position, color=c(colors["dust"]), max_size=BASE_SIZE*2, lifetime=0.5, max_opacity=200):
+    def __init__(self, spawn_rect: r, color=c(colors["dust"]), max_size=BASE_SIZE*2, lifetime=0.5, max_opacity=200):
         self.surface = ascii_draw(max_size, "☁", color)
         self.max_lifetime = self.lifetime = lifetime
-        random_offset = v(random.uniform(-BASE_SIZE/2, BASE_SIZE/2), random.uniform(-BASE_SIZE/2, BASE_SIZE/2))
-        self.position = v(position[:]) + random_offset
+        self.position = v(
+            spawn_rect.left + random.uniform(0, spawn_rect.width),
+            spawn_rect.top + random.uniform(0, spawn_rect.height)
+        )
         self.speed = v()
         self.cache = None
         self.max_opacity = max_opacity

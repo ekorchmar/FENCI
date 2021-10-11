@@ -204,7 +204,7 @@ class Scene:
                     if new_character_states[char] not in AIRBORNE and self.character_states[char] in AIRBORNE:
                         # Spawn dust clouds
                         for _ in range(int(char.weight*0.02)):
-                            self.particles.append(DustCloud(char.position))
+                            self.particles.append(DustCloud(random.choice(char.hitbox)))
                 except KeyError:
                     continue
             self.character_states = new_character_states
@@ -336,12 +336,6 @@ class Scene:
         # Draw all characters
         for character in self.characters:
 
-            # Querry character equipment to collect particles
-            for slot in character.slots:
-                equipment = character.slots[slot]
-                self.particles.extend(equipment.particles)
-                equipment.particles = []
-
             draw_group.extend(character.draw(freeze=self.paused))
 
             # Spawn dust clouds under rolling or ramming characters
@@ -349,7 +343,7 @@ class Scene:
                 if character.rolling > 0 or character.ramming:
                     # Spawn on average 10/s for standard size:
                     if random.random() < 10*FPS_TICK*character.size/BASE_SIZE:
-                        self.particles.append(DustCloud(character.position))
+                        self.particles.append(DustCloud(random.choice(character.hitbox)))
             except AttributeError:
                 pass
 
@@ -865,18 +859,20 @@ class Scene:
             else:
                 raise ValueError(str(weapon) + " is not a valid collision agent")
 
-        # Process dropped shields:
+        # Process weapon particles and destroyed equipment:
         for character in self.characters:
-            for weapon_slot in character.weapon_slots:
-                shield = character.slots[weapon_slot]
-                try:
-                    if shield.queue_destroy:
-                        self.item_drop(character, shield, weapon_slot)
-                        # Inform AI it no longer has a shield
-                        character.shielded = None
-                        self.log_weapons()
-                except AttributeError:
-                    continue
+            for slot in character.slots:
+                equipment = character.slots[slot]
+
+                # Querry character equipment to collect particles
+                self.particles.extend(equipment.particles)
+                equipment.particles = []
+
+                if equipment.queue_destroy:
+                    self.item_drop(character, equipment, slot)
+                    # Inform AI it no longer has a shield
+                    character.shielded = None
+                    self.log_weapons()
 
         # Process characters hitting walls:
         for character in filter(

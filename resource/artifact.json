@@ -79,7 +79,7 @@
       }
     }
   },
-  "salty dog falchion": {
+  "sea rascal falchion": {
     "class": "Falchion",
     "tier": 0,
     "constructor": {
@@ -93,6 +93,26 @@
         "str": "=≡≡⊃",
         "material": "copper",
         "color": [182, 166, 47, 255]
+      }
+    }
+  },
+  "savage labrys":{
+    "class": "Axe",
+    "tier": 0,
+    "constructor": {
+      "handle": {
+        "str": "|",
+        "material": "spruce",
+        "color": [106, 63, 25, 255]
+      },
+      "head": {
+        "str": [
+          "/(,)\\",
+          "( ╋ )",
+          "\\(|)/"
+        ],
+        "material": "flint",
+        "color": [217, 208, 149, 255]
       }
     }
   }

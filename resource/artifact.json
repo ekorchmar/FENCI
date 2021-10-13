@@ -96,7 +96,7 @@
       }
     }
   },
-  "savage labrys":{
+  "savage hatchet":{
     "class": "Axe",
     "tier": 0,
     "constructor": {

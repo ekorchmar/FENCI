@@ -502,6 +502,17 @@
         "weight": 0.3,
         "occurence": 1
     },
+    "carbon plate": {
+        "physics": "bone",
+        "hsva_values":
+            {
+                "min": [0, 0, 30],
+                "max": [0, 0, 40]
+            },
+        "tier": 4,
+        "weight": 0.8,
+        "occurence": 1
+    },
 
     "flint": {
         "physics": "mineral",

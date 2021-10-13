@@ -147,7 +147,8 @@ class Scene:
             # print("No debug action set at the moment.")
             # self.echo(self.player, "Geronimo!", colors["lightning"])
             # self.player.slots['main_hand']._spin(-3*SWING_THRESHOLD, 360 * 3)
-            morph_equipment(self.player)
+            # morph_equipment(self.player)
+            print(self.player.speed, self.player.state)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -780,7 +781,7 @@ class Scene:
                     else:
                         self.alert_ai(target)
 
-                    self.splatter(point, target, bash_damage, shield)
+                    self.splatter(target.position, target, bash_damage, shield)
                     for _ in range(random.randint(5, 7)):
                         spark = Spark(
                             position=point,
@@ -880,7 +881,10 @@ class Scene:
             self.characters
         ):
 
-            if character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD ** 2 or character.immune_timer > 0:
+            if (
+                    character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD ** 2 or
+                    (character.ai is None and character.immune_timer > 0)
+            ):
                 character.wall_collision_v = v()
                 continue
 

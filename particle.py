@@ -168,7 +168,7 @@ class Spark(Particle):
             # Make color lighter
             color = c(color)
             hsl_list = [*color.hsla]
-            hsl_list[2] = 40 + hsl_list[2] * 0.6
+            hsl_list[2] = 40 + hsl_list[2] * random.uniform(0.3, 0.6)
             color.hsla = hsl_list
 
         self.surface = ascii_draw(int(size*BASE_SIZE), string, color)

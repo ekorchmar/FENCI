@@ -1,12 +1,8 @@
 # todo:
-#  Running out of stamina while aiming disables weapon and grants increased regen
-#  ?? activate while static to power up a boomerang throw
-#  Axe: getting parried knocks character backwards
-#  Bladed: If _spun, damaged characters are thrown away from attacker (orient tip delta?)
-#  shields use equipment.slow to limit speed while lifted; depend on agility modifier
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 # After tech demo
 # todo:
+#  shield can't spawn kickers too often
 #  ?? Burning weapons
 #  ??Mace: activateable main hand weapon
 #  ?? Knife: offhand weapon that deals crit damage to airborne, disabled or turned away characters
@@ -21,10 +17,10 @@
 #  -crossbow can only deals max damage, but requires being fully loaded
 
 from base_class import *
-from particle import Kicker, MouseHint, Spark
+from particle import Kicker, MouseHint, Spark, DustCloud
 
 
-# Init equipment classes:
+# Define equipment classes:
 class Nothing(Equipment):
     held_position = v()
     default_angle = 0
@@ -198,9 +194,15 @@ class Wielded(Equipment):
             stats_dict["DAMAGE"]["average"] = (self.damage_range[0]+self.damage_range[1])/2
 
         if self.length:
-            stats_dict["LENGTH"] = {"text": f'{self.length - self.length%5:.0f} cm', "value": self.length}
+            stats_dict["LENGTH"] = {
+                "text": f'{self.length - self.length%5:.0f} cm',
+                "value": (self.length - self.length % 5)
+            }
+
             if "LENGTH" in comparison_dict:
-                stats_dict["LENGTH"]["evaluation"] = -1 * (comparison_dict["LENGTH"]["value"] - self.length)
+                stats_dict["LENGTH"]["evaluation"] = (
+                    (self.length - self.length % 5) - comparison_dict["LENGTH"]["value"]
+                )
 
         stats_dict["SPEED"] = {"text": f'{self.agility_modifier * 100:.0f}', "value": self.agility_modifier}
         if "SPEED" in comparison_dict:
@@ -507,7 +509,10 @@ class Wielded(Equipment):
             enemy_component = other_weapon.tip_delta * other_weapon.weight
             collision_vector = enemy_component - own_component
 
-            if not isinstance(other_weapon, Shield):
+            if not (
+                    isinstance(other_weapon, Shield) or
+                    (not self.dangerous and isinstance(other_weapon, Bladed) and other_weapon.spin_remaining > 0)
+            ):
                 other_weapon.parry(
                     owner=opponent,
                     opponent=owner,
@@ -705,7 +710,7 @@ class Bladed(Wielded):
             return
 
         else:
-            # Spin without any angel restrictions and stamina consumption
+            # Spin without any angle restrictions and stamina consumption
             self.stamina_ignore_timer -= FPS_TICK
             self.spin_remaining -= abs(self.angular_speed)
             self.last_angle += self.angular_speed
@@ -720,6 +725,31 @@ class Bladed(Wielded):
             character.set_state('active', 0.2)
 
             self._calculate_hitbox(hilt_placement)
+
+            # Spawn particle along the hitbox (Approx. 14/s)
+            if random.random() < FPS_TICK * 14:
+                spark_position = random_point(*self.hitbox())
+                spark_speed = random.triangular(0.2, 0.5) * self.tip_delta
+                self.particles.append(
+                    Spark(
+                        spark_position,
+                        spark_speed,
+                        weapon=self,
+                        attack_color=self.color,
+                        lifetime=REMAINS_SCREENTIME*0.0625
+                    )
+                )
+
+    def _calculate_hitbox(self, hilt_placement):
+        super(Bladed, self)._calculate_hitbox(hilt_placement)
+        # If spinning, reflect tip_delta to face outwards, to throw characters and weapons away from self:
+        if self.spin_remaining > 0:
+            fake_tip_delta = v()
+            fake_tip_delta.from_polar((
+                self.tip_delta.length(),
+                -self.last_angle
+            ))
+            self.tip_delta = fake_tip_delta
 
     def reset(self, character):
         super(Bladed, self).reset(character)
@@ -738,6 +768,15 @@ class Pointed(Wielded):
     stab_cost = 0.5
     stab_modifier = 1.0
     stab_dash_modifier = 1.0
+
+    def __init__(self, *args, **kwargs):
+        super(Pointed, self).__init__(*args, **kwargs)
+        # Skewer execution:
+        self.reduced_agility_modifier = self.agility_modifier
+        self.saved_agility_modifier = self.agility_modifier
+        self.kebab = None
+        self.skewer_duration = self.max_skewer_duration = 0
+        self.kebab_size = None
 
     def activate(self, character, continuous_input):
         """Drains stamina to dash in aimed direction, damaging enemies with weapon tip"""
@@ -856,6 +895,34 @@ class Pointed(Wielded):
             self.stab_dash_modifier
         self.character_specific["stab_inertia_v"] = 6.25 * BASE_SIZE * character.agility * self.stab_modifier * \
             self.agility_modifier
+
+    def _skewer(self, character, victim):
+        self.kebab = victim
+        self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
+        self.kebab_size = victim.size
+
+        # Temporarily modify agility modifier depending on target weight
+        self.reduced_agility_modifier = min(
+            self.agility_modifier*0.5,
+            self.agility_modifier * character.size / self.kebab_size
+        )
+        self.saved_agility_modifier = self.agility_modifier
+
+        self.kebab.anchor(self.skewer_duration, weapon=self)
+
+        # Anchor self and increase stamina
+        character.anchor(self.skewer_duration*0.5)
+        self.stamina_ignore_timer = self.skewer_duration + 1
+
+        # Add particle kicker:
+        skewer_kicker = Kicker(
+            position=v(self.tip_v)+v(0, BASE_SIZE),
+            damage_value=0,
+            color=colors["lightning"],
+            override_string='SKEWER!' if random.random() < 0.95 else 'KEBAB!',
+            oscillate=False
+        )
+        self.particles.append(skewer_kicker)
 
 
 class Sword(Bladed, Pointed):
@@ -1013,13 +1080,6 @@ class Spear(Pointed):
 
         super(Spear, self).__init__(*args, **kwargs)
 
-        # Stab execution:
-        self.reduced_agility_modifier = self.agility_modifier
-        self.saved_agility_modifier = self.agility_modifier
-        self.kebab = None
-        self.skewer_duration = self.max_skewer_duration = 0
-        self.kebab_size = None
-
         # Held position is dynamic:
         self.absolute_demotion = 0
         self.held_position = v()
@@ -1133,34 +1193,6 @@ class Spear(Pointed):
 
         return dealt_damage
 
-    def _skewer(self, character, victim):
-        self.kebab = victim
-        self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
-        self.kebab_size = victim.size
-
-        # Temporarily modify agility modifier depending on target weight
-        self.reduced_agility_modifier = min(
-            self.agility_modifier*0.5,
-            self.agility_modifier * character.size / self.kebab_size
-        )
-        self.saved_agility_modifier = self.agility_modifier
-
-        self.kebab.anchor(self.skewer_duration, weapon=self)
-
-        # Anchor self and increase stamina
-        character.anchor(self.skewer_duration*0.5)
-        self.stamina_ignore_timer = self.skewer_duration + 1
-
-        # Add particle kicker:
-        skewer_kicker = Kicker(
-            position=v(self.tip_v)+v(0, BASE_SIZE),
-            damage_value=0,
-            color=colors["lightning"],
-            override_string='SKEWER!' if random.random() < 0.95 else 'KEBAB!',
-            oscillate=False
-        )
-        self.particles.append(skewer_kicker)
-
     def show_stats(self, compare_to=None):
         stats_dict: dict = super().show_stats(compare_to=compare_to)
 
@@ -1249,19 +1281,19 @@ class Spear(Pointed):
 
     def activate(self, character, continuous_input):
 
-        # AI doesn't need this. Not even balance-wise, this branches of simple stab only for player convenience
+        # AI doesn't need this. Not even balance-wise, this branches off simple stab only for player convenience
         if character.ai:
             super(Spear, self).activate(character, continuous_input)
             return
 
         # Need at least half max stamina or already moving held_offset
-        if not continuous_input and character.stamina <= character.max_stamina * self.stab_cost:
+        if self.held_position == v() and character.stamina <= character.max_stamina * self.stab_cost:
             character.set_state('exhausted', 1)
             return
 
         self._hold_back(character)
 
-        # Actual stab will be execectuted by .aim
+        # Actual stab will be exececuted by .aim on release
 
     def _hold_back(self, character):
         self.active_this_frame = True
@@ -1791,6 +1823,7 @@ class Axe(Bladed):
                 self._spin(speed=speed, abs_angle=self.spins_charged*360)
                 # Prevent character speed from changing:
                 self.active_character_speed = 2*v(character.speed)
+                self.speed_limit = 2
             elif self.spin_remaining <= 0:
                 self.active_character_speed = None
 
@@ -1803,6 +1836,8 @@ class Axe(Bladed):
 
         if self.spin_remaining > 0:
             character.speed = v(self.active_character_speed or character.speed)
+        elif self.charge_time <= 0:
+            self.prevent_regen = False
 
         current_spin = self.spin_remaining
 
@@ -1839,6 +1874,35 @@ class Axe(Bladed):
             stats_dict["FULL CHARGE"]["evaluation"] = comparison_dict["FULL CHARGE"]["value"] - self.full_charge_time
 
         return stats_dict
+    
+    def parry(self, owner, opponent, other_weapon, calculated_impact=None):
+        beyblade_bump = False
+
+        # Don't take pushback from shields while whirlwinding:
+        if self.spin_remaining > 0 and isinstance(other_weapon, Shield):
+            return
+
+        # Ignore non-dangerous weapons while whirlwinding:
+        elif self.spin_remaining > 0 and not other_weapon.dangerous:
+            return
+
+        # If we DO get parried while whirlwinding, push owner back
+        elif self.spin_remaining > 0:
+            # Activation support
+            self.charge_time = 0
+            self.spins_charged = 0
+            self.active_this_frame = False
+            self.locked_from_activation = False
+
+            beyblade_bump = True
+
+        super(Axe, self).parry(owner, opponent, other_weapon, calculated_impact=None)
+
+        # Kick owner back
+        if beyblade_bump:
+            owner.speed = v()
+            pushback_v = v(-2 * POKE_THRESHOLD if owner.facing_right else 2 * POKE_THRESHOLD, -2 * POKE_THRESHOLD)
+            owner.push(pushback_v, 1.2, affect_player=True)
 
 
 class Mace(Bladed):
@@ -2025,7 +2089,10 @@ class Shield(OffHand):
     hides_hand = True
     action_string = "Hold action button to block enemy attacks; Activate while running for shield bash"
     upside = ["Hold action button to block", "Activate while running to bash"]
-    downside = ["Low damage"]
+    downside = ["Low damage", "Can't block from behind"]
+
+    _rehit_immune = 0.4
+    _grace_period = 0.3
 
     def parry(self, owner, opponent, other_weapon, calculated_impact=None):
         """Shields should use block instead"""
@@ -2040,6 +2107,8 @@ class Shield(OffHand):
         # Make sure damage is constant
         self.damage_range = self.damage_range[0], self.damage_range[0]
         self.redraw_loot()
+        self.internal_immunity = 0
+        self.reactivation_timer = 0
 
     def generate(self, size, tier=None):
 
@@ -2142,14 +2211,14 @@ class Shield(OffHand):
         # Only activates if:
         # 1. Input is continuous AND was not interrupted since start
         # 2. Shield is static and input is first
-        # 3. SHIELD BASH: 2+instant full activation if character is running close to own max speed
+        # 3. SHIELD BASH: instant full activation if character is running close to own max speed
         if not (
                 (continuous_input and self.active_last_frame) or
                 (not continuous_input and self.activation_offset == v())
         ):
             return
 
-        if self.disabled:
+        if self.disabled and not character.ramming and self.reactivation_timer <= 0:
             return
 
         self.active_this_frame = True
@@ -2177,6 +2246,12 @@ class Shield(OffHand):
                 0
             )
             return
+
+        # Instantly activate if grace period is applied:
+        elif self.reactivation_timer > 0:
+            self.disabled = False
+            self.held_counter = self.equip_time
+            character.shielded = self
 
         # Calculate activation vector if not already:
         elif self.held_counter < self.equip_time:
@@ -2268,18 +2343,24 @@ class Shield(OffHand):
         return surface, rect
 
     def block(self, character, damage, vector, weapon: Wielded = None, offender=None):
+
         # Determine how much stamina would a full block require
         character.stamina -= damage * self.stamina_drain
 
         block_failed = character.stamina < 0
 
+        # Prevent protecting from back attacks
         if offender:
-            block_failed = (character.position.x < offender.position.x) == character.facing_right and block_failed
+            block_failed = (character.position.x > offender.position.x) == character.facing_right or block_failed
 
         if block_failed:
             # Displace self by enemy weapon delta
             if weapon:
                 self.activation_offset += weapon.tip_delta
+
+            # Spawn a kicker and queue destruction if held by AI:
+            self.queue_destroy = character.ai is not None
+            self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
 
             # Return full damage and force
             return vector, damage
@@ -2316,6 +2397,11 @@ class Shield(OffHand):
                 kicker_text = 'DESTROYED!'
 
         # Spawn 'BLOCKED' kicker
+        self._kicker(kicker_text, character)
+
+        return v(), 0
+
+    def _kicker(self, kicker_text, character):
         blocked_kicker = Kicker(
             position=v(character.position),
             damage_value=0,
@@ -2323,8 +2409,6 @@ class Shield(OffHand):
             override_string=kicker_text
         )
         self.particles.append(blocked_kicker)
-
-        return v(), 0
 
     def portrait(self, rect: r, offset=BASE_SIZE*2, discolor=True):
         surface = s(rect.size, pygame.SRCALPHA)
@@ -2365,6 +2449,13 @@ class Shield(OffHand):
         return stats_dict
 
     def aim(self, hilt_placement, aiming_vector, character):
+        # Tick down immunity:
+        if self.internal_immunity > 0:
+            self.internal_immunity -= FPS_TICK
+
+        if not character.ramming and self.reactivation_timer > 0:
+            self.reactivation_timer -= FPS_TICK
+
         self.active_last_frame = self.active_this_frame
         # If activation timer is completed, set character.shielded to True
         if self.held_counter >= self.equip_time:
@@ -2380,9 +2471,16 @@ class Shield(OffHand):
 
         super().aim(hilt_placement, aiming_vector, character)
 
-        self.active_this_frame = False
+        if not character.ramming:
+            self.active_this_frame = False
 
     def deal_damage(self, vector=v(), victim=None, attacker=None):
+        # Spawn dust clouds
+        rect = self.surface.get_rect(center=self.hilt_v)
+        for _ in range(random.randint(7, 9)):
+            self.particles.append(DustCloud(rect))
+
+        self.reactivation_timer = self._grace_period
         return self.damage_range[0]
 
     def can_bash(self, character):
@@ -2500,8 +2598,16 @@ class Swordbreaker(Dagger, OffHand):
         self.redraw_loot()
 
     def aim(self, hilt_placement, aiming_vector, character):
-        # Restore 2% max stamina per second if they are not draining it
+        # Restore 5% max stamina per second if they are not draining it
         if self.stamina_ignore_timer > 0:
             if character.stamina < character.max_stamina:
-                character.stamina += character.max_stamina * 0.02 * FPS_TICK
+                character.stamina += character.max_stamina * 0.05 * FPS_TICK
         return Wielded.aim(self, hilt_placement, aiming_vector, character)
+
+    def deal_damage(self, vector=v(), victim=None, attacker=None):
+        self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
+        return super(Swordbreaker, self).deal_damage(vector, victim, attacker)
+
+    def parry(self, owner, opponent, other_weapon, calculated_impact=None):
+        super(Swordbreaker, self).parry(owner, opponent, other_weapon, calculated_impact)
+        self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)

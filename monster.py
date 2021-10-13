@@ -335,6 +335,10 @@ class AI:
         # Falchion roll
         self.roll_range = 0
 
+        # Axe whirlwind
+        self.whirlwind_charge_time = 0  # Duration required for 3 spins
+        self.whirlwind_cost = 0  # Cost to start whirlwinding
+
         # Initial calculations:
         self.calculate_stab()
         self.calculate_swing()
@@ -1218,8 +1222,8 @@ class Goblin(Humanoid):
 
     @staticmethod
     def _main_hand_goblin(tier):
-        def goblin_blade_material():
 
+        def goblin_blade_material():
             def filter_func(x):
                 return (
                     x.name not in Material.collections["elven"] and

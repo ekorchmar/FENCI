@@ -1,5 +1,5 @@
 # todo:
-#  introduce monster weights to fill backlog
+#  killing enemies too quickly spawns many enemies at once
 #  return to menu after death or clearing Campaign
 #  Player.fate: dict to remember player choices for future scenario
 #  todo: scenario feeds dict with debug info into scene for display_debug
@@ -25,9 +25,9 @@ class Player(Humanoid):
         )
         self.flip(new_collision=0)
 
-    def push(self, vector, time, state='flying'):
+    def push(self, vector, time, state='flying', affect_player=False, **kwargs):
         # Player character is more resilient to pushback
-        if state in DISABLED:
+        if affect_player and state in DISABLED:
             vector *= 0.33
         super().push(vector, time, state)
 
@@ -75,6 +75,7 @@ class SceneHandler:
             self,
             tier: int,
             pad_monster_classes: list,
+            pad_monster_weights: list[float] = None,
             monsters: list[Character] = None,
             loot_drops: int = 4,
             monster_total_cost: int = 100,
@@ -109,16 +110,18 @@ class SceneHandler:
         # Create backlog of monsters:
         self.on_scren_enemies_value_range = on_scren_enemies_value
         self.monsters = monsters or []
+        # If spawn weights are not specified, all are equal
+        pad_monster_weights = pad_monster_weights or [1] * len(pad_monster_classes)
         enemy_cost = sum(enemy.difficulty for enemy in self.monsters)
         # Fill level up to missing value by monsters of specified classes
         while enemy_cost < monster_total_cost:
-            monster_class = random.choice(pad_monster_classes)
-            enemy_cost += monster_class.difficulty
+            monster_instance = random.choices(pad_monster_classes, pad_monster_weights)[0]
+            enemy_cost += monster_instance.difficulty
             # Insert in random spots EXCEPT for last: may contain Bosses
             insert_idx = random.randint(0, len(self.monsters) - 1) if self.monsters else 0
             self.monsters.insert(
                 insert_idx,
-                monster_class(position=None, tier=self.tier, team_color=enemy_color)
+                monster_instance(position=None, tier=self.tier, team_color=enemy_color)
             )
 
         # Create backlog of loot
@@ -239,6 +242,7 @@ class SceneHandler:
                 'UPGRADE TIME!',
                 'GIMME, GIMME!',
                 'WOW!',
+                "LET'S GET THIS BREAD!"
                 'FINDERS KEEPERS!',
                 "IT IS DANGEROUS TO GO ALONE!",
                 f'REWARD FOR {random.choice(["VALOUR", "COURAGE", "STRENGTH", "SKILL", "CUNNING"])}!',
@@ -352,7 +356,7 @@ class SceneHandler:
 
             banner_text = random.choice([
                 "PERSEVERANCE",
-                "GET THEM, TIGER!",
+                "GET THEM, TIGER",
                 "FOCUS",
                 "HARDER, BETTER, FASTER, STRONGER",
                 "OUR WORK IS NEVER OVER",
@@ -363,21 +367,20 @@ class SceneHandler:
                 "THAT WAS A MISTAKE",
                 "MISTAKES WERE MADE",
                 "AW, HECK",
-                "DO A BARREL ROLL",
+                "THERE IS NO SPOON",
                 "USE THE FORCE",
                 "DODGE ENEMY ATTACKS",
                 "COULD BE WORSE",
                 "THAT WAS CLOSE",
                 "HATERS GONNA HATE",
                 "SHAKE IT OFF",
-                "BLOOD FOR THE BLOOD GOD",
-                "WHAT DOESN'T KILL YOU...",
+                "OUCH",
+                "WHAT DOESN'T KILL YOU",
                 "YOU CAN DO THIS",
-                "LOK'TAR OGAR",
                 "NOT THAT BAD, REALLY",
-                "WORK THEM FEET",
                 "CAREFUL",
-                "I'VE SEEN WORSE"
+                "I'VE SEEN WORSE",
+                "MERELY A SETBACK"
             ])
             self.respawn_banner = Banner(
                 banner_text,

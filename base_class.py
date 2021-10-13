@@ -1,8 +1,7 @@
 # todo:
-#  fall back to 'idle' if state animation is missing
+#  separate immunity counter for wall hits
 #  loot cards use arrows to show better stats ⇧ ⇩
-#  button(character) class, with associated action on click,  or button press
-#  querry equipment for equipment.slow each frame; affect voluntary movement limit
+#  button(character?) class, with associated action on click,  or button press
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -213,8 +212,8 @@ class Equipment:
             breaking_part = random.choice(list(self.builder["constructor"].keys()))
 
         breaking_material = Material.registry[self.builder["constructor"][breaking_part]["material"]]
-        breaking_part = breaking_part.capitalize()
-        sentence = f"{breaking_part} of your {self.builder['class'].lower()} {breaking_material.corrode(ask='verb')}"
+        sentence = f"You survive, but {breaking_part} of your {self.builder['class'].lower()} "\
+            f"{breaking_material.corrode(ask='verb')}"
 
         if self.durability == 0:
             sentence += ' completely!'
@@ -631,7 +630,8 @@ class Character:
                 return
 
             accelerate = direction_v
-            accelerate.scale_to_length(self.acceleration)
+            if accelerate != v():
+                accelerate.scale_to_length(self.acceleration)
 
             # If acceleration in the direction is 0 or opposite, make sure it's more effective at stopping
             for coordinate in {0, 1}:
@@ -706,7 +706,7 @@ class Character:
         new_place = v(self.position) + self.speed
         self.position = new_place
 
-    def push(self, vector, time, state='flying'):
+    def push(self, vector, time, state='flying', **kwargs):
         # Interrupt any active channels:
         if self.channeling:
             self.channeling = {}
@@ -939,9 +939,9 @@ class Character:
 
             self.stamina = min(self.stamina + stamina_increment * FPS_TICK, self.max_stamina)
 
-            # HP is passively healed
-            if 0 < self.hp < self.max_hp:
-                self.hp = min(self.hp + self.hp_restoration * self.max_hp * FPS_TICK, self.max_hp)
+        # HP is passively healed
+        if 0 < self.hp < self.max_hp:
+            self.hp = min(self.hp + self.hp_restoration * self.max_hp * FPS_TICK, self.max_hp)
 
         # Bleeding ticks down; damage is never lethal:
         if self.bleeding_timer > 0:

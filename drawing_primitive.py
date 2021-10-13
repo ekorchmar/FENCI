@@ -259,6 +259,15 @@ def lerp(values_range, progression):
         return values_range[0]
 
 
+def random_point(v1: v, v2: v):
+    r_float = random.random()
+    difference_v = v2 - v1
+
+    difference_v *= r_float
+
+    return v1 + difference_v
+
+
 # Game utils:
 def roll_tier(tier):
     if tier == 0:

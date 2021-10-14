@@ -285,6 +285,16 @@
         "weight": 0.8,
         "occurence": 3
     },
+    "aspen": {
+        "physics": "wood",
+        "hsva_values":
+            {
+                "min": [52, 66, 75],
+                "max": [62, 85, 86]
+            },
+        "tier": 2,
+        "weight": 0.5,
+        "occurence": 2},
     "chestnut": {
         "physics": "wood",
         "hsva_values":

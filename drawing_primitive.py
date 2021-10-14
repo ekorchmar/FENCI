@@ -1,6 +1,5 @@
 # todo:
 # After tech demo
-#  Material collections
 # todo: sparks to leave shapes of lines
 # todo: dialogue graphic
 # todo: language json
@@ -22,8 +21,8 @@ s = pygame.surface.Surface
 
 
 # Load JSON dicts:
-def load_resource(file_path):
-    with open(os.path.join('resource', file_path)) as resource_json:
+def load_resource(file_path, directory='resource'):
+    with open(os.path.join(directory, file_path)) as resource_json:
         return json.loads(resource_json.read())
 
 
@@ -32,6 +31,7 @@ colors = load_resource('colors.json')
 parts_dict = load_resource('parts.json')
 character_stats = load_resource('monsters.json')
 artifacts = load_resource('artifact.json')
+string = load_resource('en.json', directory='language')
 
 FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
 
@@ -469,7 +469,7 @@ class Bar:
         for i in range(width+1):
             bar_set.append([['[', base_color], ['█' * i, fill_color], [(width - i) * '_' + ']', base_color]])
         # Generate sequence of surfaces, cache them
-        self.surfaces = [ascii_draws(size, string) for string in bar_set]
+        self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
         self.font_size = size
         self.rect = self.surfaces[0].get_rect()
 

@@ -21,7 +21,7 @@ class Player(Humanoid):
             **player_body,
             **colors["player"],
             faces=character_stats["mind"]["human"],
-            name="Fenci"
+            name=string["protagonist_name"]
         )
         self.flip(new_collision=0)
 
@@ -49,7 +49,9 @@ class Player(Humanoid):
         if off_hand_pick is None:
             off_hand_lst = list(
                 filter(
-                    lambda x: artifacts[x]["class"] in {"Shield", "Swordbreaker"} and artifacts[x]["tier"] == 0,
+                    lambda x:
+                        artifacts[x]["class"] in {"Shield", "Swordbreaker", "Katar"} and
+                        artifacts[x]["tier"] == 0,
                     artifacts
                 )
             )
@@ -342,7 +344,7 @@ class SceneHandler:
 
             if not self.player_survived:
                 self.game_over_banner = Banner(
-                    "GAME OVER",
+                    string['gameplay']['game_over'],
                     BASE_SIZE * 2,
                     self.scene.box.center[:],
                     colors["game_over"],
@@ -354,34 +356,7 @@ class SceneHandler:
                 # Exit the loop
                 return
 
-            banner_text = random.choice([
-                "PERSEVERANCE",
-                "GET THEM, TIGER",
-                "FOCUS",
-                "HARDER, BETTER, FASTER, STRONGER",
-                "OUR WORK IS NEVER OVER",
-                "GET BACK IN THERE",
-                "THERE IS MORE TO LIFE",
-                "CONFIDENCE",
-                "COURAGE",
-                "THAT WAS A MISTAKE",
-                "MISTAKES WERE MADE",
-                "AW, HECK",
-                "THERE IS NO SPOON",
-                "USE THE FORCE",
-                "DODGE ENEMY ATTACKS",
-                "COULD BE WORSE",
-                "THAT WAS CLOSE",
-                "HATERS GONNA HATE",
-                "SHAKE IT OFF",
-                "OUCH",
-                "WHAT DOESN'T KILL YOU",
-                "YOU CAN DO THIS",
-                "NOT THAT BAD, REALLY",
-                "CAREFUL",
-                "I'VE SEEN WORSE",
-                "MERELY A SETBACK"
-            ])
+            banner_text = random.choice(string['gameplay']['respawn_successful'])
             self.respawn_banner = Banner(
                 banner_text,
                 BASE_SIZE * 2,

@@ -1,4 +1,5 @@
 # todo:
+#  show better hint for first loot drop
 #  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
@@ -148,7 +149,8 @@ class Scene:
             # self.echo(self.player, "Geronimo!", colors["lightning"])
             # self.player.slots['main_hand']._spin(-3*SWING_THRESHOLD, 360 * 3)
             # morph_equipment(self.player)
-            print(self.player.speed, self.player.state)
+            # print(self.player.speed, self.player.state)
+            random_frenzy(self, 'charge')
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -544,25 +546,6 @@ class Scene:
             # Don't check weapons of disabled characters:
             if character.state not in DISABLED:
                 for weapon in iteration_list[character]:
-                    # todo: delegate to Dagger.particles
-                    # Spawn mouse-hint particle for player Daggers roll
-                    try:
-                        if weapon.last_parry and not weapon.roll_particle:
-                            offset = v(-2*BASE_SIZE, 0) if weapon.prefer_slot == 'main_hand' else v(2*BASE_SIZE, 0)
-
-                            weapon.roll_particle = MouseHint(
-                                relative_position=offset,
-                                lifetime=weapon.roll_window,
-                                text="ROLL!",
-                                size=BASE_SIZE * 2 // 3,
-                                color=c(colors["indicator_good"]),
-                                monitor=weapon.has_roll
-                            )
-                            self.particles.append(weapon.roll_particle)
-
-                    except AttributeError:
-                        pass
-
                     # Don't iterate over non-dangerous, disabled or deflected weapons:
                     if (
                             (not weapon.dangerous and abs(weapon.angular_speed) < SWING_THRESHOLD * 0.5) or
@@ -581,6 +564,7 @@ class Scene:
 
                     # First, attempt to collide with all other weapons from different characters
                     for foe in target_characters:
+
                         if weapon_cleared:
                             continue
 
@@ -593,11 +577,17 @@ class Scene:
                             pass
 
                         for target_weapon in iteration_list[foe]:
+
+                            # Not all weapons can parry
+                            if not weapon.can_parry:
+                                break
+
                             # 1 Frame = 1 hit
                             if (
                                     target_weapon in set(already_hit) or
                                     target_weapon.disabled or
-                                    not target_weapon.hitbox()
+                                    not target_weapon.hitbox() or
+                                    not weapon.can_parry
                             ):
                                 continue
 

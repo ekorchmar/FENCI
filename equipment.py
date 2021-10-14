@@ -73,6 +73,7 @@ class Wielded(Equipment):
     pushback = 1.0
     hides_hand = False
     held_position = v()
+    can_parry = True
 
     def reset(self, character):
         self.last_angle = self.default_angle if character.facing_right else \
@@ -254,7 +255,7 @@ class Wielded(Equipment):
 
             if self.inertia_vector != v() and not self.disabled:
                 # Shields only move up to certain point:
-                if isinstance(self, Shield) and self.held_counter > self.equip_time:
+                if isinstance(self, Shield) and self.held_counter >= self.equip_time:
                     pass
                 else:
                     self.activation_offset += self.inertia_vector * FPS_TICK
@@ -418,7 +419,7 @@ class Wielded(Equipment):
         # Update self is dangerous
         self.dangerous = self.is_dangerous()
 
-    def draw(self, character):
+    def draw(self, character, _custom_surface=None):
         """Draw weapon at hilt position"""
         # Find original center of the image, as pygame will rotate the image around it
         center = self.surface.get_rect().center
@@ -432,8 +433,7 @@ class Wielded(Equipment):
         center_vector += self.hilt_v
 
         # Prepare rectangle to be drawn at new center
-        rotated_surface = pygame.transform.rotate(self.surface, self.last_angle)
-        rotated_rect = rotated_surface.get_rect(center=center_vector)
+        rotated_surface, rotated_rect = self._draw_raw(center_vector, _custom_surface or self.surface)
 
         if self.dangerous:
             rotated_surface = tint(rotated_surface, self.color or character.attacks_color)
@@ -456,6 +456,11 @@ class Wielded(Equipment):
             self.trail_frames: list = [None] * int(FPS_TARGET * 0.03 + 1)
             self.frame_counter = 0
 
+        return rotated_surface, rotated_rect
+
+    def _draw_raw(self, center_vector, custom_surface=None):
+        rotated_surface = pygame.transform.rotate(custom_surface or self.surface, self.last_angle)
+        rotated_rect = rotated_surface.get_rect(center=center_vector)
         return rotated_surface, rotated_rect
 
     def lock(self, duration, angle=None, inertia=None):
@@ -620,7 +625,7 @@ class Wielded(Equipment):
 
             portrait = tint(portrait, color)
 
-        if isinstance(self, (Spear, Axe)):
+        if isinstance(self, (Spear, Axe, Katar)):
             portrait = pygame.transform.flip(portrait, True, True)
         new_width = portrait.get_width()
 
@@ -770,6 +775,7 @@ class Pointed(Wielded):
     stab_dash_modifier = 1.0
 
     def __init__(self, *args, **kwargs):
+        self.skewering_surface = None
         super(Pointed, self).__init__(*args, **kwargs)
         # Skewer execution:
         self.reduced_agility_modifier = self.agility_modifier
@@ -813,11 +819,11 @@ class Pointed(Wielded):
         dash_vector.from_polar((self.character_specific["abs_dash_speed"], -self.last_angle))
         character.speed += dash_vector
 
-        # Lock all other currently equipped equipment, unless we are using swordbreaker or equipment is Swordbreaker
-        if not isinstance(self, Swordbreaker):
+        # Lock all other currently equipped equipment, unless we are using SB/Katar or equipment is SB/Katar
+        if not isinstance(self, (Swordbreaker, Katar)):
             for slot in character.weapon_slots:
 
-                if self != character.slots[slot] and not isinstance(character.slots[slot], Swordbreaker):
+                if self != character.slots[slot] and not isinstance(character.slots[slot], (Swordbreaker, Katar)):
                     weapon = character.slots[slot]
                     # Daggers and Swordbreakers are kept active
                     weapon.disabled = True
@@ -924,6 +930,12 @@ class Pointed(Wielded):
         )
         self.particles.append(skewer_kicker)
 
+    def draw(self, character, _custom_surface=None):
+        return super(Pointed, self).draw(
+            character,
+            _custom_surface=_custom_surface or (self.skewering_surface if self.kebab else self.surface)
+        )
+
 
 class Sword(Bladed, Pointed):
     aim_drain_modifier = 0.8
@@ -967,7 +979,7 @@ class Sword(Bladed, Pointed):
         )
 
         def new_hilt_material():
-            if random.random() > 0.6:  # 40% of the time, pick same material for hilt
+            if random.random() > 0.4:  # 40% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -1023,8 +1035,6 @@ class Sword(Bladed, Pointed):
         # Sword tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.hides_hand = False
-
         self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self: Wielded):
@@ -1062,7 +1072,6 @@ class Spear(Pointed):
     aim_drain_modifier = 1.75
     stab_modifier = 0.75
     hitting_surface = 'shaft'
-    pushback = 2.5
     upside = [
         "Activate to stab and skewer enemy",
         "Shake off skewered enemy to bleed it",
@@ -1106,12 +1115,12 @@ class Spear(Pointed):
             Material.pick(['wood', 'reed'], roll_tier(tier))
         )
 
-        # Create spear tip:
-        self.builder["constructor"]["tip"] = self.builder["constructor"].get("tip", {})
-        self.builder["constructor"]["tip"]["str"] = self.builder["constructor"]["tip"].get(
-            "str", random.choice(parts_dict['spear']['tips'])
+        # Create spear head:
+        self.builder["constructor"]["head"] = self.builder["constructor"].get("head", {})
+        self.builder["constructor"]["head"]["str"] = self.builder["constructor"]["head"].get(
+            "str", random.choice(parts_dict['spear']['heads'])
         )
-        self.builder["constructor"]["tip"]["material"] = self.builder["constructor"]["tip"].get(
+        self.builder["constructor"]["head"]["material"] = self.builder["constructor"]["head"].get(
             "material", Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
         )
 
@@ -1122,18 +1131,22 @@ class Spear(Pointed):
         self.builder["constructor"]['shaft']["color"] = self.builder["constructor"]['shaft'].get(
             "color", new_color("shaft")
         )
-        self.builder["constructor"]['tip']["color"] = self.builder["constructor"]['tip'].get(
-            "color", new_color("tip")
+        self.builder["constructor"]['head']["color"] = self.builder["constructor"]['head'].get(
+            "color", new_color("head")
         )
 
         # Now that builder is filled, create visuals:
         shaft_str = self.builder["constructor"]["shaft"]["str"]
-        tip_str = self.builder["constructor"]["tip"]["str"]
+        tip_str = self.builder["constructor"]["head"]["str"]
+        tip_sk = self.builder["constructor"]["head"]["str"][:-1] + ' '
         shaft_color = self.builder["constructor"]["shaft"]["color"]
-        tip_color = self.builder["constructor"]["tip"]["color"]
+        tip_color = self.builder["constructor"]["head"]["color"]
 
         spear_builder = (shaft_str, shaft_color), (tip_str, tip_color)
         self.surface = ascii_draws(size, spear_builder)
+
+        spear_builder_sk = (shaft_str, shaft_color), (tip_sk, tip_color)
+        self.skewering_surface = ascii_draws(size, spear_builder_sk)
 
         pole_length = len(shaft_str + tip_str)
         # Hold at 3rd pole character
@@ -1143,11 +1156,11 @@ class Spear(Pointed):
         self.length = self.surface.get_width() * (1 - 3 / pole_length)
 
         self.color = self.color = Material.registry[self.builder["constructor"]["shaft"]["material"]].attacks_color or \
-            Material.registry[self.builder["constructor"]["tip"]["material"]].attacks_color
+            Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
 
     def update_stats(self):
         shaft_material = Material.registry[self.builder["constructor"]["shaft"]["material"]]
-        tip_material = Material.registry[self.builder["constructor"]["tip"]["material"]]
+        tip_material = Material.registry[self.builder["constructor"]["head"]["material"]]
         shaft_len = len(self.builder["constructor"]["shaft"]["str"])
 
         # Generating stats according to Material.registry
@@ -1223,9 +1236,10 @@ class Spear(Pointed):
         elif self.held_position != v() and not self.active_this_frame and not self.disabled and not self.in_use:
             # Execute stab
             self.held_back_duration = 0
-            # Transfer held_position to activation_offset
             self.absolute_demotion = 0
-            self.activation_offset += self.held_position
+
+            # Transfer held_position to activation_offset (supplemental_v does this)
+            # self.activation_offset += self.held_position
             self.held_position = v()
             self.in_use = False
 
@@ -1304,7 +1318,7 @@ class Spear(Pointed):
             self.absolute_demotion += self.character_specific["hb_decrement"]
             decrement_args = (
                 self.absolute_demotion if character.facing_right else -self.absolute_demotion,
-                -self.last_angle
+                self.last_angle if character.facing_right else -self.last_angle
             )
             self.held_position.from_polar(decrement_args)
 
@@ -1549,8 +1563,8 @@ class Dagger(Short, Bladed):
 
         return stats_dict
 
-    def draw(self, character):
-        drawn = super(Dagger, self).draw(character)
+    def draw(self, character, **kwargs):
+        drawn = super(Dagger, self).draw(character, **kwargs)
 
         if not drawn:
             return
@@ -1755,8 +1769,6 @@ class Axe(Bladed):
 
         # Sword tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0]
-
-        self.hides_hand = False
 
         self.color = Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
 
@@ -2012,8 +2024,6 @@ class Falchion(Sword):
         # Falchion tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.hides_hand = False
-
         self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
@@ -2183,8 +2193,6 @@ class Shield(OffHand):
 
         self.hilt = self.surface.get_rect().center
 
-        self.hides_hand = True
-
         self.color = Material.registry[self.builder["constructor"]["plate"]["material"]].attacks_color or \
             Material.registry[self.builder["constructor"]["frame"]["material"]].attacks_color
 
@@ -2294,9 +2302,9 @@ class Shield(OffHand):
     def hitbox(self):
         return []
 
-    def draw(self, character):
+    def draw(self, character, **kwargs):
         try:
-            surface, rect = super().draw(character)
+            surface, rect = super().draw(character, **kwargs)
         except ValueError:
             # may return nothing; in this case, nothing is also returned
             return
@@ -2501,7 +2509,7 @@ class Swordbreaker(Dagger, OffHand):
         "Activate to dash and stab",
         "Held in forward position",
         "Activate after parrying to roll thorugh",
-        "Restores stamina while used"
+        "Restores stamina on hits and parries"
     ]
 
     def generate(self, size, tier=None):
@@ -2586,8 +2594,6 @@ class Swordbreaker(Dagger, OffHand):
         # Dagger tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.hides_hand = False
-
         self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
@@ -2598,7 +2604,7 @@ class Swordbreaker(Dagger, OffHand):
         self.redraw_loot()
 
     def aim(self, hilt_placement, aiming_vector, character):
-        # Restore 5% max stamina per second if they are not draining it
+        # Restore 5% max stamina per second if not draining it
         if self.stamina_ignore_timer > 0:
             if character.stamina < character.max_stamina:
                 character.stamina += character.max_stamina * 0.05 * FPS_TICK
@@ -2611,3 +2617,196 @@ class Swordbreaker(Dagger, OffHand):
     def parry(self, owner, opponent, other_weapon, calculated_impact=None):
         super(Swordbreaker, self).parry(owner, opponent, other_weapon, calculated_impact)
         self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
+
+
+class Katar(Pointed, OffHand):
+    # class_name = "Katar"
+    max_tilt = 85
+    default_angle = 0
+    stab_modifier = 1.8
+    aim_drain_modifier = 0.0
+    return_time = 0.2
+    held_position = v(-15, 5)
+    stab_dash_modifier = 0
+    stab_cost = 0.25
+    upside = [
+        "Activate to stab and bleed enemy",
+        "Hold activation to stab and immobilize enemy",
+        "Restores stamina on hits and parries"
+    ]
+    offside = ["No swing attacks", "Can't parry"]
+    hides_hand = True
+    can_parry = False
+
+    def __init__(self, *args, **kwargs):
+        self.hidden_surface = None
+        self.bleed = 0
+        super(Katar, self).__init__(*args, **kwargs)
+
+    def is_dangerous(self):
+        return self.in_use
+
+    def draw(self, character, _custom_surface=None):
+        if _custom_surface:
+            use_surface = _custom_surface
+        elif self.kebab:
+            use_surface = self.skewering_surface
+        elif self.in_use:
+            use_surface = self.surface
+        else:
+            use_surface = self.hidden_surface
+
+        return Wielded.draw(
+            self,
+            character,
+            _custom_surface=use_surface
+        )
+
+    def generate(self, size, tier=None):
+        # Fill missing parts of self.builder on the go:
+        self.builder["constructor"] = self.builder.get("constructor", {})
+        self.builder["tier"] = self.builder.get("tier", tier)
+
+        # Use this for calculations from now on
+        tier = self.builder["tier"]
+
+        self.builder["class"] = "Katar"
+
+        # Create a blade:
+        self.builder["constructor"]["blade"] = self.builder["constructor"].get("blade", {})
+        self.builder["constructor"]["blade"]["str"] = self.builder["constructor"]["blade"].get(
+            "str", random.choice(parts_dict['katar']['blades'])
+
+        )
+        self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
+            "material", Material.pick(['metal', 'precious', 'mineral'], roll_tier(tier))
+        )
+
+        # Create a guard
+        self.builder["constructor"]["guard"] = self.builder["constructor"].get("guard", {})
+        self.builder["constructor"]["guard"]["str"] = self.builder["constructor"]["guard"].get(
+            "str", random.choice(parts_dict['katar']['guards'])
+        )
+
+        def new_guard_material():
+            # Never use same material as blade
+            picked_blade_material = self.builder["constructor"]["blade"]["material"]
+
+            return Material.pick(
+                ['metal', 'leather', 'bone', 'precious'],
+                roll_tier(tier),
+                lambda x:
+                    x.name not in Material.collections['plateless_bone'] and
+                    x != Material.registry[picked_blade_material]
+            )
+
+        self.builder["constructor"]["guard"]["material"] = self.builder["constructor"]["guard"].get(
+            "material",
+            new_guard_material()
+        )
+
+        # Generate colors:
+        self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
+            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+        )
+
+        def new_guard_color():
+            if 'painted' in set(self.builder["constructor"]['guard'].get("tags", [])):
+                return paint()
+
+            # 50%, paint the handle
+            if Material.registry[self.builder["constructor"]['guard']["material"]].physics in PAINTABLE and \
+                    random.random() > 0.5:
+                self.builder["constructor"]['guard']['tags'] = ['painted']
+                return paint()
+
+            # Generate usual material color
+            return Material.registry[self.builder["constructor"]['guard']["material"]].generate()
+
+        self.builder["constructor"]['guard']["color"] = self.builder["constructor"]['guard'].get(
+            "color", new_guard_color()
+        )
+
+        handle_str = self.builder["constructor"]["guard"]["str"]
+        blade_str = self.builder["constructor"]["blade"]["str"]
+        handle_material = self.builder["constructor"]["guard"]["color"]
+        blade_material = self.builder["constructor"]["blade"]["color"]
+
+        self.surface = ascii_draws(
+            size,
+            (
+                (handle_str, handle_material),
+                (blade_str, blade_material)
+            )
+        )
+        self.skewering_surface = ascii_draws(
+            size,
+            (
+                (handle_str, handle_material),
+                (blade_str[:-1] + ' ', blade_material)
+            )
+        )
+        self.hidden_surface = ascii_draws(
+            size,
+            (
+                (handle_str, handle_material),
+                (blade_str[1]+' ', blade_material)
+            )
+        )
+
+        # Hold between 1st and second handle character -- offset exactly 1 character
+        self.hilt = self.surface.get_width() / len(handle_str + blade_str), self.surface.get_height() * 0.5
+
+        # Dagger tip coordinate relative to handle -- offset 1.25 character_positions
+        self.length = self.surface.get_width() - self.hilt[0] * 1.25
+
+        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+
+    def update_stats(self):
+        guard = Material.registry[self.builder["constructor"]["guard"]["material"]]
+        blade = Material.registry[self.builder["constructor"]["blade"]["material"]]
+
+        # Generate stats according to Material.registry
+        self.weight = 1.5*guard.weight + 2 * blade.weight
+        self.tier = int((guard.tier+blade.tier)*0.5)
+
+        # reduced for blade weight, increased for hilt tier
+        self.agility_modifier = math.sqrt((10.0 + guard.tier) / (1.6 * (1 + blade.weight)))
+        # Increased for dagger total weight, reduced for blade tier and hilt weight (1.3-1.6)
+        # SQRT to bring closer to 1.0
+        self.stamina_drain = math.sqrt(self.weight / ((2 + blade.tier) * math.sqrt(guard.weight)))
+
+        # Calculate damage range depending on weight and tier:
+        min_damage = int((33 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
+        max_damage = int(min_damage * 1.2)
+        self.damage_range = min_damage, max_damage
+
+        # Depends on total weight and heavily on blade tier
+        self.bleed = triangle_roll(0.01 * (self.weight + blade.tier**2), 0.07)
+
+        self.redraw_loot()
+
+    def show_stats(self, compare_to=None):
+        stats_dict: dict = super().show_stats(compare_to=compare_to)
+
+        if compare_to is not None:
+            comparison_dict = compare_to.show_stats()
+        else:
+            comparison_dict = dict()
+
+        stats_dict["BLEED"] = {
+            "value": self.bleed,
+            "text": f'{100*self.bleed:.1f}%/s'
+        }
+
+        if "BLEED" in comparison_dict:
+            stats_dict["BLEED"]["evaluation"] = self.bleed - comparison_dict["BLEED"]["value"]
+
+        return stats_dict
+
+    def aim(self, hilt_placement, aiming_vector, character):
+        # Restore 5% max stamina per second if not draining it
+        if self.stamina_ignore_timer > 0:
+            if character.stamina < character.max_stamina:
+                character.stamina += character.max_stamina * 0.05 * FPS_TICK
+        return Wielded.aim(self, hilt_placement, aiming_vector, character)

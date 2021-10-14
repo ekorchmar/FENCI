@@ -1,5 +1,6 @@
-# todo: more starting weapons
+# todo: starting katar
 # After tech demo
+# todo: more starting weapons
 # Todo: artifact weapons with custom properties
 # "savage axe": {},
 # "survivor's mace": {},

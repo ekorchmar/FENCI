@@ -1,5 +1,4 @@
 # todo:
-#  separate immunity counter for wall hits
 #  loot cards use arrows to show better stats ⇧ ⇩
 #  button(character?) class, with associated action on click,  or button press
 # after tech demo:
@@ -22,7 +21,9 @@ class Material:
         'mythical': {'moonglow silver', "unicorn horn", "moonbeast antler", "dragon scale",
                      "dragonhide", "unicorn kashmir", "Giant's beanstalk"},
         'demonic': {'fae iron', 'golden', 'warped stem', 'demon horn', 'soulcrystal', 'Stygian papyrus'},
-        'ferrous': {'pig iron', 'iron', 'sanchezium', 'dwarfish steel', 'damascus steel'}
+        'ferrous': {'pig iron', 'iron', 'sanchezium', 'dwarfish steel', 'damascus steel'},
+        'bendable_bone': {"fish bone", 'cattle horn', 'game antler', 'demon horn', 'unicorn horn',
+                          'moonbeast antler', 'wishbone', 'carbon plate', 'cursed bones'}
     }
 
     def __init__(self, name, hsl_min, hsl_max, tier, physics, weight, attacks_color=None, occurence=2):
@@ -416,6 +417,7 @@ class Character:
 
         self.disabled_timer = 0  # to cleanse if disabled for too long
         self.immune_timer = 0
+        self.immune_timer_wall = 0
         self.life_timer = 0
 
         self.wall_collision_v: v = v()
@@ -680,6 +682,9 @@ class Character:
 
         # Push disabled characters or characters somehow outside
         # Don't affect jumping or phasing characters (spawning)
+        if self.immune_timer_wall > 0:
+            self.immune_timer_wall -= FPS_TICK
+
         if not (self.ai and (self.phasing or self.state == 'jumping')):
 
             if self.state in DISABLED or not scene.box.collidepoint(self.position):
@@ -689,7 +694,9 @@ class Character:
                         to_center.scale_to_length(POKE_THRESHOLD * 2)
                         to_center.y *= 0.6
                         # Log own speed for the scene to handle damage
-                        self.wall_collision_v = v(self.speed)
+                        if self.immune_timer_wall <= 0:
+                            self.wall_collision_v = v(self.speed)
+                            self.immune_timer_wall = self.hit_immunity
                         self.speed = v()
                         self.push(to_center, 0.4, state='flying')
                         break

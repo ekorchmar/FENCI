@@ -1,0 +1,44 @@
+{
+  "protagonist_name": "Fenci",
+  "trivia": [],
+  "tips": [],
+  "gameplay": {
+    "game_over": "GAME OVER",
+    "progress": {
+      "level": "LEVEL",
+      "loot": "LOOT",
+      "loot_drop":"LOOT ON CLEAR"
+    },
+    "respawn_successful":[
+      "PERSEVERANCE",
+      "GET THEM, TIGER",
+      "FOCUS",
+      "HARDER, BETTER, FASTER, STRONGER",
+      "OUR WORK IS NEVER OVER",
+      "GET BACK IN THERE",
+      "THERE IS MORE TO LIFE",
+      "CONFIDENCE",
+      "COURAGE",
+      "THAT WAS A MISTAKE",
+      "MISTAKES WERE MADE",
+      "AW, HECK",
+      "THERE IS NO SPOON",
+      "USE THE FORCE",
+      "DODGE ENEMY ATTACKS",
+      "COULD BE WORSE",
+      "THAT WAS CLOSE",
+      "HATERS GONNA HATE",
+      "SHAKE IT OFF",
+      "OUCH",
+      "WHAT DOESN'T KILL YOU",
+      "YOU CAN DO THIS",
+      "NOT THAT BAD, REALLY",
+      "CAREFUL",
+      "I'VE SEEN WORSE",
+      "MERELY A SETBACK"
+    ],
+    "weapon_hints": {
+
+    }
+  }
+}

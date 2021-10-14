@@ -1,6 +1,4 @@
 # todo:
-#  Add orc equipment: Axes, Sword, Spear, Heavy Shield
-#  teach AI to use axe whirlwind
 # After tech demo
 # todo:
 #  ?? animate character flip
@@ -17,7 +15,7 @@
 
 from base_class import *
 from particle import AttackWarning
-from equipment import Shield, Dagger, Spear, Sword, Bladed, Pointed, Falchion, Nothing
+from equipment import Axe, Shield, Dagger, Spear, Sword, Bladed, Pointed, Falchion, Nothing
 from typing import Any
 
 
@@ -123,6 +121,17 @@ class Humanoid(Character):
         for weapon in self.weapon_slots:
 
             if not body_only:
+
+                # Draw hand first if hides_hand is True:
+                if self.slots[weapon].hides_hand:
+                    surface, rect = self._draw_hand(weapon)
+                    surface_copy = surface.copy()
+                    surface_copy.set_alpha(100)
+                    return_list.append((surface_copy, rect))
+
+                if not self.slots[weapon]:
+                    continue
+
                 output = self.slots[weapon].draw(self)
                 if output:
                     # Remember where weapon is drawn for UI purposes
@@ -136,22 +145,24 @@ class Humanoid(Character):
                     except (IndexError, TypeError):
                         pass
 
-            # 4. Also draw hand, if weapon allows it
-            if not self.slots[weapon] or (self.slots[weapon] and not self.slots[weapon].hides_hand):
-
-                if not self.slots[weapon] or not self.slots[weapon].hilt_v:
-                    hand_location = v(self.position) + v(self.body_coordinates[weapon])
-                else:
-                    hand_location = v(self.slots[weapon].hilt_v)
-
-                hand_angle = self.slots[weapon].last_angle
-
-                hand_surface, hand_rect = rot_center(self.hand, hand_angle, hand_location)
-                # I'm not sure hitbox should include hands. Creates a lot of accidental pushing.
-                # self.hitbox.append(hand_rect)
-                return_list.append((hand_surface, hand_rect))
+                # Draw hand, if not hides hand
+                if not self.slots[weapon].hides_hand:
+                    return_list.append(self._draw_hand(weapon))
 
         return return_list
+
+    def _draw_hand(self, slot):
+        if not self.slots[slot] or not self.slots[slot].hilt_v:
+            hand_location = v(self.position) + v(self.body_coordinates[slot])
+        else:
+            hand_location = v(self.slots[slot].hilt_v)
+
+        hand_angle = self.slots[slot].last_angle
+
+        hand_surface, hand_rect = rot_center(self.hand, hand_angle, hand_location)
+        # I'm not sure hitbox should include hands. Creates a lot of accidental pushing.
+        # self.hitbox.append(hand_rect)
+        return [hand_surface, hand_rect]
 
     def backpack_swap(self, scene):
         backpack = self.slots["backpack"]
@@ -338,11 +349,13 @@ class AI:
         # Axe whirlwind
         self.whirlwind_charge_time = 0  # Duration required for 3 spins
         self.whirlwind_cost = 0  # Cost to start whirlwinding
+        self.whirlwing_charge_range = 0  # Distance required for full charge power-up
 
         # Initial calculations:
         self.calculate_stab()
         self.calculate_swing()
         self.calculate_roll()
+        self.calculate_whirlwind()
 
         # Introduce standard mistake: will be re-rolled each analysis
         self.error = self._skill_distribution()
@@ -409,6 +422,21 @@ class AI:
         self.swing_windup_time = SWING_THRESHOLD * FPS_TICK / self.angular_acceleration
         self.swing_stamina_cost = self.swing_windup_time * (FPS_TARGET * self.tick_stamina_consumption)
         self.swing_windup_angle = 0.5 * FPS_TARGET * self.angular_acceleration * (self.swing_windup_time ** 2)
+
+    def calculate_whirlwind(self):
+        if not isinstance(self.weapon, Axe):
+            return
+
+        # Duration required for 3 spins
+        self.whirlwind_charge_time = self.weapon.full_charge_time
+        # Cost to start whirlwinding (Bots want to have full stamina)
+        self.whirlwind_cost = min(
+            self.weapon.full_charge_time * self.weapon.character_specific["stamina_drain"],
+            self.character.max_stamina * 0.7
+        )
+        # Range to charge up in time:
+        self.whirlwing_charge_range = 0.75*self.whirlwind_charge_time * self.character.max_speed * FPS_TARGET + \
+            2*self.swing_range
 
     def effective_range(self):
         # Returns assessment of own effective range in direction of target from own weapon hilt
@@ -510,7 +538,10 @@ class AI:
             return
 
         # Assess effective distance to target:
-        desired_sparring_distance = max(self.effective_range(), self.enemies[self.target]["reach"]) * 1.2
+        desired_sparring_distance = self.whirlwing_charge_range or max(
+            self.effective_range(),
+            self.enemies[self.target]["reach"]
+        ) * 1.2
 
         # Count friends and assess their state:
         for friend in filter(
@@ -678,7 +709,7 @@ class AI:
             return v(), None
 
         # Assess distance to other characters. Use squares to avoid sqrt
-        distances = {}
+        distances = dict()
         for body in filter(lambda x: x != self.character, self.scene.characters):
             # Consider hitboxes centers for simplicity
             minimal_distance = 0
@@ -732,7 +763,13 @@ class AI:
                 return self.execute()
 
             # Parried? Switch to confront
-            if self.weapon.disabled:
+            if not isinstance(self.weapon, Axe):
+                parry = self.weapon.disabled
+            # Axes may be locked by charging up:
+            else:
+                parry = self.weapon.disabled and not self.weapon.locked_from_activation
+
+            if parry:
                 self.strategy_dict["next"] = 'confront', 5 - random.uniform(0, 2 * self.flexibility)
                 self.analyze(self.scene)
                 return self.execute()
@@ -763,7 +800,7 @@ class AI:
                     self.set_strategy("confront", 5 - random.uniform(0, 2 * self.flexibility))
                     return self.execute()
 
-            # For anything Pointed
+            # For anything stabby
             if self.stab_stamina_cost > 0:
                 self.strategy_dict["plan"] = "stab"
                 # If stab is already planned, check warning time lifetime:
@@ -788,7 +825,7 @@ class AI:
             # For falchions, roll in:
             elif self.roll_range > 0:
                 self.strategy_dict["plan"] = "roll in"
-                # ?? Todo: high skill may attempt to roll through the player
+                # ?? Todo: high skill may attempt to purposefully roll through the player
                 # If we are close, switch to dogfight:
                 if distances[self.target] <= 1.2 * self.swing_range:
                     # Immediately switch to dogfight
@@ -801,6 +838,43 @@ class AI:
                     self.strategy_dict["next"] = ('dogfight', 5 - random.uniform(0, 2 * self.flexibility))
                     # Execute roll:
                     self.character.use(self.slot, continuous_input=False, point=self.target.position)
+
+            # For Axes, spin up before running up to character
+            elif self.whirlwind_cost > 0:
+                # If we are already calculated end of the spin, pass
+                if "stop_thinking" in self.strategy_dict:
+                    pass
+                # If we have started spinning, querry an analysis
+                elif self.weapon.spin_remaining > 0:
+                    spin_time = FPS_TICK * self.weapon.spin_remaining / abs(self.weapon.angular_speed)
+                    self.strategy_timer = spin_time
+                    self.strategy_dict["stop_thinking"] = None
+                # If an attack warning is already here:
+                elif "warning" in self.strategy_dict:
+                    # If active, keep powering up:
+                    if self.strategy_dict["warning"].lifetime > 0:
+                        self.character.use(self.slot, continuous_input=True)
+                    else:
+                        # Release, spin will follow
+                        pass
+                # If weapon is already being charged:
+                elif self.weapon.locked_from_activation:
+                    # Slow down, keep charging
+                    self.speed_limit = 0.75
+                    self.character.use(self.slot, continuous_input=True)
+                    # Spawn attack warning once charge is complete or if we are 2 reaches away:
+                    if self.weapon.charge_time >= self.weapon.full_charge_time or \
+                            distances[self.target] <= self.swing_range * 2:
+                        self.strategy_dict["warning"] = self.warn()
+                        self.strategy_dict["timestamp"] = pygame.time.get_ticks()
+                # If we are too close to enemy to attempt charge, switch to dogfight
+                elif distances[self.target] <= self.swing_range * 2:
+                    self.strategy_dict["next"] = ('dogfight', 5 - random.uniform(0, 2 * self.flexibility))
+                    self.analyze(self.scene)
+                # Finally, assess if enemy is in full charge distance, and start channeling spin if yes:
+                elif distances[self.target] <= self.whirlwing_charge_range and \
+                        self.character.stamina > self.whirlwind_cost:
+                    self.character.use(self.slot, continuous_input=True)
 
             else:
                 raise ValueError(f"{self.weapon} is missing charge logic")
@@ -1238,7 +1312,7 @@ class Goblin(Humanoid):
                 gbm = Material.pick(["metal"], tier, filter_func)
             # Anything bone otherwise:
             else:
-                gbm = Material.pick(["bone"], tier)
+                gbm = Material.pick(["bone"], tier, filter_func)
             return gbm
 
         # Goblin main hand weapon is:
@@ -1284,8 +1358,8 @@ class Goblin(Humanoid):
                     # Spears are short, light and simple, and never painted
                     "str": random.choice(["▭▭▭▭▭▭▭▭", "–-–-–-–-"])
                 },
-                "tip": {
-                    "str": random.choice(["<>", "=-", "⊂>"])
+                "head": {
+                    "str": random.choice(["<>", "═-", "⊂>"])
                 }
             }
             # Shaft material is always reed or very light wood
@@ -1298,10 +1372,10 @@ class Goblin(Humanoid):
                     ) and x.weight < 0.5
             )
             # Tip material has same logic as dagger material
-            spear_builder["tip"]["material"] = goblin_blade_material()
+            spear_builder["head"]["material"] = goblin_blade_material()
 
             # Goblin spears are purely functional and never painted, so we generate colors now
-            for part in {'shaft', 'tip'}:
+            for part in {'shaft', 'head'}:
                 color = Material.registry[spear_builder[part]["material"]].generate()
                 spear_builder[part]["color"] = color
 
@@ -1428,10 +1502,206 @@ class Orc(Humanoid):
             name=f"Orc Lv.{tier:.0f}"
         )
 
-        self.equip(Sword(BASE_SIZE, tier_target=tier), 'main_hand')
-        self.equip(Shield(BASE_SIZE, tier_target=tier), 'off_hand')
+        self.equip(self._main_hand_orc(tier, size=int(BASE_SIZE * body_stats['size'])), 'main_hand')
+        self.equip(self._shield_orc(tier, team_color, size=int(BASE_SIZE * body_stats['size'])), 'off_hand')
+        # 80% of the time also generate a heavy Shield
+        if random.random() > 0.2:
+            self.equip(self._shield_orc(tier, team_color, size=int(BASE_SIZE*body_stats['size'])), 'off_hand')
 
         self.ai = AI(self, **ai_stats)
+
+    @staticmethod
+    def _main_hand_orc(tier, size):
+
+        def orc_blade_material():
+            # Don't use Elven, never use light materials
+            def filter_func(x):
+                return (
+                    x.name not in Material.collections["elven"] and x.weight >= 0.8
+                )
+
+            # Mineral, 50% of the time on tier 1 and 2
+            if tier <= 2 and random.random() > 0.5:
+                gbm = Material.pick(["mineral"], tier, filter_func)
+            # Otherwise any metal
+            else:
+                gbm = Material.pick(["metal"], tier, filter_func)
+            return gbm
+
+        # Goblin main hand weapon is:
+        main_hand_choice = random.choices(
+            ["Axe", "Sword", "Spear"], [55, 30, 15]
+        )[0]
+
+        if main_hand_choice == 'Axe':
+            # Generate dict for Axe
+            axe_builder = {"head": {"material": orc_blade_material()}}
+
+            # Handle material and colors would be filled in by the constructor, but we need to exclude elven.
+
+            def new_handle_material():
+                # 20% of the time, pick same metal for METALLIC hilt
+                if (
+                        random.random() > 0.8 and
+                        Material.registry[axe_builder["head"]["material"]].physics in ('metal', 'precious')
+                ):
+                    hm = axe_builder["head"]["material"]
+                else:
+                    hm = Material.pick(
+                        ['bone', 'wood'],
+                        roll_tier(tier),
+                        lambda x:
+                            x.name not in Material.collections['elven']
+                    )
+                return hm
+
+            axe_builder["handle"] = {"material": new_handle_material()}
+
+            main_equipment_dict = {"constructor": axe_builder, 'tier': tier}
+            main_hand_weapon = Axe(size, tier_target=tier, equipment_dict=main_equipment_dict)
+
+        elif main_hand_choice == 'Sword':
+            # Generate dict for Sword
+            sword_builder: dict = {"blade": {"material": orc_blade_material()}, 'hilt': {}}
+
+            # Hilt material and colors would be filled in by the constructor, but we need to exclude elven.
+            def new_hilt_material():
+                if random.random() > 0.4:  # 40% of the time, pick same material for hilt
+                    hm = Material.pick(
+                        ['metal', 'bone', 'wood'],
+                        tier,
+                        lambda x: x.name not in Material.collections['elven']
+                    )
+                else:
+                    hm = sword_builder["blade"]["material"]
+                return hm
+
+            sword_builder["hilt"]["material"] = new_hilt_material()
+
+            # Get not-so pretty looking sword parts:
+            sword_builder["hilt"]["str"] = random.choice([
+              "<–]",
+              "⊂=(",
+              "=={",
+              "<=Σ",
+              "<≡E",
+              "⊂═╣"]
+            )
+
+            # LONG and scary swords
+            def make_blade(blade_parts):
+                return blade_parts[0] * 5 + blade_parts[1]
+
+            sword_builder["blade"]["str"] = make_blade(
+                random.choice([
+                    ["=", ">"],
+                    ["≡", "⊃"],
+                    ["≡", ">"],
+                    ["Ξ", "∃"]
+                ])
+            )
+
+            # Generate colors -- unpainted, of course:
+            sword_builder['blade']["color"] = sword_builder['blade'].get(
+                "color", Material.registry[sword_builder['blade']["material"]].generate()
+            )
+
+            def new_hilt_color():
+                # If parts share material, share color
+                if sword_builder['blade']["material"] == sword_builder['hilt']["material"]:
+                    return sword_builder['blade']["color"]
+
+                # Generate usual material color
+                return Material.registry[sword_builder['hilt']["material"]].generate()
+
+            sword_builder['hilt']["color"] = sword_builder['hilt'].get(
+                "color", new_hilt_color()
+            )
+
+            main_equipment_dict = {"constructor": sword_builder, "tier": tier}
+            main_hand_weapon = Sword(size, tier_target=tier, equipment_dict=main_equipment_dict)
+
+        else:
+            # Generate dict for Spear
+            # Strings: Long, sturdy spears
+            spear_builder: dict = {
+                "head":
+                    {
+                        'material': Material.pick(
+                            ['metal', 'bone', 'mineral'],
+                            tier,
+                            lambda x:
+                                x.name not in Material.collections['elven'] and
+                                x.weight >= 0.8
+                        ),
+                        'str': random.choice([
+                            "≡>",
+                            "=>",
+                            "═-",
+                            "▭>"
+                        ])
+                    },
+                "shaft":
+                    {
+                        'material': Material.pick(
+                            ['wood'],
+                            tier,
+                            lambda x:
+                                x.name not in Material.collections['elven'] and
+                                x.weight >= 0.8
+                        ),
+                        'str': random.choice([
+                            "<===––––––––",
+                            "––===–––––––",
+                            "════════════",
+                            "━━━━━━━━━━━━"
+                        ])[:10]
+                    }
+            }
+
+            # Unpainted:
+            for part in spear_builder:
+                spear_builder[part]['color'] = Material.registry[spear_builder[part]["material"]].generate()
+
+            main_equipment_dict = {"constructor": spear_builder, "tier": tier}
+            main_hand_weapon = Spear(size, tier_target=tier, equipment_dict=main_equipment_dict)
+
+        return main_hand_weapon
+
+    @staticmethod
+    def _shield_orc(tier, team_color, size):
+        shield_builder = {
+            "frame": {
+                "material": Material.pick(
+                    ["wood", "metal", "bone"],
+                    tier,
+                    filter_func=lambda x: (
+                        x.name not in Material.collections["elven"] and
+                        x.weight >= 1
+                    )
+                )
+            }
+        }
+
+        shield_builder["plate"] = {
+            "material": Material.pick(
+                ['metal', 'wood'],
+                tier,
+                lambda x: (
+                        x.name not in Material.collections['plateless_bone'] and
+                        x.name not in Material.collections['elven'] and
+                        Material.registry[shield_builder["frame"]["material"]].weight >= x.weight >= 1
+                )
+            )
+        }
+
+        # If specified, paint plate team color; otherwise let .generate handle it
+        if team_color and Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
+            shield_builder['plate']['color'] = team_color
+            shield_builder['plate']['tags'] = ['painted']
+
+        off_equipment_dict = {"constructor": shield_builder, "tier": tier}
+        return Shield(size, tier_target=tier, equipment_dict=off_equipment_dict)
 
 
 class DebugGoblin(Goblin):

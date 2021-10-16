@@ -1,6 +1,5 @@
 # todo:
-#  'grow' banner animation
-#  dust clouds take rect to randomize position in
+#  'grow' banner animation for combo counter
 #  sparks use varying parts of weapon and attack color for color generation
 #  banner background
 
@@ -19,7 +18,8 @@ class Kicker(Particle):
             weapon=None,
             critcolor=None,
             override_string=None,
-            oscillate=True
+            oscillate=True,
+            size=BASE_SIZE // 1.5
     ):
 
         if override_string:
@@ -38,7 +38,7 @@ class Kicker(Particle):
                 except ZeroDivisionError:
                     pass
 
-        self.surface = ascii_draw(int(BASE_SIZE // 1.5), damage_string, color)
+        self.surface = ascii_draw(int(size), damage_string, color)
         self.position = position
         self.max_lifetime = lifetime
         self.lifetime = lifetime

@@ -1,4 +1,6 @@
 # todo:
+#  Split AI.execute into submethods to allow for custom AI
+#  slow down speed limit in confornt depending on distance
 # After tech demo
 # todo:
 #  ?? animate character flip
@@ -130,6 +132,8 @@ class Humanoid(Character):
                     return_list.append((surface_copy, rect))
 
                 if not self.slots[weapon]:
+                    # Draw hand and skip
+                    return_list.append(self._draw_hand(weapon))
                     continue
 
                 output = self.slots[weapon].draw(self)
@@ -1247,6 +1251,11 @@ class AI:
 
         # If own collision group matches victim, test resolve for fleeing
         if self.character.collision_group == victim_collision:
+
+            # If characters size is more than targets size, flee only if morale is below (1-own courage):
+            if self.target and self.target.size < self.character.size and self.morale > (1-self.courage):
+                return
+
             if roll_courage < roll_health:
                 self.set_strategy("flee", 5 / self.courage)
                 self.character.set_state("scared", 5 / self.courage)
@@ -1429,7 +1438,9 @@ class Goblin(Humanoid):
                 sword_builder['hilt']['material'] = Material.pick(
                     ['metal', 'bone', 'precious', 'wood'],
                     tier,
-                    lambda x: x.name not in Material.collections["elven"]
+                    lambda x:
+                        x.name not in Material.collections["elven"] and
+                        x.name not in Material.collections["mythical"]
                 )
             else:
                 sword_builder['hilt']['material'] = sword_builder["blade"]["material"]
@@ -1513,13 +1524,15 @@ class Orc(Humanoid):
     @staticmethod
     def _main_hand_orc(tier, size):
 
-        def orc_blade_material():
-            # Don't use Elven, never use light materials
-            def filter_func(x):
-                return (
-                    x.name not in Material.collections["elven"] and x.weight >= 0.8
-                )
+        # Don't use Elven, never use light materials
+        def filter_func(x):
+            return (
+                    x.name not in Material.collections["elven"] and
+                    x.name not in Material.collections["celestial"] and
+                    x.weight >= 0.8
+            )
 
+        def orc_blade_material():
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
                 gbm = Material.pick(["mineral"], tier, filter_func)
@@ -1550,8 +1563,7 @@ class Orc(Humanoid):
                     hm = Material.pick(
                         ['bone', 'wood'],
                         roll_tier(tier),
-                        lambda x:
-                            x.name not in Material.collections['elven']
+                        filter_func
                     )
                 return hm
 
@@ -1570,7 +1582,7 @@ class Orc(Humanoid):
                     hm = Material.pick(
                         ['metal', 'bone', 'wood'],
                         tier,
-                        lambda x: x.name not in Material.collections['elven']
+                        filter_func
                     )
                 else:
                     hm = sword_builder["blade"]["material"]
@@ -1621,6 +1633,10 @@ class Orc(Humanoid):
             main_equipment_dict = {"constructor": sword_builder, "tier": tier}
             main_hand_weapon = Sword(size, tier_target=tier, equipment_dict=main_equipment_dict)
 
+            # 2% of the orcs hold sword wrong way for comedic value
+            if random.random() < 0.02:
+                main_hand_weapon.surface = pygame.transform.flip(main_hand_weapon.surface, True, False)
+
         else:
             # Generate dict for Spear
             # Strings: Long, sturdy spears
@@ -1630,9 +1646,7 @@ class Orc(Humanoid):
                         'material': Material.pick(
                             ['metal', 'bone', 'mineral'],
                             tier,
-                            lambda x:
-                                x.name not in Material.collections['elven'] and
-                                x.weight >= 0.8
+                            filter_func
                         ),
                         'str': random.choice([
                             "≡>",
@@ -1646,9 +1660,7 @@ class Orc(Humanoid):
                         'material': Material.pick(
                             ['wood'],
                             tier,
-                            lambda x:
-                                x.name not in Material.collections['elven'] and
-                                x.weight >= 0.8
+                            filter_func
                         ),
                         'str': random.choice([
                             "<===––––––––",
@@ -1677,6 +1689,7 @@ class Orc(Humanoid):
                     tier,
                     filter_func=lambda x: (
                         x.name not in Material.collections["elven"] and
+                        x.name not in Material.collections["celestial"] and
                         x.weight >= 1
                     )
                 )
@@ -1690,6 +1703,7 @@ class Orc(Humanoid):
                 lambda x: (
                         x.name not in Material.collections['plateless_bone'] and
                         x.name not in Material.collections['elven'] and
+                        x.name not in Material.collections['celestial'] and
                         Material.registry[shield_builder["frame"]["material"]].weight >= x.weight >= 1
                 )
             )

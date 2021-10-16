@@ -1,10 +1,13 @@
 # todo:
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
+#  Katar has static damage
+#  Axe deals crit damage on whirlwind third swing
+#  Holding activation prevents katar from retracting (in_use + continuous_input) and skewers enemy
 # After tech demo
 # todo:
 #  shield can't spawn kickers too often
 #  ?? Burning weapons
-#  ??Mace: activateable main hand weapon
+#  ?? Mace: activateable main hand weapon, copies falchion activation, increases collision damage to hit characters
 #  ?? Knife: offhand weapon that deals crit damage to airborne, disabled or turned away characters
 #  Add hats: armor, that passively changes stats of characters. Can be light, magic or heavy
 #  activateable axes and maces
@@ -1642,14 +1645,15 @@ class Axe(Bladed):
             if self.charge_time // self.character_specific["time_per_spin"] > self.spins_charged:
                 self.spins_charged += 1
                 # Spawn counting kicker:
-                blocked_kicker = Kicker(
+                count_kicker = Kicker(
+                    size=BASE_SIZE,
                     position=v(self.tip_v),
                     damage_value=0,
                     color=colors["lightning"],
                     override_string=f'{self.spins_charged:.0f}',
                     oscillate=False
                 )
-                self.particles.append(blocked_kicker)
+                self.particles.append(count_kicker)
 
                 # Spawn sparks if max count is reached
                 if self.spins_charged == self._max_spins:
@@ -1908,7 +1912,7 @@ class Axe(Bladed):
 
             beyblade_bump = True
 
-        super(Axe, self).parry(owner, opponent, other_weapon, calculated_impact=None)
+        super(Axe, self).parry(owner, opponent, other_weapon, calculated_impact)
 
         # Kick owner back
         if beyblade_bump:

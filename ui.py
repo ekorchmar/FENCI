@@ -1,4 +1,7 @@
 # todo:
+#  Countdown: series of banners that executes an action after completion
+#  Pause ensemble
+#  Main menu
 # after tech demo:
 # todo:
 #  sparks in inventory when weapon is damaged
@@ -6,6 +9,7 @@
 #  Dialogues
 
 from base_class import *
+from typing import Callable, Any
 
 
 class Inventory:
@@ -151,13 +155,7 @@ class LootOverlay:
         self.redraw_loot()
 
         # Draw frame:
-        frame_rect = r(
-            BASE_SIZE // 12,
-            BASE_SIZE // 12,
-            self.rect.width - BASE_SIZE // 6,
-            self.rect.height - BASE_SIZE // 6
-        )
-        pygame.draw.rect(self.surface, colors["inventory_text"], frame_rect, BASE_SIZE // 6)
+        frame_surface(self.surface, colors["inventory_text"])
 
         # Display help:
         self.helper = LootOverlayHelp()
@@ -398,3 +396,119 @@ class HeldMouse:
 
         self.held_timer += FPS_TICK
         return False
+
+
+class Button:
+    def __init__(
+            self,
+            text: list[str],
+            rect: r,
+            action: Callable,
+            action_parameters: dict = None,
+            size: int = BASE_SIZE,
+            mouse_over_text: list[str] = None,
+            kb_index: int = None
+    ):
+        # Basis:
+        self.text = text
+        self.mouse_over_text = mouse_over_text or self.text
+        self.action = action
+        self.action_parameters = action_parameters or dict()
+
+        # Activation handles:
+        self.rect = rect
+        self.kb_index = kb_index
+
+        # Create surfaces:
+        # Text content:
+        text_surface = ascii_draw_rows(size, [[row, colors["inventory_text"]] for row in self.text])
+        text_rect = text_surface.get_rect(center=v(self.rect.center)-v(self.rect.topleft))
+        text_surface_moused = ascii_draw_rows(size, [[row, colors["inventory_text"]] for row in self.mouse_over_text])
+        text_moused_rect = text_surface_moused.get_rect(center=v(self.rect.center)-v(self.rect.topleft))
+
+        # Unmoused:
+        self.surface = s(rect.size, pygame.SRCALPHA)
+        self.surface.fill(colors["loot_card"])
+        frame_surface(self.surface, colors["inventory_text"])
+        self.surface.blit(text_surface, text_rect)
+
+        # If index is specified, add it to unmoused surface:
+        if kb_index:
+            index_surface = ascii_draw(size, f"{kb_index:.0f}", colors["inventory_text"])
+            self.surface.blit(index_surface, (0, 0))
+
+        # Moused:
+        self.moused_over_surface = self.surface.copy()
+        self.moused_over_surface.fill(colors["background"])
+        frame_surface(self.moused_over_surface, colors["inventory_text"])
+        self.surface.blit(text_surface_moused, text_moused_rect)
+
+    def draw(self, moused_over: bool):
+        return self.moused_over_surface if moused_over else self.surface, self.rect
+
+    def activate(self):
+        self.action(**self.action_parameters)
+
+
+# Stolen from BamboozleChess. todo: Rewrite for this project
+class Menu:
+
+    def __init__(
+            self,
+            buttons_list: list[Button],
+            rect: r,
+            decoration_objects: dict[Any[dict]] = None,
+            background: bool = False,
+            offset: int = BASE_SIZE*2,
+            reposition_buttons: bool = True
+    ):
+
+        # Remember position and contents:
+        self.rect = rect
+        self.buttons_list = buttons_list
+        self.decoration_objects = decoration_objects or None
+
+        if reposition_buttons:
+            # Find initial corner and size to place buttons
+            column_height = (len(buttons_list)-1) * offset + sum(button.rect.height for button in buttons_list)
+            column_width = max(button.rect.width for button in buttons_list)
+            buttons_box = r(0, 0, column_width, column_height)
+            buttons_box.center = rect.center
+
+            # Place buttons in new box:
+            top = buttons_box.top
+            middle_x = buttons_box.left + column_width//2
+            for button in buttons_list:
+                button.rect.midtop = middle_x, top
+                top += button.rect.height + offset
+
+        # Draw background if asked to:
+        if background:
+            self.background = s(rect.size, pygame.SRCALPHA)
+            self.background.fill(colors["loot_card"])
+            frame_surface(self.background, colors["inventory_text"])
+        else:
+            self.background = None
+
+    def display(self, mouse_v):
+        draw_order = list()
+
+        # Draw background first
+        if self.background:
+            draw_order.append((self.background, self.rect))
+
+        # Draw buttons:
+        for button in self.buttons_list:
+            draw_order.append(button.draw(bool(button.rect.collidepoint(mouse_v))))
+
+        # Decorate:
+        for decoration in self.decoration_objects:
+            decoration_parameters = self.decoration_objects[decoration]
+            draw_order.append(decoration.draw(**decoration_parameters))
+
+    def collide_button(self, mouse_v):
+        """Perform button action for given x, y"""
+        for button in self.buttons_list:
+            if button.rect.collidepoint(mouse_v):
+                button.activate()
+            break

@@ -1,10 +1,9 @@
 # todo:
-#  show better hint for first loot drop
 #  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
-#  ?? Picking nothing restores some durability to damaged weapon
+#  ?? Picking nothing restores some durability to damaged weapon of same slot
 #  ?? screenshake
 # After tech demo
 # todo: when mousing over loot cards in loot overlay, show compared cards
@@ -148,9 +147,9 @@ class Scene:
             # print("No debug action set at the moment.")
             # self.echo(self.player, "Geronimo!", colors["lightning"])
             # self.player.slots['main_hand']._spin(-3*SWING_THRESHOLD, 360 * 3)
-            # morph_equipment(self.player)
+            morph_equipment(self.player)
             # print(self.player.speed, self.player.state)
-            random_frenzy(self, 'charge')
+            # random_frenzy(self, 'charge')
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -816,7 +815,7 @@ class Scene:
                         impact_damage = 0.05 * weapon.weight * damage_modifier
 
                         # Cap impact damage at 15% of target health:
-                        impact_damage = min(impact_damage, 0.15*target.max_hp)
+                        impact_damage = min(impact_damage, target.pct_cap*target.max_hp)
 
                         survived, damage = target.hurt(
                             damage=impact_damage,
@@ -883,7 +882,7 @@ class Scene:
             impact_damage = 0.025 * character.weight * damage_modifier
 
             # Cap at 15% max_hp
-            impact_damage = min(impact_damage, 0.15 * character.max_hp)
+            impact_damage = min(impact_damage, character.pct_cap * character.max_hp)
 
             survived, damage = character.hurt(
                 damage=impact_damage,

@@ -448,62 +448,14 @@ def frame_text(lines: list[str], style='╔═╗╚╝║'):
     return top + '\n'.join(style[5] + line.ljust(max_width) + style[5] for line in lines) + bottom
 
 
-# Graphical effects and details
-class Bar:
-    def __init__(
-            self,
-            size,
-            width,
-            fill_color,
-            max_value,
-            base_color=colors["bar_base"],
-            show_number=False,
-            cache=True
-    ):
-        self.max_value = max_value
-        self.show_number = show_number
-        self.base_color = base_color
-        self.width = width
-        # Generate sequence of ASCII loading bars representing different states
-        bar_set = []
-        for i in range(width+1):
-            bar_set.append([['[', base_color], ['█' * i, fill_color], [(width - i) * '_' + ']', base_color]])
-        # Generate sequence of surfaces, cache them
-        self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
-        self.font_size = size
-        self.rect = self.surfaces[0].get_rect()
-
-        self.caching = cache
-        self.cache = []
-        self.display_timer = 0
-
-    def display(self, value):
-        # Only recache every 0.1s:
-        if self.caching and self.display_timer <= 0.1 and self.cache:
-            self.display_timer += FPS_TICK
-            return self.cache
-        else:
-            self.display_timer = 0
-
-        # Find closest corresponding image to requested
-        if value <= 0:
-            index = 0
-        elif value >= self.max_value:
-            index = -1
-        else:
-            index = int(value * self.width / self.max_value)
-        # If show_number, blit rounded value onto bar
-        if self.show_number:
-            draw_number = ascii_draw(self.font_size, str(round(value)), self.base_color)
-            surface = self.surfaces[index].copy()
-            num_rect = draw_number.get_rect(center=surface.get_rect().center)
-            surface.blit(draw_number, num_rect)
-        else:  # Don't copy
-            surface = self.surfaces[index]
-
-        self.cache = surface, self.rect
-
-        return self.cache
+def frame_surface(surface, color):
+    frame_rect = r(
+        BASE_SIZE // 12,
+        BASE_SIZE // 12,
+        surface.get_width() - BASE_SIZE // 6,
+        surface.get_height() - BASE_SIZE // 6
+    )
+    pygame.draw.rect(surface, color, frame_rect, BASE_SIZE // 6)
 
 
 # Cheats/debugs

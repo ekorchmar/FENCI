@@ -1,6 +1,7 @@
 # todo:
 #  killing enemies too quickly spawns many enemies at once
 #  return to menu after death or clearing Campaign
+#  "boss iminent" indicator
 #  Player.fate: dict to remember player choices for future scenario
 #  todo: scenario feeds dict with debug info into scene for display_debug
 
@@ -24,12 +25,13 @@ class Player(Humanoid):
             name=string["protagonist_name"]
         )
         self.flip(new_collision=0)
+        self.seen_loot_drops = False
 
     def push(self, vector, time, state='flying', affect_player=False, **kwargs):
         # Player character is more resilient to pushback
         if affect_player and state in DISABLED:
             vector *= 0.33
-        super().push(vector, time, state)
+        super().push(vector, time, state, **kwargs)
 
     def equip_basic(self, main_hand_pick=None, off_hand_pick=None):
 
@@ -81,7 +83,7 @@ class SceneHandler:
             monsters: list[Character] = None,
             loot_drops: int = 4,
             monster_total_cost: int = 100,
-            on_scren_enemies_value=(6, 10),
+            on_scren_enemies_value=(7, 12),
             player: Player = None,
             scene: Scene = None,
             enemy_color=c(100, 0, 0),
@@ -235,21 +237,11 @@ class SceneHandler:
         ]):
             loot_package = self.loot[:3]
             del self.loot[:3]
-            loot_label = random.choice([
-                'LOOT TIME!',
-                'DESERVED!',
-                'YOINK!',
-                'YOURS NOW!',
-                'FRESH FROM THE ENEMY POCKETS!',
-                'UPGRADE TIME!',
-                'GIMME, GIMME!',
-                'WOW!',
-                "LET'S GET THIS BREAD!"
-                'FINDERS KEEPERS!',
-                "IT IS DANGEROUS TO GO ALONE!",
-                f'REWARD FOR {random.choice(["VALOUR", "COURAGE", "STRENGTH", "SKILL", "CUNNING"])}!',
-                f'REWARD FOR {random.choice(["AGILITY", "RISKING", "STYLE", "PRECISION", "DODGING"])}!'
-            ])
+
+            # Loot label contains a hint if it's first in playthrough:
+            loot_label = random.choice(string["loot_label" if self.player.seen_loot_drops else "loot_label_first"])
+            self.player.seen_loot_drops = True
+
             # Animate overlay from last dead monster:
             last_victim = self.scene.dead_characters[-1].position
             self.scene.loot_overlay = LootOverlay(loot_package, self.player, label=loot_label, appear_from=last_victim)

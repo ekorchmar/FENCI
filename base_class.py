@@ -1,6 +1,6 @@
 # todo:
-#  loot cards use arrows to show better stats ⇧ ⇩
-#  button(character?) class, with associated action on click,  or button press
+#  button class, with associated action on click, or button press
+#  character allows bars for equipped weapons
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -19,11 +19,12 @@ class Material:
         'plateless_bone': {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'},
         'elven': {'mythril', 'mallorn', 'spidersilk', 'elven cloth', 'riverglass'},
         'mythical': {'moonglow silver', "unicorn horn", "moonbeast antler", "dragon scale",
-                     "dragonhide", "unicorn kashmir", "Giant's beanstalk"},
+                     "dragonhide", "unicorn kashmir", "Giant's beanstalk", "niflheim ice"},
         'demonic': {'fae iron', 'golden', 'warped stem', 'demon horn', 'soulcrystal', 'Stygian papyrus'},
         'ferrous': {'pig iron', 'iron', 'sanchezium', 'dwarfish steel', 'damascus steel'},
         'bendable_bone': {"fish bone", 'cattle horn', 'game antler', 'demon horn', 'unicorn horn',
-                          'moonbeast antler', 'wishbone', 'carbon plate', 'cursed bones'}
+                          'moonbeast antler', 'wishbone', 'carbon plate', 'cursed bones'},
+        'celestial': {'moonglow silver', "moonbeast antler"}
     }
 
     def __init__(self, name, hsl_min, hsl_max, tier, physics, weight, attacks_color=None, occurence=2):
@@ -121,6 +122,63 @@ pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
 
 
 # Define base classes:
+class Bar:
+    def __init__(
+            self,
+            size,
+            width,
+            fill_color,
+            max_value,
+            base_color=colors["bar_base"],
+            show_number=False,
+            cache=True
+    ):
+        self.max_value = max_value
+        self.show_number = show_number
+        self.base_color = base_color
+        self.width = width
+        # Generate sequence of ASCII loading bars representing different states
+        bar_set = []
+        for i in range(width+1):
+            bar_set.append([['[', base_color], ['█' * i, fill_color], [(width - i) * '_' + ']', base_color]])
+        # Generate sequence of surfaces, cache them
+        self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
+        self.font_size = size
+        self.rect = self.surfaces[0].get_rect()
+
+        self.caching = cache
+        self.cache = []
+        self.display_timer = 0
+
+    def display(self, value):
+        # Only recache every 0.1s:
+        if self.caching and self.display_timer <= 0.1 and self.cache:
+            self.display_timer += FPS_TICK
+            return self.cache
+        else:
+            self.display_timer = 0
+
+        # Find closest corresponding image to requested
+        if value <= 0:
+            index = 0
+        elif value >= self.max_value:
+            index = -1
+        else:
+            index = int(value * self.width / self.max_value)
+        # If show_number, blit rounded value onto bar
+        if self.show_number:
+            draw_number = ascii_draw(self.font_size, str(round(value)), self.base_color)
+            surface = self.surfaces[index].copy()
+            num_rect = draw_number.get_rect(center=surface.get_rect().center)
+            surface.blit(draw_number, num_rect)
+        else:  # Don't copy
+            surface = self.surfaces[index]
+
+        self.cache = surface, self.rect
+
+        return self.cache
+
+
 class Equipment:
     registry = {}
     # Overridable:
@@ -299,10 +357,11 @@ class Equipment:
 
 class Character:
     weapon_slots = []
-    collision_group = 1
+    collision_group = 1  # Default for enemies
     hit_immunity = 0.6
     difficulty = 0
     has_blood = True
+    pct_cap = 0.15
 
     def __init__(
             self,
@@ -992,6 +1051,7 @@ class Particle:
 
 
 class Card:
+    """Metaclass for loots and stat cards"""
     xy_offset = BASE_SIZE // 3
 
     def __init__(self):
@@ -1141,7 +1201,16 @@ class LootCard(Card):
             else:
                 stat_color = colors["inventory_text"]
 
+            # Draw triangle indicator:
+            if stat_eval > 0:
+                quick_indicator = '▲'
+            elif stat_eval < 0:
+                quick_indicator = '▼'
+            else:
+                quick_indicator = ' '
+
             draw_order = [
+                (quick_indicator, c(stat_color)),
                 (stat + ": ", c(colors["inventory_text"])),
                 (stats_dict[stat]["text"], c(stat_color))
             ]
@@ -1157,13 +1226,8 @@ class LootCard(Card):
         self.surface = s((MAX_LOOT_CARD_SPACE.width, next_element_top), pygame.SRCALPHA)
         self.surface.blit(uncut_surface, (0, 0))
 
-        frame_rect = r(
-            BASE_SIZE//12,
-            BASE_SIZE//12,
-            MAX_LOOT_CARD_SPACE.width - BASE_SIZE // 6,
-            next_element_top - BASE_SIZE // 6
-        )
-        pygame.draw.rect(self.surface, colors["inventory_text"], frame_rect, BASE_SIZE // 6)
+        # Draw frame
+        frame_surface(self.surface, colors["inventory_text"])
 
         # 7. If comparison is specified, allow option to display a loot card on the right
         if compare_to:
@@ -1298,10 +1362,5 @@ class StatCard(Card):
         self.surface.blit(uncut_surface, (0, 0))
 
         # Draw frame
-        frame_rect = r(
-            BASE_SIZE // 12,
-            BASE_SIZE // 12,
-            MAX_LOOT_CARD_SPACE.width - BASE_SIZE // 6,
-            next_element_top - BASE_SIZE // 6
-        )
-        pygame.draw.rect(self.surface, colors["inventory_text"], frame_rect, BASE_SIZE // 6)
+        frame_surface(self.surface, colors["inventory_text"])
+

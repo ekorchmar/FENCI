@@ -78,6 +78,13 @@ MAX_LOOT_CARD_SPACE = r(
     WINDOW_SIZE[1] - 4*BASE_SIZE
 )
 
+DEFAULT_BUTTON_RECT = r(
+    0,
+    0,
+    WINDOW_SIZE[0] // 6,
+    WINDOW_SIZE[1] // 8
+)
+
 # Initial player position
 # Initial position is (1/6, 1/2) of bounding box,
 PLAYER_SPAWN = v(
@@ -125,8 +132,8 @@ BUSY = {'charge', 'dogfight', 'flee', 'reroute', 'skewered', 'jumping'}
 
 # Pygame display and clock
 pygame.display.set_caption("FENCI")
-# display_flags = pygame.SCALED | pygame.FULLSCREEN
-display_flags = pygame.SCALED
+display_flags = pygame.SCALED | pygame.FULLSCREEN
+# display_flags = pygame.SCALED
 SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
 
 CLOCK = pygame.time.Clock()

@@ -1,8 +1,8 @@
 # todo:
-#  pause_ensemble with tips and trivia/unpause countdown
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
+#  quit to menu & options from pause
 #  ?? Picking nothing restores some durability to damaged weapon of same slot
 #  ?? screenshake
 # After tech demo
@@ -299,6 +299,11 @@ class Scene:
             if not self.mouse_state[0] or self.held_mouse.hold():
                 self.held_mouse = None
 
+        # Handle unpause button in pause ensemble:
+        if self.pause_popups:
+            if self.mouse_state[0]:
+                self.pause_popups.collide_button(self.mouse_target)
+
         # Save to determine if mouse buttons are held for the next frame
         self.last_mouse_state = self.mouse_state[:]
 
@@ -377,18 +382,25 @@ class Scene:
 
         # Draw pause surfaces
         if self.pause_popups:
-            draw_group.append(self.pause_popups.draw())
-            if self.pause_popups.lifetime <= 0:
-                self.pause_popups = 0
+            pause_ensemble = self.pause_popups.display(self.mouse_target)
+            if pause_ensemble:
+                draw_group.extend(pause_ensemble)
+            else:
+                self.pause_popups = None
 
-        if self.loot_overlay:
+        elif self.loot_overlay:
             draw_group.append(self.loot_overlay.draw())
 
-        if self.paused:
-            self.pause_popups.lifetime = max(self.pause_popups.animation_duration + FPS_TICK,
-                                             self.pause_popups.lifetime)
+        # If mouse is hovering over the scene, show equipped weapons and stat cards
+        # Unless any of the buttons are moused over:
+        mouse_on_button = False
+        if self.pause_popups:
+            mouse_on_button = any(
+                button.rect.collidepoint(self.mouse_target) for button in self.pause_popups.buttons_list
+            )
 
-            # If mouse is hovering over the scene, show equipped weapons and stat cards
+        if self.paused and not mouse_on_button:
+
             if self.box.collidepoint(self.mouse_target):
                 displayed = False
                 for character in self.characters:
@@ -1088,15 +1100,7 @@ class Scene:
         if not self.paused:
 
             if not skip_banner:
-                self.pause_popups = Banner(
-                    "[PAUSED]",
-                    BASE_SIZE * 2,
-                    self.box.center[:],
-                    colors["pause_popup"],
-                    lifetime=1.2,
-                    animation_duration=0.3,
-                    tick_down=False
-                )
+                self.pause_popups = PauseEnsemble(self)
 
             # Update stat cards for every character
             for character in self.characters:
@@ -1104,7 +1108,7 @@ class Scene:
                     character.stat_cards[compare_key].redraw()
 
         elif self.paused and not skip_banner:
-            self.pause_popups.tick_down = True
+            self.pause_popups.fade()
 
         self.paused = not self.paused
 
@@ -1144,4 +1148,60 @@ class Scene:
                 character,
                 text
             )
+        )
+
+
+class PauseEnsemble(Menu):
+    def __init__(self, scene):
+
+        #  Unpause button:
+        unpause_rect = DEFAULT_BUTTON_RECT.copy()
+        unpause_rect.topright = scene.box.right - BASE_SIZE, scene.box.top + BASE_SIZE
+        unpause_button = [Button(
+            text=[string['gameplay']['unpause']],
+            rect=unpause_rect,
+            action=scene.toggle_pause
+        )]
+
+        ensemble_contents = [
+            # "Paused" banner
+            Banner(
+                f"[{string['gameplay']['paused']}]",
+                BASE_SIZE * 2,
+                scene.box.center[:],
+                colors["pause_popup"],
+                lifetime=0.6,
+                animation_duration=0.3,
+                tick_down=False
+            ),
+            # Tip string near the bottom
+            Banner(
+                f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
+                BASE_SIZE // 2,
+                (scene.box.left + scene.box.width // 2, scene.box.bottom - 2*BASE_SIZE),
+                colors["inventory_text"],
+                lifetime=0.6,
+                animation_duration=0.3,
+                tick_down=False,
+                animation='simple'
+            ),
+            #  Trivia string at the bottom, greyed out
+            Banner(
+                f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
+                BASE_SIZE // 2,
+                (scene.box.left + scene.box.width//2, scene.box.bottom - BASE_SIZE),
+                colors["inventory_description"],
+                lifetime=0.6,
+                animation_duration=0.3,
+                tick_down=False,
+                animation='simple'
+            )
+        ]
+
+        super(PauseEnsemble, self).__init__(
+            buttons_list=unpause_button,
+            decoration_objects=ensemble_contents,
+            rect=scene.box,
+            reposition_buttons=False,
+            background=False
         )

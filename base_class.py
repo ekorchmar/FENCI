@@ -1,5 +1,4 @@
 # todo:
-#  button class, with associated action on click, or button press
 #  character allows bars for equipped weapons
 # after tech demo:
 # todo:
@@ -9,6 +8,7 @@
 
 
 import copy
+from typing import Any
 from drawing_primitive import *
 
 
@@ -456,7 +456,7 @@ class Character:
         self.attacks_color = c(attacks_color)
 
         # HP, SP bars:
-        self.bars = {
+        self.bars: dict[str, Bar] = {
             "hp": Bar(BASE_SIZE // 3, 10, hp_color, health, base_color=colors["bar_base"], show_number=True),
             "stamina": Bar(BASE_SIZE // 3, 10, sp_color, stamina, base_color=colors["bar_base"], show_number=False)
         }
@@ -615,12 +615,12 @@ class Character:
         if not body_only and any(self.bars):
             bar_placement = v(self.body_coordinates['bars']) + v(self.position)
             drawn_bars = dict()
-            bar_rects = dict()
+            bar_rects: dict[str, Any] = {}
             for bar in self.bars:
                 drawn_bars[bar], bar_rects[bar] = self.bars[bar].display(self.__dict__[bar])
 
             # Order bars, hp first, stamina second, then alphabetically
-            all_bars = list(self.bars.keys())
+            all_bars: list[str] = list(self.bars.keys())
             all_bars.sort(key=lambda x: (x != "hp", x != "stamina", x))
 
             # Find the topleft corner of first bar
@@ -1363,4 +1363,3 @@ class StatCard(Card):
 
         # Draw frame
         frame_surface(self.surface, colors["inventory_text"])
-

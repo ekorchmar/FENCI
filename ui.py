@@ -1,6 +1,5 @@
 # todo:
 #  Countdown: series of banners that executes an action after completion
-#  Pause ensemble
 #  Main menu
 # after tech demo:
 # todo:
@@ -9,7 +8,8 @@
 #  Dialogues
 
 from base_class import *
-from typing import Callable, Any
+from typing import Callable
+from particle import Banner
 
 
 class Inventory:
@@ -439,9 +439,9 @@ class Button:
 
         # Moused:
         self.moused_over_surface = self.surface.copy()
-        self.moused_over_surface.fill(colors["background"])
+        self.moused_over_surface.fill(colors["inventory_description"])
         frame_surface(self.moused_over_surface, colors["inventory_text"])
-        self.surface.blit(text_surface_moused, text_moused_rect)
+        self.moused_over_surface.blit(text_surface_moused, text_moused_rect)
 
     def draw(self, moused_over: bool):
         return self.moused_over_surface if moused_over else self.surface, self.rect
@@ -457,7 +457,7 @@ class Menu:
             self,
             buttons_list: list[Button],
             rect: r,
-            decoration_objects: dict[Any[dict]] = None,
+            decoration_objects: list[Banner] = None,
             background: bool = False,
             offset: int = BASE_SIZE*2,
             reposition_buttons: bool = True
@@ -467,6 +467,7 @@ class Menu:
         self.rect = rect
         self.buttons_list = buttons_list
         self.decoration_objects = decoration_objects or None
+        self.fading = False
 
         if reposition_buttons:
             # Find initial corner and size to place buttons
@@ -483,32 +484,46 @@ class Menu:
                 top += button.rect.height + offset
 
         # Draw background if asked to:
+        self.background = s(rect.size, pygame.SRCALPHA)
         if background:
-            self.background = s(rect.size, pygame.SRCALPHA)
             self.background.fill(colors["loot_card"])
             frame_surface(self.background, colors["inventory_text"])
         else:
-            self.background = None
+            self.background.fill([0, 0, 0, 0])
+            self.background.set_alpha(0)
 
     def display(self, mouse_v):
         draw_order = list()
 
         # Draw background first
-        if self.background:
-            draw_order.append((self.background, self.rect))
+        draw_order.append((self.background, self.rect))
 
         # Draw buttons:
         for button in self.buttons_list:
             draw_order.append(button.draw(bool(button.rect.collidepoint(mouse_v))))
 
         # Decorate:
-        for decoration in self.decoration_objects:
-            decoration_parameters = self.decoration_objects[decoration]
-            draw_order.append(decoration.draw(**decoration_parameters))
+        for banner in self.decoration_objects:
+            draw_order.append(banner.draw(not self.fading))
+
+            # Despawn dead banners:
+            if banner.lifetime < 0:
+                self.decoration_objects.remove(banner)
+
+        return draw_order
 
     def collide_button(self, mouse_v):
         """Perform button action for given x, y"""
         for button in self.buttons_list:
             if button.rect.collidepoint(mouse_v):
-                button.activate()
-            break
+                self.process(button)
+                break
+
+    def process(self, button):
+        button.activate()
+        self.fade()
+
+    def fade(self):
+        """Remove all buttons, cause all banners to fade"""
+        self.buttons_list = []
+        self.fading = True

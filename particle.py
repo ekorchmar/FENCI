@@ -1,7 +1,7 @@
 # todo:
+#  add option to treat banner position as right anchor
 #  'grow' banner animation for combo counter
 #  sparks use varying parts of weapon and attack color for color generation
-#  banner background
 
 from base_class import *
 
@@ -33,7 +33,7 @@ class Kicker(Particle):
                     color = critcolor or color
                 # Higher damage flies faster
                 try:
-                    progression = (damage_value - weapon.damage_range[0])/(weapon.damage_range[1]-weapon.damage_range[0])
+                    progression = (damage_value-weapon.damage_range[0])/(weapon.damage_range[1]-weapon.damage_range[0])
                     base_speed = lerp((0.5*base_speed, base_speed), progression)
                 except ZeroDivisionError:
                     pass
@@ -159,7 +159,7 @@ class Spark(Particle):
         self.angle = random.randint(0, 45)
 
         # Create own surface
-        string = random.choice(['+', '*', '★', '☆', '•', '○'])
+        shape = random.choice(['+', '*', '★', '☆', '•', '○'])
         # Color is 66% chance attack color (if specified), weapon's hitting part color otherwise
         if weapon is None or (attack_color and random.random() > 0.34):
             color = attack_color
@@ -171,7 +171,7 @@ class Spark(Particle):
             hsl_list[2] = 40 + hsl_list[2] * random.uniform(0.3, 0.6)
             color.hsla = hsl_list
 
-        self.surface = ascii_draw(int(size*BASE_SIZE), string, color)
+        self.surface = ascii_draw(int(size*BASE_SIZE), shape, color)
         self.position = v(position[:])
 
         # Randomize movement:
@@ -206,9 +206,9 @@ class Droplet(Particle):
         if character.hp > 0:
             self.lifetime += spawn_delay
 
-        string = random.choice(['♥', '❤', '♠'])
+        shape = random.choice(['♥', '❤', '♠'])
 
-        self.surface = ascii_draw(int(size*BASE_SIZE), string, character.blood)
+        self.surface = ascii_draw(int(size*BASE_SIZE), shape, character.blood)
 
         # If character is alive, tether own position to the character
         self.character = character
@@ -309,7 +309,7 @@ class Banner(Particle):
         self.tick_down = tick_down
         self.position = position
 
-        if animation not in {None, 'fade', 'slide'}:
+        if animation not in {None, 'fade', 'slide', 'simple'}:
             raise KeyError("Invalid animation")
         else:
             self.animation = animation
@@ -319,9 +319,12 @@ class Banner(Particle):
         self.scale_factor = animation_options.get("scale_factor", 5)
         self.cache = None
 
-    def draw(self, pause=False):
-        self.tick_down = not pause
-        if self.tick_down or self.lifetime < self.animation_duration:
+    def draw(self, pause=None):
+
+        if pause is not None:
+            self.tick_down = not pause
+
+        if self.tick_down or self.max_lifetime - self.lifetime < self.animation_duration:
             self.lifetime -= FPS_TICK
         elif self.cache:
             return self.cache
@@ -352,7 +355,7 @@ class Banner(Particle):
 
             rect = surface.get_rect(center=self.position)
 
-        if self.animation == 'slide':
+        elif self.animation == 'slide':
             offset_start_x = WINDOW_SIZE[0] + self.surface.get_width() // 2 - self.position[0]
             offset_end_x = -self.surface.get_width() // 2 - self.position[0]
 
@@ -370,6 +373,19 @@ class Banner(Particle):
                 rect.move_ip(offset_start_x*(1-progress), 0)
             elif state == 'leave':
                 rect.move_ip(offset_end_x*(1-progress), 0)
+
+        elif self.animation == 'simple':
+            transparency = 255
+
+            if timer <= self.animation_duration:
+                transparency = int(255*timer/self.animation_duration)
+            elif self.lifetime <= self.animation_duration:
+                transparency = int(255*self.lifetime/self.animation_duration)
+
+            if transparency != 255:
+                surface.set_alpha(transparency)
+
+            rect = surface.get_rect(center=self.position)
 
         self.cache = surface, rect
         return surface, rect

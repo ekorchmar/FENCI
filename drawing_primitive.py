@@ -82,7 +82,7 @@ DEFAULT_BUTTON_RECT = r(
     0,
     0,
     WINDOW_SIZE[0] // 6,
-    WINDOW_SIZE[1] // 8
+    WINDOW_SIZE[1] // 10
 )
 
 # Initial player position
@@ -130,10 +130,14 @@ PASSIVE_STRATEGY = {"unknown", "passive", "wait", "wander", "flee"}
 ATTACKING_STRATEGY = {'charge', 'dogfight'}
 BUSY = {'charge', 'dogfight', 'flee', 'reroute', 'skewered', 'jumping'}
 
+# Number keys indices:
+NUMBER_CODES = list(enumerate(range(pygame.K_1, pygame.K_9)))
+NUMBER_LABELS = {i: str(i+1) for i in range(9)}
+
 # Pygame display and clock
 pygame.display.set_caption("FENCI")
-display_flags = pygame.SCALED | pygame.FULLSCREEN
-# display_flags = pygame.SCALED
+# display_flags = pygame.SCALED | pygame.FULLSCREEN
+display_flags = pygame.SCALED
 SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
 
 CLOCK = pygame.time.Clock()
@@ -489,3 +493,7 @@ def kill_random(scene):
     if scene.player in cohort:
         cohort.remove(scene.player)
     scene.undertake(random.choice(cohort))
+
+
+def log(text):
+    print(pygame.time.get_ticks(), text)

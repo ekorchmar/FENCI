@@ -1,6 +1,5 @@
 # todo:
-#  add option to treat banner position as right anchor
-#  'grow' banner animation for combo counter
+#  clamp particle rects inside box limits
 #  sparks use varying parts of weapon and attack color for color generation
 
 from base_class import *
@@ -300,6 +299,7 @@ class Banner(Particle):
             animation='fade',
             max_width=WINDOW_SIZE[0],
             tick_down=True,
+            anchor='center',
             **animation_options
     ):
         self.text = text
@@ -307,9 +307,12 @@ class Banner(Particle):
         self.lifetime = lifetime
         self.max_lifetime = lifetime
         self.tick_down = tick_down
+
+        # Positioning and orientation
+        self.anchor = anchor
         self.position = position
 
-        if animation not in {None, 'fade', 'slide', 'simple'}:
+        if animation not in {None, 'fade', 'slide', 'simple', 'grow'}:
             raise KeyError("Invalid animation")
         else:
             self.animation = animation
@@ -330,7 +333,9 @@ class Banner(Particle):
             return self.cache
 
         surface = self.surface.copy()
-        rect = surface.get_rect(center=self.position[:])
+
+        positioning = {self.anchor: self.position[:]}
+        rect = surface.get_rect(**positioning)
         timer = (self.max_lifetime - self.lifetime)
 
         if self.animation == 'fade':
@@ -353,7 +358,7 @@ class Banner(Particle):
                     (int(surface.get_width() * scale), int(surface.get_height()*scale))
                 )
 
-            rect = surface.get_rect(center=self.position)
+            rect = surface.get_rect(**positioning)
 
         elif self.animation == 'slide':
             offset_start_x = WINDOW_SIZE[0] + self.surface.get_width() // 2 - self.position[0]
@@ -385,7 +390,28 @@ class Banner(Particle):
             if transparency != 255:
                 surface.set_alpha(transparency)
 
-            rect = surface.get_rect(center=self.position)
+            rect = surface.get_rect(**positioning)
+
+        elif self.animation == 'grow':
+            scale = 1.0
+            transparency = 255
+
+            if timer <= self.animation_duration:
+                scale = timer/self.animation_duration
+            elif self.lifetime <= self.animation_duration:
+                transparency = int(255*self.lifetime/self.animation_duration)
+                scale = 1 + (self.scale_factor - 1) * (1 - self.lifetime/self.animation_duration)
+
+            if transparency != 255:
+                surface.set_alpha(transparency)
+
+            if scale != 1.0:
+                surface = pygame.transform.smoothscale(
+                    surface,
+                    (int(surface.get_width() * scale), int(surface.get_height()*scale))
+                )
+
+            rect = surface.get_rect(**positioning)
 
         self.cache = surface, rect
         return surface, rect

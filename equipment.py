@@ -1,7 +1,8 @@
 # todo:
+#  Bar for Axe charge
+#  Bar for shield equipping
 #  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
 #  Katar has static damage
-#  Axe deals crit damage on whirlwind third swing
 #  Holding activation prevents katar from retracting (in_use + continuous_input) and skewers enemy
 # After tech demo
 # todo:
@@ -933,6 +934,14 @@ class Pointed(Wielded):
         )
         self.particles.append(skewer_kicker)
 
+        # Add a Bar for character:
+        character.bars[self.prefer_slot] = Bar(
+            max_value=self.skewer_duration,
+            fill_color=self.color or character.attacks_color,
+            **character.weapon_bar_options
+        )
+        character.__dict__[self.prefer_slot] = self.skewer_duration
+
     def draw(self, character, _custom_surface=None):
         return super(Pointed, self).draw(
             character,
@@ -1265,6 +1274,9 @@ class Spear(Pointed):
             # Slow down owner:
             self.speed_limit = 0.5
 
+            # Affect owner's weapon bar value:
+            character.__dict__[self.prefer_slot] = self.skewer_duration
+
             # If tip reached SWING_THRESHOLD3/4, detach target
             if abs(self.angular_speed) > SWING_THRESHOLD*0.75:
                 # Unanchor and push in same direction
@@ -1289,12 +1301,18 @@ class Spear(Pointed):
                 )
                 self.particles.append(skewer_kicker)
 
+                # Pop own bar:
+                character.bars.pop(self.prefer_slot, None)
+
         # Else: make sure nothing is attached
         else:
             self.agility_modifier = self.saved_agility_modifier
             self.kebab = None
             self.skewer_duration = 0
             self.kebab_size = None
+
+            # Pop own bar:
+            character.bars.pop(self.prefer_slot, None)
 
     def activate(self, character, continuous_input):
 
@@ -1508,6 +1526,14 @@ class Dagger(Short, Bladed):
             )
             self.particles.append(roll_particle)
 
+            # Add a Bar for character:
+            owner.bars[self.prefer_slot] = Bar(
+                max_value=self.roll_window,
+                fill_color=self.color or owner.attacks_color,
+                **owner.weapon_bar_options
+            )
+            owner.__dict__[self.prefer_slot] = self.roll_window
+
     def aim(self, hilt_placement, aiming_vector, character):
         Wielded.aim(self, hilt_placement, aiming_vector, character)
 
@@ -1519,8 +1545,10 @@ class Dagger(Short, Bladed):
         ):
             self.time_from_parry = 0
             self.last_parry = None
+            character.bars.pop(self.prefer_slot, None)
         else:
             self.time_from_parry += FPS_TICK
+            character.__dict__[self.prefer_slot] = self.time_from_parry
 
     def activate(self, character, continuous_input):
         # Roll through last parried enemy (only for players)
@@ -1602,7 +1630,7 @@ class Axe(Bladed):
     default_angle = 40
     hitting_surface = 'head'
     upside = [f'Hold activation to charge whirlwind attack (up to {_max_spins} spins)']
-    downside = ['Only swing attacks', 'Minimal damage while spinning']
+    downside = ['Only swing attacks']
 
     def __init__(self, size, *args, **kwargs):
         self.wing_tips = {
@@ -1618,6 +1646,7 @@ class Axe(Bladed):
         self.active_this_frame = False
         self.active_character_speed = None
         self.slow_down_timer = 0
+        self.last_spin_crits = False
 
         super(Axe, self).__init__(size * 2 // 3, *args, **kwargs)  # Axes need to use smaller font to fit in
 
@@ -1656,6 +1685,7 @@ class Axe(Bladed):
                 self.particles.append(count_kicker)
 
                 # Spawn sparks if max count is reached
+                self.last_spin_crits = True
                 if self.spins_charged == self._max_spins:
                     for _ in range(5):
                         spark_v = v()
@@ -1806,7 +1836,7 @@ class Axe(Bladed):
 
         # Calculate damage range depending on weight, size and tier:
         # High tier axes scale better, weight is very important
-        min_damage = int((450 + self.weight ** 2) / 9 * 1.08 ** (self.tier - 1))
+        min_damage = int((450 + self.weight ** 2) / 7 * 1.08 ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(2 + 0.1 * self.tier))
         self.damage_range = min_damage, max_damage
 
@@ -1828,6 +1858,7 @@ class Axe(Bladed):
         self.active_this_frame = False
         self.locked_from_activation = False
         self.active_character_speed = None
+        self.last_spin_crits = False
 
     def aim(self, hilt_placement, aiming_vector, character):
         # Process spin activation:
@@ -1861,6 +1892,7 @@ class Axe(Bladed):
 
         # Once spin is over, apply fading slow
         if current_spin > 0 and self.spin_remaining <= 0:
+            self.last_spin_crits = False
             character.set_state('exhausted', 1)
             self.slow_down_timer = self._slow_down
             self.disabled = True
@@ -1909,6 +1941,7 @@ class Axe(Bladed):
             self.spins_charged = 0
             self.active_this_frame = False
             self.locked_from_activation = False
+            self.last_spin_crits = False
 
             beyblade_bump = True
 
@@ -1919,6 +1952,12 @@ class Axe(Bladed):
             owner.speed = v()
             pushback_v = v(-2 * POKE_THRESHOLD if owner.facing_right else 2 * POKE_THRESHOLD, -2 * POKE_THRESHOLD)
             owner.push(pushback_v, 1.2, affect_player=True)
+
+    def deal_damage(self, vector=v(), victim=None, attacker=None):
+        if 0 < self.spin_remaining < 360 and self.last_spin_crits:
+            return self.damage_range[1]
+
+        return super(Axe, self).deal_damage(vector, victim, attacker)
 
 
 class Mace(Bladed):
@@ -2612,7 +2651,7 @@ class Swordbreaker(Dagger, OffHand):
         if self.stamina_ignore_timer > 0:
             if character.stamina < character.max_stamina:
                 character.stamina += character.max_stamina * 0.05 * FPS_TICK
-        return Wielded.aim(self, hilt_placement, aiming_vector, character)
+        super().aim(hilt_placement, aiming_vector, character)
 
     def deal_damage(self, vector=v(), victim=None, attacker=None):
         self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)

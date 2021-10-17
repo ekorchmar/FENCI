@@ -1,4 +1,5 @@
 # todo:
+#  breather strategy (fall back when stamina is low)
 #  Split AI.execute into submethods to allow for custom AI
 #  slow down speed limit in confornt depending on distance
 # After tech demo
@@ -55,6 +56,17 @@ class Humanoid(Character):
         self.rolling = 0
         self.rolled_through = []
         self.roll_cooldown = 0
+
+        # Place to store values for weapon-specific bars
+        self.main_hand = None
+        self.off_hand = None
+        self.hat = None
+        self.weapon_bar_options = {
+            'size': BASE_SIZE // 3,
+            'width': 10,
+            'base_color': colors["bar_base"],
+            'show_number': False
+        }
 
     def do_blink(self):
         # Randomize next blink:

@@ -2,6 +2,7 @@
 #  bots "scream" about their important intentions (fleeing, attacking)
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
+#  scene.menus
 #  quit to menu & options from pause
 #  ?? Picking nothing restores some durability to damaged weapon of same slot
 #  ?? screenshake
@@ -64,6 +65,10 @@ class Scene:
 
         # Store and animate killed characters
         self.dead_characters = []
+
+        # Log how many enemies remain on screen each time an enemy is killed
+        # This tells SceneHandler if player clears enemies too fast, so more enemies should be spawned at once
+        self.enemies_count_on_death = []
 
         # Store damage kickers and other particles
         self.particles = []
@@ -131,7 +136,7 @@ class Scene:
                     debug = True
 
                 # Get pressed number keys
-                for index_key in enumerate(range(pygame.K_1, pygame.K_9)):
+                for index_key in NUMBER_CODES:
                     number_keys[index_key[0]] = (event.key == index_key[1])
 
         self.mouse_target = v(pygame.mouse.get_pos())
@@ -299,10 +304,13 @@ class Scene:
             if not self.mouse_state[0] or self.held_mouse.hold():
                 self.held_mouse = None
 
-        # Handle unpause button in pause ensemble:
+        # Handle buttons in pause ensemble:
         if self.pause_popups:
             if self.mouse_state[0]:
                 self.pause_popups.collide_button(self.mouse_target)
+
+            if any(number_keys):
+                self.pause_popups.index_button(number_keys.index(True))
 
         # Save to determine if mouse buttons are held for the next frame
         self.last_mouse_state = self.mouse_state[:]
@@ -388,7 +396,7 @@ class Scene:
             else:
                 self.pause_popups = None
 
-        elif self.loot_overlay:
+        if self.loot_overlay:
             draw_group.append(self.loot_overlay.draw())
 
         # If mouse is hovering over the scene, show equipped weapons and stat cards
@@ -976,6 +984,11 @@ class Scene:
         except ValueError:
             # Something already killed it
             pass
+
+        # Log count of enemies if it's enemy who died:
+        if character.collision_group != 0:
+            self.enemies_count_on_death.append(self.count_enemies_value())
+
         self.particles.append(Remains(character.kill(), self.box, particle_dump=self.particles))
         self.log_weapons()
         self.alert_ai(character)
@@ -1154,18 +1167,51 @@ class Scene:
 class PauseEnsemble(Menu):
     def __init__(self, scene):
 
-        #  Unpause button:
+        # Unpause button:
         unpause_rect = DEFAULT_BUTTON_RECT.copy()
-        unpause_rect.topright = scene.box.right - BASE_SIZE, scene.box.top + BASE_SIZE
-        unpause_button = [Button(
-            text=[string['gameplay']['unpause']],
+        unpause_rect.topleft = scene.box.left + BASE_SIZE, scene.box.top + BASE_SIZE
+        unpause_button = Button(
+            text=[string['menu']['unpause']],
             rect=unpause_rect,
-            action=scene.toggle_pause
-        )]
+            action=scene.toggle_pause,
+            kb_index=0
+        )
 
-        ensemble_contents = [
-            # "Paused" banner
-            Banner(
+        # Options button:
+        options_rect = DEFAULT_BUTTON_RECT.copy()
+        options_rect.topleft = unpause_rect.right + BASE_SIZE, scene.box.top + BASE_SIZE
+        options_button = Button(
+            text=[string['menu']['options']],
+            rect=options_rect,
+            action=log,
+            action_parameters={"text": "Options clicked."},
+            kb_index=1
+        )
+
+        # Main menu button:
+        menu_rect = DEFAULT_BUTTON_RECT.copy()
+        menu_rect.topleft = options_rect.right + BASE_SIZE, scene.box.top + BASE_SIZE
+        menu_button = Button(
+            text=[string['menu']['main']],
+            rect=menu_rect,
+            action=log,
+            action_parameters={"text": "Main Menu clicked."},
+            kb_index=2
+        )
+
+        # Ragequit button
+        exit_rect = DEFAULT_BUTTON_RECT.copy()
+        exit_rect.topleft = menu_rect.right + BASE_SIZE, scene.box.top + BASE_SIZE
+        exit_button = Button(
+            text=[string['menu']['exit']],
+            rect=exit_rect,
+            action=log,
+            action_parameters={"text": "Exit clicked."},
+            kb_index=3
+        )
+
+        # "Paused" banner
+        paused_banner = Banner(
                 f"[{string['gameplay']['paused']}]",
                 BASE_SIZE * 2,
                 scene.box.center[:],
@@ -1173,34 +1219,40 @@ class PauseEnsemble(Menu):
                 lifetime=0.6,
                 animation_duration=0.3,
                 tick_down=False
-            ),
-            # Tip string near the bottom
-            Banner(
-                f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
-                BASE_SIZE // 2,
-                (scene.box.left + scene.box.width // 2, scene.box.bottom - 2*BASE_SIZE),
-                colors["inventory_text"],
-                lifetime=0.6,
-                animation_duration=0.3,
-                tick_down=False,
-                animation='simple'
-            ),
-            #  Trivia string at the bottom, greyed out
-            Banner(
-                f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
-                BASE_SIZE // 2,
-                (scene.box.left + scene.box.width//2, scene.box.bottom - BASE_SIZE),
-                colors["inventory_description"],
-                lifetime=0.6,
-                animation_duration=0.3,
-                tick_down=False,
-                animation='simple'
             )
-        ]
+
+        # Info strings options:
+        info_string = {
+            "size": BASE_SIZE * 2 // 3,
+            "max_width": scene.box.width - BASE_SIZE * 2,
+            "lifetime": 0.6,
+            "animation_duration": 0.3,
+            "tick_down": False,
+            "animation": 'simple',
+            "anchor": 'bottomleft'
+        }
+
+        # Trivia string at the bottom, greyed out
+        trivia_bottomleft = (scene.box.left + BASE_SIZE, scene.box.bottom - BASE_SIZE)
+        trivia_banner = Banner(
+            text=f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
+            position=trivia_bottomleft,
+            color=colors["inventory_description"],
+            **info_string
+        )
+
+        # Tip string above trivia string
+        trivia_banner_top = trivia_banner.surface.get_rect(bottomleft=trivia_bottomleft).top
+        tip_banner = Banner(
+                text=f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
+                position=(scene.box.left + BASE_SIZE, trivia_banner_top - BASE_SIZE // 2),
+                color=colors["inventory_text"],
+                **info_string
+            )
 
         super(PauseEnsemble, self).__init__(
-            buttons_list=unpause_button,
-            decoration_objects=ensemble_contents,
+            buttons_list=[unpause_button, options_button, menu_button, exit_button],
+            decoration_objects=[paused_banner, tip_banner, trivia_banner],
             rect=scene.box,
             reposition_buttons=False,
             background=False

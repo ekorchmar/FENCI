@@ -22,8 +22,8 @@ for tier in range(5):
 
 sh = SceneHandler(1, [Goblin, Orc], [5, 1])
 # sh = SceneHandler(1, [DebugOrc], on_scren_enemies_value=[1, 1], loot_drops=20)
-sh.player.equip(Axe(BASE_SIZE, tier_target=2), 'main_hand')
-sh.player.equip(Shield(BASE_SIZE, tier_target=2), 'off_hand')
+sh.player.equip(Dagger(BASE_SIZE, tier_target=2), 'main_hand')
+sh.player.equip(Swordbreaker(BASE_SIZE, tier_target=2), 'off_hand')
 # sh.player.equip(Katar(BASE_SIZE, tier_target=2), 'backpack')
 sh.scene.log_weapons()
 

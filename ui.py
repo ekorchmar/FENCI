@@ -168,7 +168,7 @@ class LootOverlay:
         x_offset_iteration = (self.rect.width - self.offset * 2 - loot_card_count * MAX_LOOT_CARD_SPACE.width) \
             // (loot_card_count - 1)
 
-        card_index, card_no = 0, 1
+        card_index = 0
         for loot in self.loot_list:
             if self.character and self.character.slots[loot.prefer_slot]:
                 compare_to = self.character.slots[loot.prefer_slot]
@@ -195,7 +195,7 @@ class LootOverlay:
 
             # Draw shortcuts
             if self.draw_shortcuts:
-                shortcurt_surface = ascii_draw(BASE_SIZE*2//3, f"[{card_no:.0f}]", colors["inventory_title"])
+                shortcurt_surface = ascii_draw(BASE_SIZE*2//3, NUMBER_LABELS[card_index], colors["inventory_title"])
                 shortcut_rect = shortcurt_surface.get_rect(
                     topleft=v(loot_card_rect.topleft)+v(0.5*self.offset, 0.5*self.offset)
                 )
@@ -207,7 +207,6 @@ class LootOverlay:
             x_offset += x_offset_iteration + loot_card_rect.width
 
             card_index += 1
-            card_no += 1
 
     def draw(self):
         surface = self.surface.copy()
@@ -433,9 +432,9 @@ class Button:
         self.surface.blit(text_surface, text_rect)
 
         # If index is specified, add it to unmoused surface:
-        if kb_index:
-            index_surface = ascii_draw(size, f"{kb_index:.0f}", colors["inventory_text"])
-            self.surface.blit(index_surface, (0, 0))
+        if kb_index is not None:
+            index_surface = ascii_draw(size * 2 // 3, NUMBER_LABELS[kb_index], colors["inventory_title"])
+            self.surface.blit(index_surface, (BASE_SIZE//2, BASE_SIZE//2))
 
         # Moused:
         self.moused_over_surface = self.surface.copy()
@@ -450,8 +449,8 @@ class Button:
         self.action(**self.action_parameters)
 
 
-# Stolen from BamboozleChess. todo: Rewrite for this project
 class Menu:
+    """Stolen from BamboozleChess."""
 
     def __init__(
             self,
@@ -519,9 +518,15 @@ class Menu:
                 self.process(button)
                 break
 
-    def process(self, button):
+    def index_button(self, index):
+        for button in self.buttons_list:
+            if button.kb_index == index:
+                self.process(button)
+                break
+
+    @staticmethod
+    def process(button):
         button.activate()
-        self.fade()
 
     def fade(self):
         """Remove all buttons, cause all banners to fade"""

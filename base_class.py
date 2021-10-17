@@ -1,5 +1,4 @@
 # todo:
-#  character allows bars for equipped weapons
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -485,6 +484,9 @@ class Character:
         self.name = name or f"{self.__class__.__name__} Lv.??"
         self.stat_cards = {None: StatCard(self)}
 
+        # Counter since last frame when character held dangerous weapon: affects stamina restoration
+        self.since_dangerous_frame = 0
+
     def anchor(self, duration, position=None, weapon=None):
         self.speed = v()
         if position:
@@ -552,6 +554,7 @@ class Character:
 
         self.breath()
 
+        dangerous = False
         for weapon in self.weapon_slots:
 
             hilt_placement = v(self.position) + v(self.body_coordinates[weapon])
@@ -593,6 +596,13 @@ class Character:
                         aiming_vector.x *= -1
 
             self.slots[weapon].aim(hilt_placement=hilt_placement, aiming_vector=aiming_vector, character=self)
+            dangerous = dangerous or self.slots[weapon].dangerous
+
+        # If weapons were dangerous this frame, reset counter:
+        if dangerous:
+            self.since_dangerous_frame = 0
+        else:
+            self.since_dangerous_frame += FPS_TICK
 
         self.hitbox = [self.face[0].get_rect(center=self.position)]
 
@@ -987,14 +997,18 @@ class Character:
                 self.state not in DISABLED and
                 not any(self.slots[slot].prevent_regen for slot in self.slots)
         ):
-            # Restore slower when stamina is low
-            exhaust_mod = max(self.stamina / self.max_stamina, 0.5)
-            # Restore slower when moving
-            if self.speed.xy != [0, 0]:
-                exhaust_mod *= 0.5
-            # Player character restores faster behind shield
-            if self.ai is None and isinstance(self.shielded, Equipment):
-                exhaust_mod *= 1.5
+            # If we are 'resting' by not having dangerous weapons for 1 s, restore stamina faster:
+            if self.since_dangerous_frame > 1:
+                exhaust_mod = 2
+            else:
+                # Restore slower when stamina is low
+                exhaust_mod = max(self.stamina / self.max_stamina, 0.5)
+                # Restore slower when moving
+                if self.speed.xy != [0, 0]:
+                    exhaust_mod *= 0.5
+                # Player character restores faster behind shield
+                if self.ai is None and isinstance(self.shielded, Equipment):
+                    exhaust_mod *= 1.5
 
             # Hurt characters restore stamina very fast:
             if self.immune_timer > 0:

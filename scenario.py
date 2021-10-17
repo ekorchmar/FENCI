@@ -1,8 +1,7 @@
 # todo:
-#  killing enemies too quickly spawns many enemies at once
 #  return to menu after death or clearing Campaign
 #  "boss iminent" indicator
-#  Player.fate: dict to remember player choices for future scenario
+#  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
 #  todo: scenario feeds dict with debug info into scene for display_debug
 
 from scene import *
@@ -117,6 +116,7 @@ class SceneHandler:
         # If spawn weights are not specified, all are equal
         pad_monster_weights = pad_monster_weights or [1] * len(pad_monster_classes)
         enemy_cost = sum(enemy.difficulty for enemy in self.monsters)
+
         # Fill level up to missing value by monsters of specified classes
         while enemy_cost < monster_total_cost:
             monster_instance = random.choices(pad_monster_classes, pad_monster_weights)[0]
@@ -129,7 +129,7 @@ class SceneHandler:
             )
 
         # Create backlog of loot
-        # Spread by class:
+        # Spread by slot:
         loot_by_slot = dict()
         for loot_class in tuple(Wielded.registry.values()):
             if loot_class.prefer_slot in loot_by_slot:
@@ -182,10 +182,18 @@ class SceneHandler:
         self.loot_dropped = 0
 
         # Spawn monsters for scene inception:
-        on_screen_value = 0
-        while on_screen_value < self.on_scren_enemies_value_range[0]:
+        self.batch_spawn(self.on_scren_enemies_value_range[0])
+
+    def batch_spawn(self, value=None):
+        if value is None:
+            value = lerp(self.on_scren_enemies_value_range, self.relative_progression)
+
+        while self.scene.count_enemies_value() < value:
+            # Stop if monster backlog is empty
+            if not self.monsters:
+                break
+
             self.spawn_monster(force=True)
-            on_screen_value = self.scene.count_enemies_value()
 
     def execute(self):
         # 1. Iterate the scene
@@ -195,7 +203,16 @@ class SceneHandler:
         # 2.1. Check and spawn monsters if needed
         # Check if loot is queued to be spawned
         if not self.loot_querried and not self.scene.loot_overlay and not self.scene.paused:
-            self.spawn_monster()
+            # If scene is empty and player is chainkilling spawning enemies, spawn bunch at once:
+            if (
+                    len(self.scene.enemies_count_on_death) > 3 and
+                    self.scene.enemies_count_on_death[-3:] == [0, 0, 0] and
+                    self.scene.count_enemies_value() == 0
+            ):
+                print('player is doing too well')
+                self.batch_spawn()
+            else:
+                self.spawn_monster()
 
         # 2.2. Modify displayed scene bars according to progression
         # Calculate current progress:
@@ -239,7 +256,9 @@ class SceneHandler:
             del self.loot[:3]
 
             # Loot label contains a hint if it's first in playthrough:
-            loot_label = random.choice(string["loot_label" if self.player.seen_loot_drops else "loot_label_first"])
+            loot_label = random.choice(
+                string["gameplay"]["loot_label" if self.player.seen_loot_drops else "loot_label_first"]
+            )
             self.player.seen_loot_drops = True
 
             # Animate overlay from last dead monster:
@@ -282,7 +301,7 @@ class SceneHandler:
             return
 
         # Calculate current progression dependent variables:
-        current_on_scren_enemies = round(lerp(self.on_scren_enemies_value_range, self.relative_progression))
+        current_on_scren_enemies = lerp(self.on_scren_enemies_value_range, self.relative_progression)
         current_spawn_delay = lerp(self.spawn_delay_range, self.relative_progression)
         present_enemies_value = self.scene.count_enemies_value()
 

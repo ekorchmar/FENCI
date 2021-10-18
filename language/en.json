@@ -114,18 +114,24 @@
     "Stamina restores much faster if you don't swing your weapons for some time.",
     "Light weapons are easier to control, but are also much easier to parry.",
     "Parrying enemy weapons hurts your stamina. You may want to dodge heavy hits instead.",
+    "Weapon's SPEED shows how fast the weapon can change direction. It's easier to reach maximum damage of a fast weapon",
+    "High SPEED weapons allow you to activate or charge their abilities faster and more often.",
+    "Weapon's DRAIN shows how much stamina it costs to aim and use the weapon.",
+    "Your weapon's damage is not random. The faster it moves, the harder it hits.",
 
     "Shield can't protect you from the back. Don't get surrounded.",
     "Initiating fight with a shield bash into a group of enemies is great way to scatter them.",
-    "Heavier shields deal more damage with bash and are more efficient at blocking damage.",
-    "Lighter shields have longer bash range and are faster to pick up.",
-    "Shield damage potential is not to be underestimated. Enemies take additional damage when being thrown into a wall.",
+    "Heavier Shields deal more damage with bash and are more efficient at blocking damage.",
+    "Lighter Shields have longer bash range and are faster to pick up.",
+    "Shield damage potential is not to be underestimated. Enemies take additional damage from being thrown into a wall.",
+    "Lighter shields have high DRAIN stat and convert more blocked damage in stamina loss.",
 
     "Swords are simple, deal a lot of damage and are a reliable tool in most situations.",
     "Long and heavy swords are very powerful, but require strict discipline with stamina management.",
     "Light short sword is a go-to weapon for most combat encounters.",
+    "Swords don't offer much in terms of mobility. Pay attention to your positioning.",
 
-    "Daggers have very short range, but offer best tactical options.",
+    "Daggers have very short range and modest damage range, but offer best tactical options.",
     "Even accidental parry with a dagger will allow you to roll through your foes. Always look out for options!",
     "Daggers provide consistent damage at low stamina cost, even when swung.",
 
@@ -134,7 +140,7 @@
     "When skewering an enemy, best options are to stab them with your second weapon or to launch them into a wall.",
     "Holding activation button for spear will not increase your stab damage, but will allow you to target close enemies.",
 
-    "Swordbreakers offer you same benefits as Daggers, so you may want to avoid this combination. If you hate having fun.",
+    "Swordbreakers offer you same mobility as Daggers, so you may want to avoid this combination. If you hate having fun.",
     "Swordbreakers will briefly increase stamina restoration on any parry or hit, but it's still possible to run dry.",
     "If you are using a long spear, Swordbreaker can be a good sidearm to ward off close combat attackers.",
 
@@ -143,8 +149,9 @@
     "Falchions lack Swords' reach and burst damage of stabbing attack. Be creative with your rolls to stay on top of enemies.",
 
     "Axe whirlwind is powerful, but requires a lot of preparation time and may leave you without stamina. Don't get caught.",
-    "You don't always need whirlwind to fight multiple enemies with an Axe, it's dangerous even when simply swung.",
-    "Axes are scary close combat weapons, but offer neither reach nor mobility. Make sure to make up for it with your loadout."
+    "You don't always need whirlwind to fight multiple enemies with an Axe, it is effective even when simply swung.",
+    "Axes are scary close combat weapons, but offer neither reach nor mobility. Make sure to make up for it with your loadout.",
+    "With good Axe, you can kill a goblin by just one hit. Be careful to not waste all stamina trying to get lucky."
   ],
   "gameplay": {
     "paused": "PAUSED",

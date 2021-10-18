@@ -1,5 +1,5 @@
 # todo:
-#  bots "scream" about their important intentions (fleeing, attacking)
+#  toggling pause spawns a countdown
 #  display combo counter
 #  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
 #  scene.menus
@@ -715,7 +715,7 @@ class Scene:
                 if isinstance(target, Character):
                     collision_v = target.speed + weapon.tip_delta
                     # todo: 'SKEWERED!', 'BLEEDING!' etc. kicker
-                    damage = round(weapon.deal_damage(vector=collision_v, victim=target, attacker=owner))
+                    damage = round(weapon.deal_damage(vector=collision_v, victim=target, victor=owner))
                     survived, actual_damage = opponent.hurt(
                         damage=damage,
                         vector=weapon.tip_delta,
@@ -816,7 +816,7 @@ class Scene:
                 ):
                     # Test if collision speed above PT/2
                     relative_v = weapon.speed - target.speed
-                    if 4 * relative_v.length_squared() < POKE_THRESHOLD ** 2:
+                    if 4 * relative_v.length_squared() < POKE_THRESHOLD * POKE_THRESHOLD:
                         # Simple collision
                         collision_v.scale_to_length(POKE_THRESHOLD)
                         if not (weapon.shielded or weapon.anchor_timer > 0):
@@ -830,7 +830,7 @@ class Scene:
                         assigned.sort(key=lambda x: (x.immune_timer, x.state == 'skewered', x.speed.length_squared()))
                         target, weapon = assigned
 
-                        damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),
+                        damage_modifier = lerp((0.25 * POKE_THRESHOLD*POKE_THRESHOLD, POKE_THRESHOLD*POKE_THRESHOLD),
                                                relative_v.length_squared())
                         impact_damage = 0.05 * weapon.weight * damage_modifier
 
@@ -891,13 +891,13 @@ class Scene:
         ):
 
             if (
-                    character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD ** 2 or
+                    character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD * POKE_THRESHOLD or
                     (character.ai is None and character.immune_timer > 0)
             ):
                 character.wall_collision_v = v()
                 continue
 
-            damage_modifier = lerp((0.25 * POKE_THRESHOLD ** 2, POKE_THRESHOLD ** 2),
+            damage_modifier = lerp((0.25 * POKE_THRESHOLD * POKE_THRESHOLD, POKE_THRESHOLD * POKE_THRESHOLD),
                                    character.wall_collision_v.length_squared())
             impact_damage = 0.025 * character.weight * damage_modifier
 
@@ -1042,7 +1042,7 @@ class Scene:
         clear = not any((meatbag.position - position_v).length_squared() < 9 * BASE_SIZE for meatbag in self.characters)
         while not clear:
             position_v = roll_position(left=spawn_left)
-            clear = not any((meatbag.position - position_v).length_squared() < BASE_SIZE ** 2
+            clear = not any((meatbag.position - position_v).length_squared() < BASE_SIZE * POKE_THRESHOLD
                             for meatbag in self.characters)
 
         off_screen_x = random.uniform(BASE_SIZE, 3 * BASE_SIZE)

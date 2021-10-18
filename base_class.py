@@ -580,7 +580,7 @@ class Character:
 
             if weapon == 'main_hand' or self.slots[weapon].held_position != v():
                 # offset hilt by small amount in target direction
-                offset_vector = v(self.size * 0.5, 0).rotate(-self.slots['main_hand'].last_angle)
+                offset_vector = v(self.size * 0.5, 0).rotate(-self.slots[weapon].last_angle)
                 # Elliptical orbit looks better
                 offset_vector.x = offset_vector.x * 2
                 hilt_placement = pygame.math.Vector2(hilt_placement) + offset_vector
@@ -596,7 +596,7 @@ class Character:
                         aiming_vector.x *= -1
 
             self.slots[weapon].aim(hilt_placement=hilt_placement, aiming_vector=aiming_vector, character=self)
-            dangerous = dangerous or self.slots[weapon].dangerous
+            dangerous = dangerous or self.slots[weapon].dangerous or self.slots[weapon].disabled
 
         # If weapons were dangerous this frame, reset counter:
         if dangerous:
@@ -997,8 +997,8 @@ class Character:
                 self.state not in DISABLED and
                 not any(self.slots[slot].prevent_regen for slot in self.slots)
         ):
-            # If we are 'resting' by not having dangerous weapons for 1 s, restore stamina faster:
-            if self.since_dangerous_frame > 1:
+            # If we are 'resting' by not having dangerous weapons for 2s, restore stamina faster:
+            if self.since_dangerous_frame > 2:
                 exhaust_mod = 2
             else:
                 # Restore slower when stamina is low

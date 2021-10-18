@@ -1,14 +1,12 @@
 # todo:
-#  breather strategy (fall back when stamina is low)
 #  Split AI.execute into submethods to allow for custom AI
-#  slow down speed limit in confornt depending on distance
 # After tech demo
 # todo:
 #  ?? animate character flip
 #  ?? Treasure goblins
 #  hat oscillates instead oor together with face
 #  Animal(Character) subclass
-#   Monsters: Goblin, Wolf, Rat, Elf, Orc
+#   Monsters: Goblin, Wolf, Rat, Elf, Orc, Demon
 #  ?? cache character_positions to be redrawn at most 10 times/s
 #  generate equipment for Goblin, Elf, Orc
 #  AI can use off-hand weapons, not just shields
@@ -173,7 +171,7 @@ class Humanoid(Character):
         else:
             hand_location = v(self.slots[slot].hilt_v)
 
-        hand_angle = self.slots[slot].last_angle
+        hand_angle = self.slots[slot].last_angle + self.slots[slot].hand_rotation
 
         hand_surface, hand_rect = rot_center(self.hand, hand_angle, hand_location)
         # I'm not sure hitbox should include hands. Creates a lot of accidental pushing.
@@ -445,11 +443,8 @@ class AI:
 
         # Duration required for 3 spins
         self.whirlwind_charge_time = self.weapon.full_charge_time
-        # Cost to start whirlwinding (Bots want to have full stamina)
-        self.whirlwind_cost = min(
-            self.weapon.full_charge_time * self.weapon.character_specific["stamina_drain"],
-            self.character.max_stamina * 0.7
-        )
+        # Cost to start whirlwinding
+        self.whirlwind_cost = self.character.max_stamina * 0.5
         # Range to charge up in time:
         self.whirlwing_charge_range = 0.75*self.whirlwind_charge_time * self.character.max_speed * FPS_TARGET + \
             2*self.swing_range
@@ -884,7 +879,7 @@ class AI:
                         self.strategy_dict["warning"] = self.warn()
                         self.strategy_dict["timestamp"] = pygame.time.get_ticks()
                 # If we are too close to enemy to attempt charge, switch to dogfight
-                elif distances[self.target] <= self.swing_range * 2:
+                elif distances[self.target] <= self.swing_range * 1.2:
                     self.strategy_dict["next"] = ('dogfight', 5 - random.uniform(0, 2 * self.flexibility))
                     self.analyze(self.scene)
                 # Finally, assess if enemy is in full charge distance, and start channeling spin if yes:
@@ -910,11 +905,18 @@ class AI:
             directions = radial_v + compensation_v, self.target.position
 
         elif self.strategy == 'confront':
+            # If we ran out of stamina, stop and wait:
+            if self.character.stamina < self.character.max_stamina * 0.1:
+                self.character.set_state('exhausted', 1)
+                self.strategy_dict["next"] = 'wait', 3+random.uniform(0, 1-self.flexibility)
+                self.analyze(self.scene)
+                return self.execute()
+
             if self.target is None or self.target.hp <= 0:
                 self.analyze(self.scene)
                 return self.execute()
 
-            self.speed_limit = 0.5 + 0.5 * self.courage
+            self.speed_limit = 0.25 + 0.75 * self.courage
             # Check if we have something planned; else, re-evaluate a subplan
             substrategy = self.strategy_dict.get("plan", None)
 
@@ -987,11 +989,21 @@ class AI:
 
                 aim = self.target.position
 
-                # If we are in range, clear subplan for the future:
                 if self.target not in distances:
                     self.analyze(self.scene)
+
+                # If we are in range, clear subplan for the future:
                 if 0.8 * distances[self.target] < self.strategy_dict["desired_distance"] < 1.2 * distances[self.target]:
                     self.strategy_dict = {}
+
+                # Limit speed if we are around desired distance:
+                elif "desired_distance" in self.strategy_dict:
+                    relative_deviation = (
+                        distances[self.target] / self.strategy_dict["desired_distance"]
+                        if distances[self.target] < self.strategy_dict["desired_distance"]
+                        else self.strategy_dict["desired_distance"] / distances[self.target]
+                    )
+                    self.speed_limit = lerp((0.25, self.speed_limit), 1-relative_deviation)
 
                 return move, aim
 
@@ -1144,7 +1156,7 @@ class AI:
                         target_distance = hitbox_distance
 
             if self.strategy_dict["stage"] != "hit" and \
-                    target_distance < 2.25*self.weapon.length**2:
+                    target_distance < 2.25*self.weapon.length*self.weapon.length:
                 movement_v = v(actual_distance_vector)-v(self.strategy_dict["target_relative_position"])
             else:
                 movement_v = v(actual_distance_vector)

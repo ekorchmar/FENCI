@@ -1,9 +1,7 @@
 # todo:
-#  Bar for Axe charge
-#  Bar for shield equipping
-#  Katar: offhand weapon that can't parry, but has non-interrupting bleeding stab attack with low sp cost
-#  Katar has static damage
-#  Holding activation prevents katar from retracting (in_use + continuous_input) and skewers enemy
+#  Remove limit on how long can you hold an enemy with a Katar (Fix sticking)
+#  Equipment.prevents_activation
+#  Execution applies bleed from skewering weapon
 # After tech demo
 # todo:
 #  shield can't spawn kickers too often
@@ -29,6 +27,7 @@ class Nothing(Equipment):
     held_position = v()
     default_angle = 0
     hides_hand = False
+    hand_rotation = 0
 
     def __bool__(self):
         return False
@@ -78,6 +77,7 @@ class Wielded(Equipment):
     hides_hand = False
     held_position = v()
     can_parry = True
+    hand_rotation = 0
 
     def reset(self, character):
         self.last_angle = self.default_angle if character.facing_right else \
@@ -308,7 +308,7 @@ class Wielded(Equipment):
         else:
             # First, calculate angle between current input points
             # If target is too close to weapon, ignore targeting
-            if aiming_vector.length_squared() < BASE_SIZE ** 2:
+            if aiming_vector.length_squared() < BASE_SIZE * BASE_SIZE:
                 aiming_angle = self.last_angle
             else:
                 aiming_angle = -aiming_vector.as_polar()[1]
@@ -504,7 +504,7 @@ class Wielded(Equipment):
         self.dangerous = False
         return *self.draw(character)[:2], speed
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         return 0
 
     def parry(self, owner, opponent, other_weapon, calculated_impact=None):
@@ -664,7 +664,27 @@ class Bladed(Wielded):
             return True
         return not self.disabled and abs(self.angular_speed) >= SWING_THRESHOLD
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
+        if victim and victor:
+            for weapon in victor.weapon_slots:
+                if self == victor.slots[weapon]:
+                    continue
+
+                try:
+                    if victor.slots[weapon].kebab == victim:
+                        execution_kicker = Kicker(
+                            position=v(self.tip_v) + v(0, BASE_SIZE),
+                            damage_value=0,
+                            color=colors["crit_kicker"],
+                            override_string='EXECUTION!',
+                            oscillate=False
+                        )
+                        self.particles.append(execution_kicker)
+                        return self.damage_range[1]
+
+                except AttributeError:
+                    continue
+
         # Process limit cases:
         if abs(self.angular_speed) <= SWING_THRESHOLD or self.spin_remaining > 0:
             return self.damage_range[0]
@@ -777,11 +797,19 @@ class Pointed(Wielded):
     stab_cost = 0.5
     stab_modifier = 1.0
     stab_dash_modifier = 1.0
+    _stab_duration = 0.2
 
     def __init__(self, *args, **kwargs):
         self.skewering_surface = None
         super(Pointed, self).__init__(*args, **kwargs)
         # Skewer execution:
+        self.reduced_agility_modifier = self.agility_modifier
+        self.saved_agility_modifier = self.agility_modifier
+        self.kebab = None
+        self.skewer_duration = self.max_skewer_duration = 0
+        self.kebab_size = None
+
+    def _drop_kebab(self):
         self.reduced_agility_modifier = self.agility_modifier
         self.saved_agility_modifier = self.agility_modifier
         self.kebab = None
@@ -806,10 +834,10 @@ class Pointed(Wielded):
             supplemental_v = v()
 
         # Drain stamina. Drain more if character speed has opposite direction
-        character.stamina *= self.stab_cost
+        character.stamina *= 1-self.stab_cost
 
-        # Drain more unless we are a Short:
-        if not isinstance(self, Short):
+        # Drain more unless we are a Short or Offhand:
+        if not isinstance(self, (Short, OffHand)):
             cos = math.cos(math.radians(self.last_angle))
             sin = math.sin(math.radians(self.last_angle))
             if cos * character.speed.x < 0:
@@ -818,7 +846,6 @@ class Pointed(Wielded):
                 character.stamina *= 1 - 0.2 * abs(sin)
 
         # Make character dash:
-        duration = 0.2
         dash_vector = v()
         dash_vector.from_polar((self.character_specific["abs_dash_speed"], -self.last_angle))
         character.speed += dash_vector
@@ -831,7 +858,7 @@ class Pointed(Wielded):
                     weapon = character.slots[slot]
                     # Daggers and Swordbreakers are kept active
                     weapon.disabled = True
-                    weapon.lock(angle=weapon.default_angle, duration=duration)
+                    weapon.lock(angle=weapon.default_angle, duration=self._stab_duration)
 
         # Determine activation_offset to move weapon forward (stab)
         self.inertia_vector = v()
@@ -847,11 +874,11 @@ class Pointed(Wielded):
 
         # Lock self
         self.in_use = True
-        self.lock(angle=self.last_angle, duration=duration, inertia=self.inertia_vector)
+        self.lock(angle=self.last_angle, duration=self._stab_duration, inertia=self.inertia_vector)
 
         # Dash!
         if dash_vector != v():
-            character.push(character.speed, duration, state="active")
+            character.push(character.speed, self._stab_duration, state="active")
 
     def is_dangerous(self):
         parent = super().is_dangerous()
@@ -867,12 +894,15 @@ class Pointed(Wielded):
 
         return poke_strength >= POKE_THRESHOLD and not self.disabled
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         # If we stab a target that is skewered on another weapon, spawn "EXECUTION" kicker
-        if victim and attacker:
-            for weapon in attacker.weapon_slots:
+        if victim and victor:
+            for weapon in victor.weapon_slots:
+                if self == victor.slots[weapon]:
+                    continue
+
                 try:
-                    if attacker.slots[weapon].kebab == victim:
+                    if victor.slots[weapon].kebab == victim:
 
                         execution_kicker = Kicker(
                             position=v(self.tip_v) + v(0, BASE_SIZE),
@@ -1072,7 +1102,7 @@ class Sword(Bladed, Pointed):
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         stab = Pointed.deal_damage(self, vector)
         swing = Bladed.deal_damage(self, vector)
         return max(stab, swing)
@@ -1195,11 +1225,11 @@ class Spear(Pointed):
         # Heavy and long spear have higher bleed intensity:
         self.bleed = 0.15 * triangle_roll(self.weight/12 - 0.033*(10-shaft_len), 0.07)
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
 
-        dealt_damage = super(Spear, self).deal_damage(v(), victim, attacker)
+        dealt_damage = super(Spear, self).deal_damage(v(), victim, victor)
         # Only player characters can skewer:
-        if attacker.ai is not None:
+        if victor.ai is not None:
             return dealt_damage
 
         # Execute skewer if we are:
@@ -1214,7 +1244,7 @@ class Spear(Pointed):
             0 < dealt_damage < victim.hp,
             not victim.shielded
         ]):
-            self._skewer(attacker, victim)
+            self._skewer(victor, victim)
 
         return dealt_damage
 
@@ -1306,10 +1336,7 @@ class Spear(Pointed):
 
         # Else: make sure nothing is attached
         else:
-            self.agility_modifier = self.saved_agility_modifier
-            self.kebab = None
-            self.skewer_duration = 0
-            self.kebab_size = None
+            self._drop_kebab()
 
             # Pop own bar:
             character.bars.pop(self.prefer_slot, None)
@@ -1352,11 +1379,7 @@ class Spear(Pointed):
         self.active_this_frame = False
         self.held_back_duration = 0
 
-        self.reduced_agility_modifier = self.agility_modifier
-        self.saved_agility_modifier = self.agility_modifier
-        self.kebab = None
-        self.skewer_duration = self.max_skewer_duration = 0
-        self.kebab_size = None
+        self._drop_kebab()
 
     def on_equip(self, character):
         super(Spear, self).on_equip(character)
@@ -1484,9 +1507,9 @@ class Dagger(Short, Bladed):
 
         self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         # Determine if stabbibg or swinging damage is dealt; swinging is always min damage
-        return Pointed.deal_damage(self, vector, victim, attacker)
+        return Pointed.deal_damage(self, vector, victim, victor)
 
     def __init__(self, *args, **kwargs):
         self.roll_window = 0
@@ -1497,6 +1520,8 @@ class Dagger(Short, Bladed):
 
     def update_stats(self):
         super(Dagger, self).update_stats()
+
+        self.damage_range = int(self.damage_range[0] * 0.8), int(self.damage_range[1] * 0.9)
         # Roll cooldown depends reduced by hilt tier and increased by blade material weight
         self.roll_window = math.sqrt(
             1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
@@ -1710,6 +1735,17 @@ class Axe(Bladed):
             locked_from_activation=True
         )
 
+        # Spawn a bar (unless player already has it):
+        if self.prefer_slot not in character.bars:
+            character.bars[self.prefer_slot] = Bar(
+                max_value=self.full_charge_time,
+                fill_color=self.color or character.attacks_color,
+                **character.weapon_bar_options
+            )
+            character.__dict__[self.prefer_slot] = self.charge_time
+        else:
+            character.__dict__[self.prefer_slot] = self.charge_time
+
         # Spin will be executed on release by .aim
 
     def hitbox(self):
@@ -1836,7 +1872,7 @@ class Axe(Bladed):
 
         # Calculate damage range depending on weight, size and tier:
         # High tier axes scale better, weight is very important
-        min_damage = int((450 + self.weight ** 2) / 7 * 1.08 ** (self.tier - 1))
+        min_damage = int((450 + self.weight * self.weight) / 7 * 1.08 ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(2 + 0.1 * self.tier))
         self.damage_range = min_damage, max_damage
 
@@ -1871,7 +1907,24 @@ class Axe(Bladed):
                 # Prevent character speed from changing:
                 self.active_character_speed = 2*v(character.speed)
                 self.speed_limit = 2
+
+                # Add(replace) a Bar for character
+                # Bar should visually start from where it left off, so we should modify max value according to state:
+                try:
+                    inverse_charge_progression = character.bars[self.prefer_slot].max_value / \
+                                                 character.__dict__[self.prefer_slot]
+                except KeyError:
+                    inverse_charge_progression = 1
+
+                character.bars[self.prefer_slot] = Bar(
+                    max_value=self.spin_remaining * inverse_charge_progression,
+                    fill_color=self.color or character.attacks_color,
+                    **character.weapon_bar_options
+                )
+                character.__dict__[self.prefer_slot] = self.spin_remaining
+
             elif self.spin_remaining <= 0:
+                character.bars.pop(self.prefer_slot, None)
                 self.active_character_speed = None
 
             self.charge_time = 0
@@ -1882,6 +1935,7 @@ class Axe(Bladed):
         self.active_this_frame = False
 
         if self.spin_remaining > 0:
+            character.__dict__[self.prefer_slot] = self.spin_remaining
             character.speed = v(self.active_character_speed or character.speed)
         elif self.charge_time <= 0:
             self.prevent_regen = False
@@ -1953,11 +2007,11 @@ class Axe(Bladed):
             pushback_v = v(-2 * POKE_THRESHOLD if owner.facing_right else 2 * POKE_THRESHOLD, -2 * POKE_THRESHOLD)
             owner.push(pushback_v, 1.2, affect_player=True)
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         if 0 < self.spin_remaining < 360 and self.last_spin_crits:
             return self.damage_range[1]
 
-        return super(Axe, self).deal_damage(vector, victim, attacker)
+        return super(Axe, self).deal_damage(vector, victim, victor)
 
 
 class Mace(Bladed):
@@ -2080,7 +2134,7 @@ class Falchion(Sword):
             (1 + 0.1 * Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
         ) + 0.2
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         # Stab component is always min damage
         return Bladed.deal_damage(self, vector)
 
@@ -2308,11 +2362,22 @@ class Shield(OffHand):
         elif self.held_counter < self.equip_time:
 
             # Activation is 70% of the way from off-hand to main_hand
-            x_component = (character.body_coordinates["main_hand"][0] - character.body_coordinates["off_hand"][0])\
-                / self.equip_time * 0.7
+            x_component = (character.body_coordinates["main_hand"][0] - character.body_coordinates["off_hand"][0]) * \
+                self.character_specific['speed_limit'] * 0.7
             self.inertia_vector = v(x_component, 0)
+
+            # Add a Bar for character:
+            if self.prefer_slot not in character.bars:
+                character.bars[self.prefer_slot] = Bar(
+                    max_value=self.equip_time,
+                    fill_color=self.color or character.attacks_color,
+                    **character.weapon_bar_options
+                )
+            character.__dict__[self.prefer_slot] = self.held_counter
+
         else:
             character.shielded = self
+            character.__dict__[self.prefer_slot] = self.equip_time
 
         if not character.ramming:
             character.set_state('active', 0.2)
@@ -2412,6 +2477,8 @@ class Shield(OffHand):
             # Spawn a kicker and queue destruction if held by AI:
             self.queue_destroy = character.ai is not None
             self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
+            if self.queue_destroy:
+                character.bars.pop(self.prefer_slot)
 
             # Return full damage and force
             return vector, damage
@@ -2446,6 +2513,7 @@ class Shield(OffHand):
             self.queue_destroy = chance > attempt
             if self.queue_destroy:
                 kicker_text = 'DESTROYED!'
+                character.bars.pop(self.prefer_slot)
 
         # Spawn 'BLOCKED' kicker
         self._kicker(kicker_text, character)
@@ -2488,11 +2556,13 @@ class Shield(OffHand):
         else:
             comparison_dict = dict()
 
+        # Remove damage spread
+        stats_dict["DAMAGE"]["text"] = f'{self.damage_range[0]}'
+
         stats_dict["USE TIME"] = {
             "value": self.equip_time,
             "text": f'{self.equip_time:.2f}'
         }
-        stats_dict["DAMAGE"]["text"] = f'{self.damage_range[0]}'  # remove damage spread
 
         if "USE TIME" in comparison_dict:
             stats_dict["USE TIME"]["evaluation"] = comparison_dict["USE TIME"]["value"] - self.equip_time
@@ -2512,6 +2582,7 @@ class Shield(OffHand):
         if self.held_counter >= self.equip_time:
             character.shielded = self
         if not self.active_this_frame:
+            character.bars.pop(self.prefer_slot, None)
             # If returned in place, allow to be active again:
             if self.activation_offset == v():
                 self.in_use = False
@@ -2525,7 +2596,7 @@ class Shield(OffHand):
         if not character.ramming:
             self.active_this_frame = False
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         # Spawn dust clouds
         rect = self.surface.get_rect(center=self.hilt_v)
         for _ in range(random.randint(7, 9)):
@@ -2653,9 +2724,9 @@ class Swordbreaker(Dagger, OffHand):
                 character.stamina += character.max_stamina * 0.05 * FPS_TICK
         super().aim(hilt_placement, aiming_vector, character)
 
-    def deal_damage(self, vector=v(), victim=None, attacker=None):
+    def deal_damage(self, vector=v(), victim=None, victor=None):
         self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
-        return super(Swordbreaker, self).deal_damage(vector, victim, attacker)
+        return super(Swordbreaker, self).deal_damage(vector, victim, victor)
 
     def parry(self, owner, opponent, other_weapon, calculated_impact=None):
         super(Swordbreaker, self).parry(owner, opponent, other_weapon, calculated_impact)
@@ -2666,7 +2737,7 @@ class Katar(Pointed, OffHand):
     # class_name = "Katar"
     max_tilt = 85
     default_angle = 0
-    stab_modifier = 1.8
+    stab_modifier = 1.2
     aim_drain_modifier = 0.0
     return_time = 0.2
     held_position = v(-15, 5)
@@ -2675,29 +2746,36 @@ class Katar(Pointed, OffHand):
     upside = [
         "Activate to stab and bleed enemy",
         "Hold activation to stab and immobilize enemy",
-        "Restores stamina on hits and parries"
+        "Restores stamina equal to damage dealt"
     ]
     offside = ["No swing attacks", "Can't parry"]
-    hides_hand = True
     can_parry = False
+    hand_rotation = 90
+    _kebab_static_angle = 45
 
     def __init__(self, *args, **kwargs):
-        self.hidden_surface = None
         self.bleed = 0
         super(Katar, self).__init__(*args, **kwargs)
 
+        # Make sure damage is constant
+        self.damage_range = self.damage_range[0], self.damage_range[0]
+        self.redraw_loot()
+
+        # Activation support:
+        self.active_this_frame = False
+        self.active_last_frame = False
+        self.held_duration = 0    
+
     def is_dangerous(self):
-        return self.in_use
+        return super(Katar, self).is_dangerous() and self.in_use and self.kebab is None
 
     def draw(self, character, _custom_surface=None):
         if _custom_surface:
             use_surface = _custom_surface
         elif self.kebab:
             use_surface = self.skewering_surface
-        elif self.in_use:
-            use_surface = self.surface
         else:
-            use_surface = self.hidden_surface
+            use_surface = self.surface
 
         return Wielded.draw(
             self,
@@ -2789,13 +2867,6 @@ class Katar(Pointed, OffHand):
                 (blade_str[:-1] + ' ', blade_material)
             )
         )
-        self.hidden_surface = ascii_draws(
-            size,
-            (
-                (handle_str, handle_material),
-                (blade_str[1]+' ', blade_material)
-            )
-        )
 
         # Hold between 1st and second handle character -- offset exactly 1 character
         self.hilt = self.surface.get_width() / len(handle_str + blade_str), self.surface.get_height() * 0.5
@@ -2820,9 +2891,8 @@ class Katar(Pointed, OffHand):
         self.stamina_drain = math.sqrt(self.weight / ((2 + blade.tier) * math.sqrt(guard.weight)))
 
         # Calculate damage range depending on weight and tier:
-        min_damage = int((33 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
-        max_damage = int(min_damage * 1.2)
-        self.damage_range = min_damage, max_damage
+        damage = 1.2*int((33 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
+        self.damage_range = damage, damage
 
         # Depends on total weight and heavily on blade tier
         self.bleed = triangle_roll(0.01 * (self.weight + blade.tier**2), 0.07)
@@ -2837,6 +2907,9 @@ class Katar(Pointed, OffHand):
         else:
             comparison_dict = dict()
 
+        # Remove damage spread
+        stats_dict["DAMAGE"]["text"] = f'{self.damage_range[0]}'
+
         stats_dict["BLEED"] = {
             "value": self.bleed,
             "text": f'{100*self.bleed:.1f}%/s'
@@ -2848,8 +2921,72 @@ class Katar(Pointed, OffHand):
         return stats_dict
 
     def aim(self, hilt_placement, aiming_vector, character):
-        # Restore 5% max stamina per second if not draining it
-        if self.stamina_ignore_timer > 0:
-            if character.stamina < character.max_stamina:
-                character.stamina += character.max_stamina * 0.05 * FPS_TICK
-        return Wielded.aim(self, hilt_placement, aiming_vector, character)
+        # If not active:
+        if not self.active_this_frame:
+            self.held_duration = 0
+            self._drop_kebab()
+            character.bars.pop(self.prefer_slot, None)
+
+        if self.kebab:
+            self.skewer_duration -= FPS_TICK
+
+        Wielded.aim(self, hilt_placement, aiming_vector, character)
+
+        self.active_last_frame = self.active_this_frame
+        self.active_this_frame = False
+
+        if self.skewer_duration <= 0 or self.disabled:
+            self._drop_kebab()
+            character.bars.pop(self.prefer_slot, None)
+    
+    def activate(self, character, continuous_input):
+        # 1. Execute stab instantly
+        # 2. Keep logging until input is interrupted or weapon is disabled
+        # 3. If stab hits an enemy and input is still positive, execute skewer
+        # 4. If enemy is skewered, keep skewered as long as input processed
+        if not continuous_input and not self.disabled and not self.in_use:
+            self.active_this_frame = True
+            Pointed.activate(self, character, False)
+            return
+
+        if not (continuous_input and self.in_use and self.active_last_frame):
+            return
+
+        self.held_duration += FPS_TICK
+        self.active_this_frame = True
+        if self.held_duration >= self._stab_duration and self.kebab:
+            # Lock in place
+            self.inertia_vector = v()
+            self.lock(FPS_TICK, self._kebab_static_angle if character.facing_right else 180-self._kebab_static_angle)
+
+            # Extend holding the victim forever
+            self.skewer_duration += FPS_TICK
+            self.kebab.anchor_timer += FPS_TICK
+
+    def deal_damage(self, vector=v(), victim=None, victor=None):
+        # Important: pierces shields if grab is occuring!
+        if victim and isinstance(victim.shielded, Equipment) and self.active_last_frame and self.held_duration > 0.1:
+            victim.shielded = None
+
+        dealt_damage = super(Katar, self).deal_damage(vector, victim, victor)
+        if victor:
+            victor.stamina += dealt_damage
+
+        # If we are holding activation, damage skewers enemy, else bleeds
+        if all([
+                victor,
+                victim,
+                self.in_use,
+                not self.kebab,
+                0 < dealt_damage < victim.hp
+        ]):
+            if self.active_last_frame and self.held_duration > FPS_TICK*3:
+                self.activation_offset.from_polar((
+                    victor.size*3,
+                    -self._kebab_static_angle if victor.facing_right else self._kebab_static_angle - 180
+                ))
+                self._skewer(victor, victim)
+            elif not victim.shielded:
+                victim.bleed(self.bleed, victim.hit_immunity * 2)
+
+        return dealt_damage

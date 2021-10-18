@@ -1,5 +1,5 @@
 # todo:
-#  return to menu after death or clearing Campaign
+#  return to main menu after death or clearing Campaign
 #  "boss iminent" indicator
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
 #  todo: scenario feeds dict with debug info into scene for display_debug
@@ -141,10 +141,21 @@ class SceneHandler:
         loot_slot_weights = [LOOT_OCCURRENCE_WEIGHTS[slot] for slot in loot_slots]
 
         self.loot = []
+
+        last_loot_classes = [None, None]
         for _ in range(3 * loot_drops):
             # Choose slot to generate piece of loot for:
             loot_classes = loot_by_slot[random.choices(population=loot_slots, weights=loot_slot_weights)[0]]
+            # Prevent generating 3 of same class in a row:
+            if last_loot_classes[0] == last_loot_classes[1] in loot_classes:
+                loot_classes.remove(last_loot_classes[0])
             loot_class = random.choice(loot_classes)
+
+            # Cycle last 2 classes:
+            last_loot_classes.pop()
+            last_loot_classes.append(loot_class)
+
+            # Append loot piece
             self.loot.append(loot_class(tier_target=tier, size=BASE_SIZE))
         # Better loot last:
         if sort_loot:

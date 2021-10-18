@@ -159,7 +159,7 @@ def solve_square_rotation(a, b, constant):
     """
     solutions = []
     for q in (a, -a):
-        D = b ** 2 - 4 * a * constant
+        D = b*b - 4 * a * constant
 
         # Try another "a"
         if D < 0:
@@ -253,7 +253,7 @@ def ccw_triangle(point_a: v, point_b: v, point_c: v):
 def rect_point_distance2(rect: r, point: v):
     dx = max(rect.left - point.x, point.x - rect.right)
     dy = max(rect.top - point.y, point.y - rect.bottom)
-    return dx**2 + dy**2
+    return dx*dx + dy*dy
 
 
 def lerp(values_range, progression):

@@ -361,6 +361,7 @@ class Character:
     difficulty = 0
     has_blood = True
     pct_cap = 0.15
+    dps_pct_cap = 1
 
     def __init__(
             self,
@@ -812,9 +813,9 @@ class Character:
         if self.state in DISABLED or self.channeling:
             return
 
-        # Don't activate if any other weapon is in use - except Swordbreaker, as we want it to feel agile
+        # Don't activate if any other weapon is in use - except Swordbreaker and Katar, as we want it to feel agile
         for other_slot in filter(
-                lambda x: self.slots[x] and (x != slot or self.slots[x].builder["class"] == "Swordbreaker"),
+                lambda x: self.slots[x] and (x != slot and self.slots[x].prevent_activation),
                 self.weapon_slots
         ):
             # If we are a Dagger ready to roll, break, as activation should always be allowed:
@@ -981,6 +982,7 @@ class Character:
 
     def bleed(self, intensity, duration):
         self.bleeding_intensity = max(self.bleeding_intensity, intensity)
+        self.bleeding_intensity = min(self.bleeding_intensity, self.dps_pct_cap)
         self.bleeding_timer += duration
         self.bars["bleeding_timer"] = Bar(
             BASE_SIZE // 3,

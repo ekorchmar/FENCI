@@ -26,7 +26,7 @@
     "There are no known surviving dragons. Weapons made from their scales are increasingly rare.",
     "Breaking a wishbone spearhead makes you wish you had another weapon with you.",
     "Riverglass is collected from flooded ruins of ancient elven capital. They say that city was completely green.",
-    "Ice from Niflheim newer thaws, which makes it essential for existence of Empire capital's bars.",
+    "Ice from Niflheim newer thaws, which makes it essential for existence of Empire Capital's bars.",
     "Soulcrystals are produced by demons. Those who know, how exactly, never touch soulcrystal weapons.",
     "You can't make a weapon by bashing two diamonds with a stick. Not in this game.",
     "Dragonhide seems impossible to obtain, given there are no living dragons. And yet, rich traders still hold on to some stock.",
@@ -47,7 +47,7 @@
     "Queen of Hearts employs no standing army. Her rule is cemented by seaborne trade, and her ships pay protection racket to pirates.",
     "Pirates are not a single faction, but will unite to defend Queen of Hearts if the need arises. Her leniency makes their loyalty.",
     "King of Diamonds pays his spies more than his generals. And if the generals ever complain, he will know.",
-    "Empire's nameless capital holds no power over any domain anymore. Instead, it is an own city-state under the rule of King of Diamonds.",
+    "Empire's nameless Capital holds no power over any domain anymore. Instead, it is an own city-state under the rule of King of Diamonds.",
     "Court of King of Diamonds is formed by merchants, mercenary lords and clergy, with almost no nobles present.",
 
     "Faefolk are mischievous and devious at best, and ruthless and malevolent at worst. Do not invite them home.",
@@ -91,8 +91,9 @@
     "Wizards are smart, secretive and power-hungry. No wonder they are drawn to politics.",
     "Empire church does not have a single center anymore, but distant monasteries still train monks in the old ways.",
     "Today's weather is expected to be nice, with small chance of impending apocalypse closer to the evening.",
+    "Katars are banned the streets of Empire's Capital. So are most other weapons, but Order makes a big deal out of ban on Katars.",
 
-    "Trolls will investigate any commotion occuring on their territory. Investigating includes hitting source of commotion until it stops making noise.",
+    "Trolls will investigate any commotion occuring on their territory. Investigation includes hitting source of commotion until it stops making noise.",
     "Trolls tolerate goblin gangs, as long as latter are successful in providing victim carcasses to the troll.",
     "Elvenking laid claim to every forest of former Empire, and hunts down any intruders to his domain for sport.",
     "Elves openly despise humans. Some of them even dream of restoring Elven Kingdom, rebuilt on ashes of human cities",
@@ -118,6 +119,7 @@
     "High SPEED weapons allow you to activate or charge their abilities faster and more often.",
     "Weapon's DRAIN shows how much stamina it costs to aim and use the weapon.",
     "Your weapon's damage is not random. The faster it moves, the harder it hits.",
+    "Off-hand weapons do not consume stamina for aiming.",
 
     "Shield can't protect you from the back. Don't get surrounded.",
     "Initiating fight with a shield bash into a group of enemies is great way to scatter them.",
@@ -151,7 +153,12 @@
     "Axe whirlwind is powerful, but requires a lot of preparation time and may leave you without stamina. Don't get caught.",
     "You don't always need whirlwind to fight multiple enemies with an Axe, it is effective even when simply swung.",
     "Axes are scary close combat weapons, but offer neither reach nor mobility. Make sure to make up for it with your loadout.",
-    "With good Axe, you can kill a goblin by just one hit. Be careful to not waste all stamina trying to get lucky."
+    "With good Axe, you can kill a goblin by just one hit. Be careful to not waste all stamina trying to get lucky.",
+
+    "Katars deal little damage up front, but provide good utility in bleeding and controling enemies.",
+    "Heavy Katars cause heavier bleeding, but light ones allow you to hold enemies for much longer.",
+    "Katar stab costs very little stamina and restores stamina on each successful hit. Keep up the aggression.",
+    "Use your main weapons on enemies you hold with Katar for maximum damage. Warning: might be considered a war crime."
   ],
   "gameplay": {
     "paused": "PAUSED",

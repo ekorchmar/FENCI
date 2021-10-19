@@ -152,9 +152,11 @@ class Scene:
             # print("No debug action set at the moment.")
             # self.echo(self.player, "Geronimo!", colors["lightning"])
             # self.player.slots['main_hand']._spin(-3*SWING_THRESHOLD, 360 * 3)
-            morph_equipment(self.player)
+            # morph_equipment(self.player)
             # print(self.player.speed, self.player.state)
             # random_frenzy(self, 'charge')
+            self.player.equip_basic()
+            self.log_weapons()
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -693,12 +695,16 @@ class Scene:
                     #  over already hit characters
                     #  if we are already hit in this cycle
                     #  target is airborne
+                    #  target is anchored to a weapon
+                    #  meatbag is anchored to a weapon
                     if (
                             meatbag == character or
                             meatbag in set(already_hit) or
                             character in set(already_hit) or
                             character.ignores_collision() or
-                            meatbag.ignores_collision()
+                            meatbag.ignores_collision() or
+                            (character.anchor_timer > 0 and character.anchor_weapon is not None) or
+                            (meatbag.anchor_timer > 0 and meatbag.anchor_weapon is not None)
                     ):
                         continue
 
@@ -714,7 +720,6 @@ class Scene:
             if isinstance(weapon, Wielded):
                 if isinstance(target, Character):
                     collision_v = target.speed + weapon.tip_delta
-                    # todo: 'SKEWERED!', 'BLEEDING!' etc. kicker
                     damage = round(weapon.deal_damage(vector=collision_v, victim=target, victor=owner))
                     survived, actual_damage = opponent.hurt(
                         damage=damage,

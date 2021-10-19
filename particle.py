@@ -1,5 +1,5 @@
 # todo:
-#  clamp particle rects inside box limits
+#  clamp kicker particle rects inside box limits
 #  sparks use varying parts of weapon and attack color for color generation
 
 from base_class import *

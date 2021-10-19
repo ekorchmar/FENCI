@@ -9,14 +9,11 @@ from monster import *
 
 class Boss(Character):
     pct_cap = .02
+    dps_pct_cap = 0.005
 
     # Don't get disabled
     def set_state(self, state, duration):
         super(Boss, self).set_state('active' if state in DISABLED else state, duration)
-
-    # Limit bleed damage
-    def bleed(self, intensity, duration):
-        super(Boss, self).bleed(max(intensity, 0.005), duration)
 
 
 class BossAI(AI):

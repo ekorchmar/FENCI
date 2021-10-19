@@ -1,5 +1,6 @@
 # todo:
 #  Countdown: series of banners that executes an action after completion
+#  LootOverlayHelp > mousehints
 #  Main menu
 # after tech demo:
 # todo:
@@ -532,3 +533,8 @@ class Menu:
         """Remove all buttons, cause all banners to fade"""
         self.buttons_list = []
         self.fading = True
+
+
+class CountDown(Particle):
+    def __init__(self):
+        pass

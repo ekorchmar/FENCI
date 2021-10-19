@@ -115,5 +115,21 @@
         "color": [217, 208, 149, 255]
       }
     }
+  },
+  "initiate katar":{
+    "class": "Katar",
+    "tier": 0,
+    "constructor": {
+      "guard": {
+        "str": "⊂I",
+        "material": "tanned skin",
+        "color": [238, 64, 6, 255]
+      },
+      "blade": {
+        "str": "═-",
+        "material": "nickel",
+        "color": [202, 201, 200, 255]
+      }
+    }
   }
 }

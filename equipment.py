@@ -1,7 +1,4 @@
 # todo:
-#  Remove limit on how long can you hold an enemy with a Katar (Fix sticking)
-#  Equipment.prevents_activation
-#  Execution applies bleed from skewering weapon
 # After tech demo
 # todo:
 #  shield can't spawn kickers too often
@@ -78,6 +75,7 @@ class Wielded(Equipment):
     held_position = v()
     can_parry = True
     hand_rotation = 0
+    prevent_activation = True
 
     def reset(self, character):
         self.last_angle = self.default_angle if character.facing_right else \
@@ -140,10 +138,12 @@ class Wielded(Equipment):
         self.stamina_ignore_timer = 0
 
         # Fill attributes according to tier: called by subclasses
+        self.bleed = 0
         self.damage_range = 0, 0
         self.color = color
         self.generate(size, tier_target)
         self.update_stats()
+
         # Randomize damage and other values
         if self.damage_range != (0, 0):
             self.damage_range = round(triangle_roll(self.damage_range[0], 0.07)), \
@@ -647,6 +647,23 @@ class Wielded(Equipment):
         self.character_specific["stamina_drain"] = self.stamina_drain * 250 * FPS_TICK * self.aim_drain_modifier
         self.character_specific["acceleration"] = character.agility * self.agility_modifier * FPS_TICK * 6.67
 
+    def cause_bleeding(self, victim, skip_kicker=False):
+        if self.bleed == 0:
+            return
+
+        victim.bleed(self.bleed, victim.hit_immunity * 2)
+
+        if skip_kicker:
+            return
+        # Add particle kicker:
+        bleed_kicker = Kicker(
+            position=v(self.tip_v),
+            damage_value=0,
+            color=colors["crit_kicker"],
+            override_string='BLEEDING!'
+        )
+        self.particles.append(bleed_kicker)
+
 
 class Bladed(Wielded):
     """Maces, Axes, Swords"""
@@ -680,6 +697,10 @@ class Bladed(Wielded):
                             oscillate=False
                         )
                         self.particles.append(execution_kicker)
+
+                        # Cause bleeding by skewering weapon:
+                        victor.slots[weapon].cause_bleeding(victim, skip_kicker=True)
+
                         return self.damage_range[1]
 
                 except AttributeError:
@@ -912,6 +933,10 @@ class Pointed(Wielded):
                             oscillate=False
                         )
                         self.particles.append(execution_kicker)
+
+                        # Cause bleeding by skewering weapon:
+                        victor.slots[weapon].cause_bleeding(victim, skip_kicker=True)
+
                         return self.damage_range[1]
 
                 except AttributeError:
@@ -1127,7 +1152,6 @@ class Spear(Pointed):
     _fallback_distance = 0.4
 
     def __init__(self, *args, **kwargs):
-        self.bleed = 0.0
 
         super(Spear, self).__init__(*args, **kwargs)
 
@@ -1314,25 +1338,20 @@ class Spear(Pointed):
                 push_v = v(self.tip_delta)
                 push_v.scale_to_length(character.max_speed*character.size/self.kebab_size)
 
-                # Throw charcter and bleed it
+                # Throw character and bleed it
                 self.kebab.push(push_v, self.kebab.hit_immunity*2)
-                self.kebab.bleed(self.bleed, self.kebab.hit_immunity*2)
+                self.cause_bleeding(self.kebab)
 
                 # Reset own skewer and restore stamina
                 self.skewer_duration = 0
                 character.stamina = character.max_stamina
 
-                # Add particle kicker:
-                skewer_kicker = Kicker(
-                    position=v(self.tip_v),
-                    damage_value=0,
-                    color=colors["crit_kicker"],
-                    override_string='BLEEDING!'
-                )
-                self.particles.append(skewer_kicker)
-
                 # Pop own bar:
                 character.bars.pop(self.prefer_slot, None)
+
+            # Drop escaped or dead characters
+            if self.kebab.hp <= 0 or self.kebab.state not in DISABLED:
+                self._drop_kebab()
 
         # Else: make sure nothing is attached
         else:
@@ -2014,15 +2033,6 @@ class Axe(Bladed):
         return super(Axe, self).deal_damage(vector, victim, victor)
 
 
-class Mace(Bladed):
-    # class_name = 'Mace'
-    hitting_surface = "head"
-    max_tilt = 180
-    pushback = 2.5
-    action_string = "Hold action button to spin weapon up"
-    """Heavy weapon with relatively low damage and disabling attack displacement"""
-
-
 class Falchion(Sword):
     class_name = 'Falchion'
     aim_drain_modifier = 0.75
@@ -2625,6 +2635,7 @@ class Swordbreaker(Dagger, OffHand):
         "Activate after parrying to roll thorugh",
         "Restores stamina on hits and parries"
     ]
+    prevent_activation = False
 
     def generate(self, size, tier=None):
         # Fill missing parts of self.builder on the go:
@@ -2732,9 +2743,15 @@ class Swordbreaker(Dagger, OffHand):
         super(Swordbreaker, self).parry(owner, opponent, other_weapon, calculated_impact)
         self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
 
+    def show_stats(self, compare_to=None):
+        stats_dict: dict = super().show_stats(compare_to=compare_to)
+        # Drain is irrelevant
+        stats_dict.pop('DRAIN', None)
+        return stats_dict
+
 
 class Katar(Pointed, OffHand):
-    # class_name = "Katar"
+    class_name = "Katar"
     max_tilt = 85
     default_angle = 0
     stab_modifier = 1.2
@@ -2748,13 +2765,17 @@ class Katar(Pointed, OffHand):
         "Hold activation to stab and immobilize enemy",
         "Restores stamina equal to damage dealt"
     ]
-    offside = ["No swing attacks", "Can't parry"]
+    downside = [
+        "No swing attacks",
+        "Can't parry",
+        "Delay between activations"
+    ]
     can_parry = False
     hand_rotation = 90
-    _kebab_static_angle = 45
+    prevent_activation = False
+    _activation_cooldown = 0.8
 
     def __init__(self, *args, **kwargs):
-        self.bleed = 0
         super(Katar, self).__init__(*args, **kwargs)
 
         # Make sure damage is constant
@@ -2764,7 +2785,11 @@ class Katar(Pointed, OffHand):
         # Activation support:
         self.active_this_frame = False
         self.active_last_frame = False
-        self.held_duration = 0    
+        self.held_duration = 0
+        self.activation_rest_time = 0
+
+        # Enable stamina restoration from bleeding enemies:
+        self.stamina_from_bleed = dict()
 
     def is_dangerous(self):
         return super(Katar, self).is_dangerous() and self.in_use and self.kebab is None
@@ -2888,10 +2913,10 @@ class Katar(Pointed, OffHand):
         self.agility_modifier = math.sqrt((10.0 + guard.tier) / (1.6 * (1 + blade.weight)))
         # Increased for dagger total weight, reduced for blade tier and hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = math.sqrt(self.weight / ((2 + blade.tier) * math.sqrt(guard.weight)))
+        self.stamina_drain = self.weight / ((2 + blade.tier) * math.sqrt((guard.weight+blade.weight)/2))
 
         # Calculate damage range depending on weight and tier:
-        damage = 1.2*int((33 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
+        damage = int((22 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
         self.damage_range = damage, damage
 
         # Depends on total weight and heavily on blade tier
@@ -2921,14 +2946,52 @@ class Katar(Pointed, OffHand):
         return stats_dict
 
     def aim(self, hilt_placement, aiming_vector, character):
+        # Work with activation cooldown:
+        if self.activation_rest_time > 0:
+            self.activation_rest_time -= FPS_TICK
+            if self.prefer_slot in character.bars:
+                character.__dict__[self.prefer_slot] = self.activation_rest_time
+        # Remove bar once cooldown is over:
+        else:
+            character.bars.pop(self.prefer_slot, None)
+
+        # Spawn bar and set cooldown for activation:
+        if self.activation_offset != v():
+
+            self.activation_rest_time = self._activation_cooldown
+            if self.prefer_slot not in character.bars:
+                character.bars[self.prefer_slot] = Bar(
+                    max_value=self._activation_cooldown,
+                    fill_color=self.color or character.attacks_color,
+                    **character.weapon_bar_options
+                )
+                character.__dict__[self.prefer_slot] = self._activation_cooldown
+
+        # Restore stamina from all bleeding enemies:
+        stamina_increment = 0
+        dry_veins = []
+        for bleeder in self.stamina_from_bleed:
+            if self.stamina_from_bleed[bleeder]["duration"] > 0:
+                stamina_increment += self.stamina_from_bleed[bleeder]["absolute_damage"]
+                self.stamina_from_bleed[bleeder]["duration"] -= FPS_TICK
+            else:
+                dry_veins.append(bleeder)
+        for bleeder in dry_veins:
+            self.stamina_from_bleed.pop(bleeder, None)
+        character.stamina = min(character.max_stamina, character.stamina + stamina_increment)
+
         # If not active:
         if not self.active_this_frame:
             self.held_duration = 0
             self._drop_kebab()
-            character.bars.pop(self.prefer_slot, None)
 
         if self.kebab:
+            self.activation_offset.scale_to_length(character.size * 3)
             self.skewer_duration -= FPS_TICK
+            self.speed_limit = 0
+
+            if self.kebab.hp <= 0 or self.kebab.state not in DISABLED:
+                self._drop_kebab()
 
         Wielded.aim(self, hilt_placement, aiming_vector, character)
 
@@ -2936,15 +2999,15 @@ class Katar(Pointed, OffHand):
         self.active_this_frame = False
 
         if self.skewer_duration <= 0 or self.disabled:
+            self.speed_limit = 1
             self._drop_kebab()
-            character.bars.pop(self.prefer_slot, None)
     
     def activate(self, character, continuous_input):
         # 1. Execute stab instantly
         # 2. Keep logging until input is interrupted or weapon is disabled
         # 3. If stab hits an enemy and input is still positive, execute skewer
         # 4. If enemy is skewered, keep skewered as long as input processed
-        if not continuous_input and not self.disabled and not self.in_use:
+        if not continuous_input and not self.disabled and not self.in_use and self.activation_rest_time <= 0:
             self.active_this_frame = True
             Pointed.activate(self, character, False)
             return
@@ -2957,11 +3020,16 @@ class Katar(Pointed, OffHand):
         if self.held_duration >= self._stab_duration and self.kebab:
             # Lock in place
             self.inertia_vector = v()
-            self.lock(FPS_TICK, self._kebab_static_angle if character.facing_right else 180-self._kebab_static_angle)
+            self.lock(FPS_TICK, self.last_angle)
 
-            # Extend holding the victim forever
-            self.skewer_duration += FPS_TICK
-            self.kebab.anchor_timer += FPS_TICK
+            # Extend holding the victim forever, as long as we have stamina:
+            character.stamina = max(character.stamina - self.character_specific["grab_stamina_drain"], 0)
+            if character.stamina > 0:
+                self.skewer_duration += FPS_TICK
+                self.kebab.anchor_timer += FPS_TICK
+                self.kebab.state_timer += FPS_TICK
+            else:
+                self._drop_kebab()
 
     def deal_damage(self, vector=v(), victim=None, victor=None):
         # Important: pierces shields if grab is occuring!
@@ -2970,7 +3038,7 @@ class Katar(Pointed, OffHand):
 
         dealt_damage = super(Katar, self).deal_damage(vector, victim, victor)
         if victor:
-            victor.stamina += dealt_damage
+            victor.stamina = min(victor.stamina + dealt_damage, victor.max_stamina)
 
         # If we are holding activation, damage skewers enemy, else bleeds
         if all([
@@ -2981,12 +3049,39 @@ class Katar(Pointed, OffHand):
                 0 < dealt_damage < victim.hp
         ]):
             if self.active_last_frame and self.held_duration > FPS_TICK*3:
-                self.activation_offset.from_polar((
-                    victor.size*3,
-                    -self._kebab_static_angle if victor.facing_right else self._kebab_static_angle - 180
-                ))
                 self._skewer(victor, victim)
+
+                # Set minimal duration
+                self.skewer_duration = 0.2
+                victim.anchor_timer = 0.2
             elif not victim.shielded:
-                victim.bleed(self.bleed, victim.hit_immunity * 2)
+                self.cause_bleeding(victim)
 
         return dealt_damage
+
+    def reset(self, character):
+        super(Katar, self).reset(character)
+        self._drop_kebab()
+
+    def _drop_kebab(self):
+        super(Katar, self)._drop_kebab()
+
+    def on_equip(self, character):
+        # Reset:
+        super(Katar, self).on_equip(character)
+        # Fill:
+        self.character_specific["grab_stamina_drain"] = self.stamina_drain * 250 * FPS_TICK
+
+    def cause_bleeding(self, victim, skip_kicker=False):
+        super(Katar, self).cause_bleeding(victim, skip_kicker)
+
+        # Append a key to own stamina restoration dictionary related to victim:
+        self.stamina_from_bleed[victim] = {
+            "absolute_damage": victim.max_hp * victim.bleeding_intensity * FPS_TICK,
+            "duration": victim.bleeding_timer
+        }
+
+    def _skewer(self, character, victim):
+        super(Katar, self)._skewer(character, victim)
+        self.activation_offset.scale_to_length(character.size * 3)
+        self.inertia_vector = v()

@@ -1,9 +1,8 @@
 # todo:
-#  toggling pause spawns a countdown
-#  display combo counter
-#  weapon parries and blocked hits have chance to trigger FOF in high flexibility characters
-#  scene.menus
+#  menu buttons do not highlight if no input is possible
 #  quit to menu & options from pause
+#  Are you sure dialogue
+#  display combo counter
 #  ?? Picking nothing restores some durability to damaged weapon of same slot
 #  ?? screenshake
 # After tech demo
@@ -82,6 +81,9 @@ class Scene:
         self.draw_helper = False
         self.draw_group_append = []
 
+        # Support drawing buttons and menus:
+        self.menus = []
+
     def log_weapons(self):
         for character in self.characters:
             self.colliding_weapons[character] = []
@@ -110,7 +112,7 @@ class Scene:
 
     def update_input(self):
 
-        spacebar, debug, wheel = False, False, False
+        spacebar, debug, wheel, escape = False, False, False, False
         number_keys = [False]*9
 
         for event in pygame.event.get():  # User did something
@@ -124,7 +126,7 @@ class Scene:
 
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE and not self.loot_overlay:
-                    self.toggle_pause()
+                    escape = True
 
                 if event.key == pygame.K_TAB:
                     self.display_debug = not self.display_debug
@@ -150,16 +152,22 @@ class Scene:
         # Debug:
         if debug:
             # print("No debug action set at the moment.")
-            # self.echo(self.player, "Geronimo!", colors["lightning"])
+            self.echo(self.player, "Geronimo!", colors["lightning"])
             # self.player.slots['main_hand']._spin(-3*SWING_THRESHOLD, 360 * 3)
             # morph_equipment(self.player)
             # print(self.player.speed, self.player.state)
             # random_frenzy(self, 'charge')
-            self.player.equip_basic()
-            self.log_weapons()
+            # self.player.equip_basic()
+            # self.log_weapons()
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
+
+            # Toggle pause
+            if escape:
+                self.toggle_pause()
+                # Prevent menu instantly closing
+                escape = False
 
             # Start channeling flip
             if spacebar and self.player in self.characters:
@@ -306,13 +314,31 @@ class Scene:
             if not self.mouse_state[0] or self.held_mouse.hold():
                 self.held_mouse = None
 
-        # Handle buttons in pause ensemble:
-        if self.pause_popups:
+        # Handle last displayed menu:
+        if self.menus:
+            if self.mouse_state[0]:
+                self.menus[-1].collide_button(self.mouse_target)
+                self.reset_mouse()
+
+            elif any(number_keys):
+                self.menus[-1].index_button(number_keys.index(True))
+
+            elif escape:
+                escape_index = self.menus[-1].escape_button_index
+                self.menus[-1].index_button(escape_index)
+
+        # Handle buttons in pause ensemble, if no menus are drawn:
+        elif self.pause_popups:
             if self.mouse_state[0]:
                 self.pause_popups.collide_button(self.mouse_target)
+                self.reset_mouse()
 
-            if any(number_keys):
+            elif any(number_keys):
                 self.pause_popups.index_button(number_keys.index(True))
+
+            elif escape:
+                escape_index = self.pause_popups.escape_button_index
+                self.pause_popups.index_button(escape_index)
 
         # Save to determine if mouse buttons are held for the next frame
         self.last_mouse_state = self.mouse_state[:]
@@ -401,11 +427,25 @@ class Scene:
         if self.loot_overlay:
             draw_group.append(self.loot_overlay.draw())
 
-        # If mouse is hovering over the scene, show equipped weapons and stat cards
-        # Unless any of the buttons are moused over:
+        # Draw menus:
         mouse_on_button = False
+        expired_menus = []
+        if self.menus:
+            for menu in self.menus:
+                draw_group.extend(menu.display(self.mouse_target))
+                mouse_on_button = mouse_on_button or any(
+                    button.rect.collidepoint(self.mouse_target) for button in menu.buttons_list
+                )
+                if not menu.buttons_list and not menu.decoration_objects:
+                    expired_menus.append(menu)
+
+        for menu in expired_menus:
+            self.menus.remove(menu)
+
+        # If mouse is hovering over the scene, show equipped weapons and stat cards
+        # Unless any of the buttons are moused over in menus or pause popup:
         if self.pause_popups:
-            mouse_on_button = any(
+            mouse_on_button = mouse_on_button or any(
                 button.rect.collidepoint(self.mouse_target) for button in self.pause_popups.buttons_list
             )
 
@@ -1012,6 +1052,9 @@ class Scene:
         # Prevent overflow
         pygame.event.pump()
 
+        # Prevent losing mouse:
+        pygame.event.set_grab(OPTIONS['grab_mouse'] and not self.paused)
+
         # Pause on losing focus:
         if not pygame.mouse.get_focused() and not (self.paused or self.loot_overlay):
             self.toggle_pause()
@@ -1128,7 +1171,27 @@ class Scene:
         elif self.paused and not skip_banner:
             self.pause_popups.fade()
 
-        self.paused = not self.paused
+        # Pause instantly
+        if not self.paused:
+            self.paused = True
+
+        # Spawn countdown to unpause, unless it is already in scene particles:
+        elif OPTIONS["unpause_countdown"] and not any(
+                True
+                for countdown in self.particles
+                if isinstance(countdown, CountDown) and countdown.action == self.hard_unpause
+        ):
+            self.particles.append(CountDown(
+                self.hard_unpause,
+                {},
+                colors["pause_popup"],
+                position=self.box.center[:],
+                go_text="GO!",
+                ignore_pause=True
+            ))
+
+        else:
+            self.hard_unpause()
 
     def count_enemies_value(self):
         return sum(
@@ -1168,6 +1231,16 @@ class Scene:
             )
         )
 
+    def hard_unpause(self):
+        self.paused = False
+
+    def generate_options_popup(self):
+        self.menus.append(OptionsMenu())
+
+    def reset_mouse(self):
+        # Changing fullscreen status may cause mouse state to be looped; reset it here
+        self.mouse_state = False, False, False
+
 
 class PauseEnsemble(Menu):
     def __init__(self, scene):
@@ -1188,8 +1261,7 @@ class PauseEnsemble(Menu):
         options_button = Button(
             text=[string['menu']['options']],
             rect=options_rect,
-            action=log,
-            action_parameters={"text": "Options clicked."},
+            action=scene.generate_options_popup,
             kb_index=1
         )
 
@@ -1200,7 +1272,7 @@ class PauseEnsemble(Menu):
             text=[string['menu']['main']],
             rect=menu_rect,
             action=log,
-            action_parameters={"text": "Main Menu clicked."},
+            action_keywords={"text": "Main Menu clicked."},
             kb_index=2
         )
 
@@ -1211,7 +1283,7 @@ class PauseEnsemble(Menu):
             text=[string['menu']['exit']],
             rect=exit_rect,
             action=log,
-            action_parameters={"text": "Exit clicked."},
+            action_keywords={"text": "Exit clicked."},
             kb_index=3
         )
 
@@ -1260,5 +1332,6 @@ class PauseEnsemble(Menu):
             decoration_objects=[paused_banner, tip_banner, trivia_banner],
             rect=scene.box,
             reposition_buttons=False,
-            background=False
+            background=False,
+            escape_button_index=0
         )

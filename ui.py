@@ -1,5 +1,5 @@
 # todo:
-#  Countdown: series of banners that executes an action after completion
+#  reposition buttons takes number of columns as argument
 #  LootOverlayHelp > mousehints
 #  Main menu
 # after tech demo:
@@ -158,7 +158,7 @@ class LootOverlay:
         self.animation_time = animation_time
 
         self.surface = s(LOOT_SPACE.size, pygame.SRCALPHA)
-        self.surface.fill(c(colors["loot_card"]+[127]))
+        self.surface.fill(c(*colors["loot_card"], 127))
         # Draw label:
         label_surf = ascii_draw(label_size, label, c(colors["inventory_better"]))
         self.label_rect = label_surf.get_rect(midtop=self.surface.get_rect().midtop)
@@ -415,7 +415,8 @@ class Button:
             text: list[str],
             rect: r,
             action: Callable,
-            action_parameters: dict = None,
+            action_parameters: list = None,
+            action_keywords: dict = None,
             size: int = BASE_SIZE,
             mouse_over_text: list[str] = None,
             kb_index: int = None
@@ -424,7 +425,8 @@ class Button:
         self.text = text
         self.mouse_over_text = mouse_over_text or self.text
         self.action = action
-        self.action_parameters = action_parameters or dict()
+        self.action_parameters = action_parameters or list()
+        self.action_keywords = action_keywords or dict()
 
         # Activation handles:
         self.rect = rect
@@ -439,7 +441,7 @@ class Button:
 
         # Unmoused:
         self.surface = s(rect.size, pygame.SRCALPHA)
-        self.surface.fill(colors["loot_card"])
+        self.surface.fill(c(colors["loot_card"]))
         frame_surface(self.surface, colors["inventory_text"])
         self.surface.blit(text_surface, text_rect)
 
@@ -450,7 +452,7 @@ class Button:
 
         # Moused:
         self.moused_over_surface = self.surface.copy()
-        self.moused_over_surface.fill(colors["inventory_description"])
+        self.moused_over_surface.fill(c(colors["inventory_description"]))
         frame_surface(self.moused_over_surface, colors["inventory_text"])
         self.moused_over_surface.blit(text_surface_moused, text_moused_rect)
 
@@ -458,7 +460,7 @@ class Button:
         return self.moused_over_surface if moused_over else self.surface, self.rect
 
     def activate(self):
-        self.action(**self.action_parameters)
+        self.action(*self.action_parameters, **self.action_keywords)
 
 
 class Menu:
@@ -470,38 +472,52 @@ class Menu:
             rect: r,
             decoration_objects: list[Banner] = None,
             background: bool = False,
-            offset: int = BASE_SIZE*2,
-            reposition_buttons: bool = True
+            offset: int = BASE_SIZE,
+            reposition_buttons: bool = True,
+            escape_button_index: int = None
     ):
 
         # Remember position and contents:
         self.rect = rect
         self.buttons_list = buttons_list
-        self.decoration_objects = decoration_objects or None
+        self.offset = offset
+        self.decoration_objects = decoration_objects or list()
         self.fading = False
 
-        if reposition_buttons:
-            # Find initial corner and size to place buttons
-            column_height = (len(buttons_list)-1) * offset + sum(button.rect.height for button in buttons_list)
-            column_width = max(button.rect.width for button in buttons_list)
-            buttons_box = r(0, 0, column_width, column_height)
-            buttons_box.center = rect.center
+        # Remember which button is meant to be escape (unless specified, use max index):
+        self.escape_button_index = escape_button_index if escape_button_index is not None else \
+            max(button.kb_index for button in self.buttons_list)
 
-            # Place buttons in new box:
-            top = buttons_box.top
-            middle_x = buttons_box.left + column_width//2
-            for button in buttons_list:
-                button.rect.midtop = middle_x, top
-                top += button.rect.height + offset
+        if reposition_buttons:
+            self.reorder_buttons()
 
         # Draw background if asked to:
         self.background = s(rect.size, pygame.SRCALPHA)
         if background:
-            self.background.fill(colors["loot_card"])
+            self.background.fill(c(*colors["loot_card"], 127))
             frame_surface(self.background, colors["inventory_text"])
         else:
             self.background.fill([0, 0, 0, 0])
             self.background.set_alpha(0)
+
+    def reorder_buttons(self):
+        # Find initial corner and size to place buttons
+        column_height = (
+            (len(self.buttons_list) - 1) * self.offset +
+            sum(button.rect.height for button in self.buttons_list)
+        )
+        column_width = max(button.rect.width for button in self.buttons_list)
+        buttons_box = r(0, 0, column_width, column_height)
+        buttons_box.center = self.rect.center
+
+        # Place buttons in new box:
+        top = buttons_box.top
+        middle_x = buttons_box.left + column_width // 2
+        for button in self.buttons_list:
+            # Prevent modifying default mutable rect
+            button.rect = button.rect.copy()
+            button.rect.midtop = middle_x, top
+            top += button.rect.height + self.offset
 
     def display(self, mouse_v):
         draw_order = list()
@@ -546,6 +562,56 @@ class Menu:
         self.fading = True
 
 
-class CountDown(Particle):
-    def __init__(self, action, parameters, text_size, color, position, total_duration, count_down_from=3, go_text=None):
-        pass
+class OptionsMenu(Menu):
+    def fade(self):
+        # Write options dict to json file
+        with open(os.path.join('options', 'options.json'), 'w') as options_json:
+            json.dump(OPTIONS, options_json)
+        super(OptionsMenu, self).fade()
+
+    def toggle(self, key):
+        # Toggle an option and cause redrawing all buttons
+        OPTIONS[key] = not OPTIONS[key]
+        self.redraw()
+        if key == 'fullscreen':
+            update_screen()
+
+    def generate_buttons(self):
+        buttons_list = []
+        i = 0
+        for key in OPTIONS:
+            option_state_text = string['menu']['option_contents']["bool"]["True" if OPTIONS[key] else "False"]
+            button_text = f"{string['menu']['option_contents'][key]}: {option_state_text}"
+            button_rect = DEFAULT_BUTTON_RECT.copy()
+            button_rect.width *= 2
+            buttons_list.append(Button(
+                text=[button_text],
+                action=self.toggle,
+                action_keywords={'key': key},
+                rect=button_rect,
+                kb_index=i
+            ))
+            i += 1
+
+        # Add close button
+        buttons_list.append(Button(
+            text=[string["menu"]["back"]],
+            action=self.fade,
+            rect=DEFAULT_BUTTON_RECT,
+            kb_index=i
+        ))
+
+        return buttons_list
+
+    def __init__(self):
+        # todo: add options menu title
+        super(OptionsMenu, self).__init__(
+            self.generate_buttons(),
+            OPTIONS_POPUP_RECT,
+            reposition_buttons=True,
+            background=True
+        )
+
+    def redraw(self):
+        self.buttons_list = self.generate_buttons()
+        self.reorder_buttons()

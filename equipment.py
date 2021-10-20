@@ -1712,8 +1712,9 @@ class Axe(Bladed):
                 self.particles.append(count_kicker)
 
                 # Spawn sparks if max count is reached
-                self.last_spin_crits = True
                 if self.spins_charged == self._max_spins:
+
+                    self.last_spin_crits = True
                     for _ in range(5):
                         spark_v = v()
                         spark_v.from_polar((1.5 * SWING_THRESHOLD, random.uniform(-180, 180)))

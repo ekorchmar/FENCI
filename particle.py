@@ -56,7 +56,7 @@ class Kicker(Particle):
             center = self.position + v(oscillation_x, 0)
         else:
             center = self.position
-        rect = self.surface.get_rect(center=center).clamp(0, *WINDOW_SIZE)
+        rect = self.surface.get_rect(center=center).clamp(0, 0, *WINDOW_SIZE)
 
         transparency = int(255*self.lifetime / self.max_lifetime)
         transparent_surface = self.surface.copy()
@@ -300,10 +300,18 @@ class Banner(Particle):
             max_width=WINDOW_SIZE[0],
             tick_down=True,
             anchor='center',
+            background=False,
             **animation_options
     ):
         self.text = text
-        self.surface = ascii_draw_cascaded(size, text, color, max_width=max_width)
+        drawn_text = ascii_draw_cascaded(size, text, color, max_width=max_width)
+        if background:
+            self.surface = s(drawn_text.get_size(), pygame.SRCALPHA)
+            self.surface.fill(colors["loot_card"])
+            frame_surface(self.surface, colors["inventory_text"])
+            self.surface.blit(drawn_text, (0, 0))
+        else:
+            self.surface = drawn_text
         self.lifetime = lifetime
         self.max_lifetime = lifetime
         self.tick_down = tick_down
@@ -550,3 +558,67 @@ class MouseHint(Particle):
 
         self.cache = surface, rect
         return surface, rect
+
+
+class CountDown(Particle):
+    def __init__(
+            self,
+            action,
+            parameters,
+            color,
+            position,
+            total_duration=2.7,
+            count_down_from=3,
+            text_size=BASE_SIZE*2,
+            go_text=None,
+            ignore_pause=True
+    ):
+        # Remember what to execute:
+        self.lifetime = total_duration
+        self.action = action
+        self.parameters = parameters
+
+        # May ignore pause:
+        self.ignore_pause = ignore_pause
+        self.cache = None
+
+        # Calculate lifetime and content of each popup:
+        total_spawns = count_down_from if go_text is None else count_down_from + 1
+        time_per_banner = total_duration / total_spawns
+        banner_texts = list(range(1, count_down_from+1))
+        banner_texts.reverse()
+        if go_text is not None:
+            banner_texts += [go_text]
+
+        # Form banner particles:
+        self.banner_particles = [
+            Banner(
+                text=f' {str(text)} ',
+                size=text_size,
+                position=position,
+                color=color,
+                lifetime=time_per_banner,
+                animation_duration=time_per_banner*0.33,
+                background=True
+            )
+            for text in banner_texts
+        ]
+
+    def draw(self, pause=False):
+        if self.cache and pause and not self.ignore_pause:
+            return self.cache
+
+        self.lifetime -= FPS_TICK
+
+        # Perform action if over:
+        if self.lifetime < 0:
+            self.action(**self.parameters)
+            return self.cache
+
+        # Pop first banner in list, if it ran out
+        if self.banner_particles[0].lifetime < 0:
+            self.banner_particles.pop(0)
+
+        # Draw (new) first banner:
+        self.cache = self.banner_particles[0].draw()
+        return self.cache

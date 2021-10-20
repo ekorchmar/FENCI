@@ -32,6 +32,8 @@ character_stats = load_resource('monsters.json')
 artifacts = load_resource('artifact.json')
 string = load_resource('en.json', directory='language')
 
+OPTIONS = load_resource('options.json', 'options')
+
 FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
 
 # Screen options:
@@ -84,8 +86,16 @@ DEFAULT_BUTTON_RECT = r(
     WINDOW_SIZE[1] // 10
 )
 
+OPTIONS_POPUP_RECT = r(
+    0,
+    0,
+    DEFAULT_BUTTON_RECT.width * 3,
+    WINDOW_SIZE[1] * 5 // 6
+)
+OPTIONS_POPUP_RECT.center = WINDOW_SIZE[0]//2, WINDOW_SIZE[1]//2
+
 # Initial player position
-# Initial position is (1/6, 1/2) of bounding box,
+# Initial position is (1/6, 1/2) of scene bounding box,
 PLAYER_SPAWN = v(
     SCENE_BOUNDS.left + SCENE_BOUNDS.width // 6,
     SCENE_BOUNDS.top + SCENE_BOUNDS.height // 2
@@ -135,10 +145,16 @@ NUMBER_LABELS = {i: str(i+1) for i in range(9)}
 
 # Pygame display and clock
 pygame.display.set_caption("FENCI")
-# display_flags = pygame.SCALED | pygame.FULLSCREEN
-display_flags = pygame.SCALED
-SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
+SCREEN = None
 
+
+def update_screen():
+    global SCREEN
+    display_flags = pygame.SCALED | pygame.FULLSCREEN if OPTIONS['fullscreen'] else pygame.SCALED
+    SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
+
+
+update_screen()
 CLOCK = pygame.time.Clock()
 
 

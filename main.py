@@ -1,6 +1,6 @@
 # todo:
 #  basic menu, starting equipment choice dialogue
-#  placeholder background music (e.g. crystal by m.o.o.n.)
+#  placeholder Nexuiz music
 # After tech demo
 # todo:
 #  make ALL string constants come from language json
@@ -27,6 +27,5 @@ sh = SceneHandler(1, [Goblin, Orc], [5, 1])
 # sh.player.equip(Swordbreaker(BASE_SIZE, tier_target=2), 'off_hand')
 # sh.player.equip(Katar(BASE_SIZE, tier_target=2), 'backpack')
 # sh.scene.log_weapons()
-
 while True:
     sh.execute()

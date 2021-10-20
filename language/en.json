@@ -240,6 +240,19 @@
     "unpause": "Continue",
     "options": "Options",
     "main": "Main menu",
-    "exit": "Ragequit"
+    "exit": "Ragequit",
+    "back": "Return",
+    "option_contents": {
+        "bool": {
+          "True": "on",
+          "False": "off"
+        },
+
+        "unpause_countdown": "Unpause countdown",
+        "fullscreen": "Fullscreen",
+        "grab_mouse": "Capture mouse",
+        "sound": "Sound effects",
+        "music": "Music"
+    }
   }
 }

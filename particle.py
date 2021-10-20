@@ -1,5 +1,4 @@
 # todo:
-#  clamp kicker particle rects inside box limits
 #  sparks use varying parts of weapon and attack color for color generation
 
 from base_class import *
@@ -27,7 +26,8 @@ class Kicker(Particle):
             damage_string = "{:.0f}".format(damage_value)
 
             if weapon:
-                if damage_value == weapon.damage_range[1] != weapon.damage_range[0]:
+                # Color crits
+                if damage_value == weapon.damage_range[1]:
                     damage_string = str(weapon.damage_range[1]) + '!'
                     color = critcolor or color
                 # Higher damage flies faster
@@ -56,7 +56,7 @@ class Kicker(Particle):
             center = self.position + v(oscillation_x, 0)
         else:
             center = self.position
-        rect = self.surface.get_rect(center=center)
+        rect = self.surface.get_rect(center=center).clamp(0, *WINDOW_SIZE)
 
         transparency = int(255*self.lifetime / self.max_lifetime)
         transparent_surface = self.surface.copy()

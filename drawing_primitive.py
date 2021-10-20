@@ -2,7 +2,6 @@
 # After tech demo
 # todo: sparks to leave shapes of lines
 # todo: dialogue graphic
-# todo: language json
 # todo:
 #  use freetype instead
 
@@ -405,12 +404,17 @@ def tint(surf, tint_color):
     return surf
 
 
-def blit_cascade_text(surface, font_size, text, xy_topleft, color):
+def blit_cascade_text(surface, font_size, text, xy_topleft, color, right_offset=None):
     words = [word.split(' ') for word in text.splitlines()]  # 2D array where each row is a list of words.
     font = pygame.font.Font(FONT, font_size)
     space, word_height = font.size(' ')  # The width of a space.
     max_width, max_height = surface.get_size()
     x, y = xy_topleft
+
+    if right_offset is None:
+        right_offset = x
+    max_width -= right_offset
+
     for line in words:
         for word in line:
             word_surface = font.render(word, True, color)

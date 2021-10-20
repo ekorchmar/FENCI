@@ -1,4 +1,5 @@
 # todo:
+#  bumping into characters may affect characters in some stages of charge and dogfight
 #  Split AI.execute into submethods to allow for custom AI
 # After tech demo
 # todo:
@@ -1567,7 +1568,7 @@ class Orc(Humanoid):
 
         # Goblin main hand weapon is:
         main_hand_choice = random.choices(
-            ["Axe", "Sword", "Spear"], [55, 30, 15]
+            ["Axe", "Sword", "Spear"], [65, 25, 10]
         )[0]
 
         if main_hand_choice == 'Axe':

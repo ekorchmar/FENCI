@@ -165,9 +165,6 @@ class Wielded(Equipment):
         self.trail_frames: list = [None] * int(FPS_TARGET * 0.03)
         self.frame_counter = 0  # only log every 3rd frame
 
-        # Durability counter:
-        self.durability = 100
-
     def show_stats(self, compare_to=None):
         """
         Returns list of dicts with stats; returns 1 if stat is better than comparable stat of another weapon, -1 if
@@ -824,15 +821,11 @@ class Pointed(Wielded):
         self.skewering_surface = None
         super(Pointed, self).__init__(*args, **kwargs)
         # Skewer execution:
-        self.reduced_agility_modifier = self.agility_modifier
-        self.saved_agility_modifier = self.agility_modifier
         self.kebab = None
         self.skewer_duration = self.max_skewer_duration = 0
         self.kebab_size = None
 
     def _drop_kebab(self):
-        self.reduced_agility_modifier = self.agility_modifier
-        self.saved_agility_modifier = self.agility_modifier
         self.kebab = None
         self.skewer_duration = self.max_skewer_duration = 0
         self.kebab_size = None
@@ -965,13 +958,6 @@ class Pointed(Wielded):
         self.kebab = victim
         self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
         self.kebab_size = victim.size
-
-        # Temporarily modify agility modifier depending on target weight
-        self.reduced_agility_modifier = min(
-            self.agility_modifier*0.5,
-            self.agility_modifier * character.size / self.kebab_size
-        )
-        self.saved_agility_modifier = self.agility_modifier
 
         self.kebab.anchor(self.skewer_duration, weapon=self)
 
@@ -1318,11 +1304,7 @@ class Spear(Pointed):
 
         # If character is skewered, tick down skewer timer
         if self.skewer_duration > 0:
-            # Temproarily modify agility modifier:
-            self.agility_modifier = lerp(
-                (self.reduced_agility_modifier, self.saved_agility_modifier),
-                1 - self.skewer_duration / self.max_skewer_duration
-            )
+
             self.skewer_duration -= FPS_TICK
 
             # Slow down owner:
@@ -1646,7 +1628,8 @@ class Dagger(Short, Bladed):
 
         if self.last_parry:
             arrow_v = v(self.last_parry.position) - v(character.position)
-            arrow_v.scale_to_length(character.hitbox[0].width)
+            if arrow_v:
+                arrow_v.scale_to_length(character.hitbox[0].width)
             arrow_position = character.position + arrow_v
 
             arrow_surface = pygame.transform.rotate(self.active_arrow, self.last_angle)
@@ -2767,10 +2750,8 @@ class Katar(Pointed, OffHand):
     ]
     downside = [
         "No swing attacks",
-        "Can't parry",
         "Delay between activations"
     ]
-    can_parry = False
     hand_rotation = 90
     prevent_activation = False
     _activation_cooldown = 0.8

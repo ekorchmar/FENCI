@@ -74,7 +74,18 @@ class Inventory:
 
             # 2. Form a durability bar (backpacked equipment can not be damaged)
             if not slot == 'backpack':
-                durability = Bar(BASE_SIZE // 2, 17, colors["inventory_durability"], 100, show_number=True, cache=False)
+                color = colors["inventory_durability"] if content.durability > 1 else colors["inventory_broken"]
+
+                durability = Bar(
+                    size=BASE_SIZE,
+                    width=content.max_durability,
+                    max_value=content.max_durability,
+                    fill_color=color,
+                    base_color=color,
+                    show_number=False,
+                    cache=False,
+                    style=' ♥♡ '
+                )
                 bar_surf, bar_rect = durability.display(content.durability)
                 bar_left = (self.slot_rects[slot].width - bar_rect.width)//2
                 bar_rect.move_ip(bar_left + self.slot_rects[slot].left, BASE_SIZE//2 + 3)
@@ -536,5 +547,5 @@ class Menu:
 
 
 class CountDown(Particle):
-    def __init__(self):
+    def __init__(self, action, parameters, text_size, color, position, total_duration, count_down_from=3, go_text=None):
         pass

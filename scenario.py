@@ -1,8 +1,10 @@
 # todo:
+#  batch spawn enemies after loot is picked
 #  return to main menu after death or clearing Campaign
+#  ScenarioHandler can hand off scene/player to arbitrary SceneHandler
 #  "boss iminent" indicator
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
-#  todo: scenario feeds dict with debug info into scene for display_debug
+#  scenario feeds dict with debug info into scene for display_debug
 
 from scene import *
 from monster import *
@@ -220,7 +222,6 @@ class SceneHandler:
                     self.scene.enemies_count_on_death[-3:] == [0, 0, 0] and
                     self.scene.count_enemies_value() == 0
             ):
-                print('player is doing too well')
                 self.batch_spawn()
             else:
                 self.spawn_monster()
@@ -297,7 +298,8 @@ class SceneHandler:
                 "placeholder",
                 BASE_SIZE,
                 self.scene.box.center,
-                (255, 255, 255)
+                (255, 255, 255),
+                tick_down=False
             )
             if self.victory_banner not in self.scene.particles:
                 self.scene.particles.append(self.victory_banner)
@@ -360,7 +362,8 @@ class SceneHandler:
                 colors["inventory_worse"],
                 lifetime=7,
                 animation_duration=3.5,
-                animation='slide'
+                animation='slide',
+                max_width=WINDOW_SIZE[0]*2
             )
             self.scene.particles.append(report_banner)
 
@@ -371,7 +374,8 @@ class SceneHandler:
                     self.scene.box.center[:],
                     colors["game_over"],
                     lifetime=30,
-                    animation_duration=3
+                    animation_duration=3,
+                    tick_down=False
                 )
                 self.scene.particles.append(self.game_over_banner)
 

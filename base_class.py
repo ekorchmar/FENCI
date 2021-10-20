@@ -130,7 +130,8 @@ class Bar:
             max_value,
             base_color=colors["bar_base"],
             show_number=False,
-            cache=True
+            cache=True,
+            style='[█_]'
     ):
         self.max_value = max_value
         self.show_number = show_number
@@ -139,7 +140,9 @@ class Bar:
         # Generate sequence of ASCII loading bars representing different states
         bar_set = []
         for i in range(width+1):
-            bar_set.append([['[', base_color], ['█' * i, fill_color], [(width - i) * '_' + ']', base_color]])
+            bar_set.append((
+                [style[0], base_color], [style[1] * i, fill_color], [(width - i) * style[2] + style[3], base_color]
+            ))
         # Generate sequence of surfaces, cache them
         self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
         self.font_size = size
@@ -198,7 +201,6 @@ class Equipment:
 
         self.surface = None
         self.in_use = False
-        self.durability = 100
         self.loot_cards = dict()
 
         # Dict for character-specific variables; filled by on_equip method:
@@ -209,6 +211,12 @@ class Equipment:
 
         # Spawn particles for scene to pick up:
         self.particles = []
+
+        # Generate durability (2-5):
+        self.durability = self.max_durability = 3 + random.choices(
+            [-1, 0, 1, 2],
+            [10, 50, 10, 5]
+        )[0]
 
         # Some equipment has chance to be dropped:
         self.queue_destroy = False
@@ -259,8 +267,7 @@ class Equipment:
         pass
 
     def damage(self):
-        damage = random.randint(20, 35)
-        self.durability = max(0, self.durability-damage)
+        self.durability = self.durability-1
 
         # Pick a part of the weapon to be "damaged"
         # 60% of the time, it's hitting surface
@@ -1068,7 +1075,7 @@ class Particle:
 
 class Card:
     """Metaclass for loots and stat cards"""
-    xy_offset = BASE_SIZE // 3
+    xy_offset = BASE_SIZE * 2 // 3
 
     def __init__(self):
         self.surface = None
@@ -1097,14 +1104,15 @@ class Card:
 
         position_dict = {x_key: position[0], y_key: position[1]}
         surf = self.compared_surface if draw_compared else self.surface
-        return surf, surf.get_rect(**position_dict)
+        rect = surf.get_rect(**position_dict)
+        rect.clamp_ip(bounding_box)
+        return surf, rect
 
 
 class LootCard(Card):
     stats_order = [
         "DAMAGE", "LENGTH", "WEIGHT", "SPEED", "DRAIN", "USE TIME", "ROLL DELAY", "BLEED", "ROLL WINDOW", "FULL CHARGE"
     ]
-    xy_offset = BASE_SIZE // 3
 
     def __init__(self, equipment, compare_to: [None, Equipment] = None):
         self.compared_to = compare_to
@@ -1117,7 +1125,6 @@ class LootCard(Card):
         uncut_surface.fill(color=c(colors["loot_card"]))
 
         # 1. Weapon portrait
-
         portrait = r(0, 0, MAX_LOOT_CARD_SPACE.width, MAX_LOOT_CARD_SPACE.width // 2)
 
         if equipment.surface.get_width() < portrait.width and equipment.surface.get_height() < portrait.height:
@@ -1164,14 +1171,13 @@ class LootCard(Card):
         else:
             durability_color = colors["inventory_text"]
 
-        durability_string = f'Durability: {equipment.durability}%'
-        next_element_top += blit_cascade_text(
-            uncut_surface,
-            BASE_SIZE // 2,
-            durability_string,
-            (self.xy_offset, next_element_top),
-            c(durability_color)
-        ) + BASE_SIZE // 3
+        durability_string = f'{"♥"*equipment.durability}{"♡"*(equipment.max_durability-equipment.durability)}'
+        durability_surface = ascii_draw(BASE_SIZE, durability_string, durability_color)
+        durability_rect = durability_surface.get_rect(midtop=(uncut_surface.get_width()//2, next_element_top))
+
+        uncut_surface.blit(durability_surface, durability_rect)
+
+        next_element_top = durability_rect.bottom + BASE_SIZE // 3
 
         # 3. Upsides and downsides
         for text in equipment.upside:

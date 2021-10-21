@@ -1,5 +1,4 @@
 # todo:
-#  reposition buttons takes number of columns as argument
 #  LootOverlayHelp > mousehints
 #  Main menu
 # after tech demo:
@@ -469,17 +468,20 @@ class Menu:
     def __init__(
             self,
             buttons_list: list[Button],
-            rect: r,
+            rect: r = None,
             decoration_objects: list[Banner] = None,
             background: bool = False,
             offset: int = BASE_SIZE,
-            reposition_buttons: bool = True,
-            escape_button_index: int = None
+            reposition_buttons: tuple = None,
+            escape_button_index: int = None,
+            title_surface: s = None
     ):
 
         # Remember position and contents:
+        self.title = title_surface
         self.rect = rect
         self.buttons_list = buttons_list
+        self.dimensions = reposition_buttons
         self.offset = offset
         self.decoration_objects = decoration_objects or list()
         self.fading = False
@@ -488,11 +490,36 @@ class Menu:
         self.escape_button_index = escape_button_index if escape_button_index is not None else \
             max(button.kb_index for button in self.buttons_list)
 
-        if reposition_buttons:
-            self.reorder_buttons()
+        if reposition_buttons is not None:
+            self.reorder_buttons(self.dimensions)
+
+        if self.rect is None:
+            # Form a new rect in middle of screen
+            # Find bounds of rect by buttons and title surface
+            left, right, top, bottom = None, None, None, None
+            for button in buttons_list:
+                if left is None or left > button.rect.left:
+                    left = button.rect.left
+                if top is None or top > button.rect.top:
+                    top = button.rect.top
+                if right is None or right < button.rect.right:
+                    right = button.rect.right
+                if bottom is None or bottom < button.rect.bottom:
+                    bottom = button.rect.bottom
+
+            # Recalculate for title:
+            if self.title is not None:
+                top -= self.title.get_height() + self.offset
+
+            self.rect = r(
+                left-self.offset,
+                top-self.offset,
+                right-left+self.offset*2,
+                bottom-top+self.offset*2
+            )
 
         # Draw background if asked to:
-        self.background = s(rect.size, pygame.SRCALPHA)
+        self.background = s(self.rect.size, pygame.SRCALPHA)
         if background:
             self.background.fill(c(*colors["loot_card"], 127))
             frame_surface(self.background, colors["inventory_text"])
@@ -500,26 +527,50 @@ class Menu:
             self.background.fill([0, 0, 0, 0])
             self.background.set_alpha(0)
 
-    def reorder_buttons(self):
+        # Modify rect if it is not supplied
+
+        if self.title:
+            title_rect = self.title.get_rect(midtop=(self.rect.width//2, self.offset))
+            self.background.blit(self.title, title_rect)
+
+    def reorder_buttons(self, dimensions):
+        rows, columns = dimensions
+
         # Find initial corner and size to place buttons
-        column_height = (
-            (len(self.buttons_list) - 1) * self.offset +
-            sum(button.rect.height for button in self.buttons_list)
-        )
-        column_width = max(button.rect.width for button in self.buttons_list)
+        # Assume all buttons to have same height
+        column_height = rows * self.offset + self.buttons_list[0].rect.height * rows
+        title_height = self.title.get_height() + self.offset if self.title else 0
+        column_height += title_height
+
+        # Work with max button width
+        button_max_width = max(button.rect.width for button in self.buttons_list)
+        column_width = columns * self.offset + columns * button_max_width
+
         buttons_box = r(0, 0, column_width, column_height)
-        buttons_box.center = self.rect.center
+        buttons_box.center = v(self.rect.center) - v(self.offset//2, self.offset//2) if self.rect \
+            else (WINDOW_SIZE[0]//2, WINDOW_SIZE[1]//2)
 
         # Place buttons in new box:
-        top = buttons_box.top
-        middle_x = buttons_box.left + column_width // 2
+        button_in_row = 1
+        top = buttons_box.top + self.offset + title_height
+        left = buttons_box.left + self.offset
+
         for button in self.buttons_list:
+            if button.rect.topleft != (0, 0):
+                continue
+
             # Prevent modifying default mutable rect
             button.rect = button.rect.copy()
-            button.rect.midtop = middle_x, top
+            button.rect.topleft = left, top
             top += button.rect.height + self.offset
+            button_in_row += 1
 
-    def display(self, mouse_v):
+            if button_in_row > rows:
+                left += button_max_width + self.offset
+                top = buttons_box.top + self.offset + title_height
+                button_in_row = 1
+
+    def display(self, mouse_v, active=True):
         draw_order = list()
 
         # Draw background first
@@ -527,7 +578,7 @@ class Menu:
 
         # Draw buttons:
         for button in self.buttons_list:
-            draw_order.append(button.draw(bool(button.rect.collidepoint(mouse_v))))
+            draw_order.append(button.draw(active and bool(button.rect.collidepoint(mouse_v))))
 
         # Decorate:
         for banner in self.decoration_objects:
@@ -604,14 +655,52 @@ class OptionsMenu(Menu):
         return buttons_list
 
     def __init__(self):
-        # todo: add options menu title
         super(OptionsMenu, self).__init__(
             self.generate_buttons(),
-            OPTIONS_POPUP_RECT,
-            reposition_buttons=True,
-            background=True
+            reposition_buttons=(4, 2),
+            background=True,
+            title_surface=ascii_draw(BASE_SIZE*2, string["menu"]["options"].upper(), colors["inventory_title"])
         )
 
     def redraw(self):
         self.buttons_list = self.generate_buttons()
-        self.reorder_buttons()
+        self.reorder_buttons(self.dimensions)
+
+
+class RUSureMenu(Menu):
+    def __init__(
+        self,
+        confirm_text,
+        action,
+        action_parameters=None,
+        action_keywords=None,
+        title=string["menu"]["confirm_exit"]
+    ):
+        title_surface = ascii_draw(BASE_SIZE, title, colors["inventory_title"])
+        button_rect = DEFAULT_BUTTON_RECT.copy()
+        button_rect.width *= 2
+
+        button_list = [
+            Button(
+                text=[confirm_text],
+                action=action,
+                action_parameters=action_parameters,
+                action_keywords=action_keywords,
+                kb_index=0,
+                rect=button_rect
+            ),
+            Button(
+                text=[string["menu"]["back"]],
+                action=self.fade,
+                kb_index=1,
+                rect=button_rect
+            )
+        ]
+
+        super(RUSureMenu, self).__init__(
+            button_list,
+            reposition_buttons=(2, 1),
+            background=True,
+            title_surface=title_surface,
+            escape_button_index=1
+        )

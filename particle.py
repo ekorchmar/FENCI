@@ -53,10 +53,10 @@ class Kicker(Particle):
         self.position += self.speed
         if self.oscillate:
             oscillation_x = BASE_SIZE * math.sin(pygame.time.get_ticks() * 0.5 * FPS_TICK) * 0.4
-            center = self.position + v(oscillation_x, 0)
+            center_v = self.position + v(oscillation_x, 0)
         else:
-            center = self.position
-        rect = self.surface.get_rect(center=center).clamp(0, 0, *WINDOW_SIZE)
+            center_v = self.position
+        rect = self.surface.get_rect(center=center_v).clamp(0, 0, *WINDOW_SIZE)
 
         transparency = int(255*self.lifetime / self.max_lifetime)
         transparent_surface = self.surface.copy()
@@ -110,11 +110,11 @@ class Remains:
                 # If rect hits bounding box, bounce
                 boundaries = (self.bounding_box.left, self.bounding_box.right),\
                              (self.bounding_box.top, self.bounding_box.bottom)
-                center = self.bounding_box.center
+                center_v = v(self.bounding_box.center)
 
                 for coordinate in [0, 1]:
                     if not boundaries[coordinate][0] < rect.center[coordinate] < boundaries[coordinate][1]:
-                        to_center = v(center) - v(rect.center)
+                        to_center = center_v - v(rect.center)
                         to_center.scale_to_length(speed_v.length() * 0.5)
                         to_center.y *= 0.6
 
@@ -207,7 +207,7 @@ class Droplet(Particle):
 
         shape = random.choice(['♥', '❤', '♠'])
 
-        self.surface = ascii_draw(int(size*BASE_SIZE), shape, character.blood)
+        self.surface = ascii_draw(int(size*BASE_SIZE), shape, c(204, 0, 0) if OPTIONS["red_blood"] else character.blood)
 
         # If character is alive, tether own position to the character
         self.character = character
@@ -240,13 +240,13 @@ class Droplet(Particle):
 
         # If character is alive, tether own position to the character
         if self.character.hp > 0:
-            center = self.position+v(self.character.position)
+            center_v = self.position + v(self.character.position)
         else:
-            center = self.position
+            center_v = self.position
 
         surface = pygame.transform.rotozoom(self.surface, 0, size_modifier)
         surface.set_alpha(transparency)
-        rect = surface.get_rect(center=center)
+        rect = surface.get_rect(center=center_v)
 
         self.cache = surface, rect
         return surface, rect
@@ -599,7 +599,8 @@ class CountDown(Particle):
                 color=color,
                 lifetime=time_per_banner,
                 animation_duration=time_per_banner*0.33,
-                background=True
+                background=True,
+                animation='grow'
             )
             for text in banner_texts
         ]

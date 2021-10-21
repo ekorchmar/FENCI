@@ -10,6 +10,7 @@ import os
 import random
 import math
 import json
+import sys
 
 
 # Alisases
@@ -152,6 +153,11 @@ def update_screen():
     global SCREEN
     display_flags = pygame.SCALED | pygame.FULLSCREEN if OPTIONS['fullscreen'] else pygame.SCALED
     SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
+
+
+def exit_game():
+    pygame.quit()
+    sys.exit()
 
 
 update_screen()

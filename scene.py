@@ -1,7 +1,6 @@
 # todo:
-#  menu buttons do not highlight if no input is possible
-#  quit to menu & options from pause
-#  Are you sure dialogue
+#  change cursor dynamically depending on where it is
+#  quit to main menu from pause
 #  display combo counter
 #  ?? Picking nothing restores some durability to damaged weapon of same slot
 #  ?? screenshake
@@ -14,7 +13,6 @@
 from ui import *
 from equipment import *
 from particle import *
-import sys
 
 # Display FPS counters(initial state):
 fps_querried_time = 1000
@@ -118,8 +116,7 @@ class Scene:
         for event in pygame.event.get():  # User did something
 
             if event.type == pygame.QUIT:  # If user closed the window
-                pygame.quit()  # We are done so we exit this loop
-                sys.exit()
+                exit_game()
 
             if event.type == pygame.MOUSEWHEEL:
                 wheel = True
@@ -316,9 +313,8 @@ class Scene:
 
         # Handle last displayed menu:
         if self.menus:
-            if self.mouse_state[0]:
+            if self.mouse_state[0] and not self.last_mouse_state[0]:
                 self.menus[-1].collide_button(self.mouse_target)
-                self.reset_mouse()
 
             elif any(number_keys):
                 self.menus[-1].index_button(number_keys.index(True))
@@ -329,9 +325,8 @@ class Scene:
 
         # Handle buttons in pause ensemble, if no menus are drawn:
         elif self.pause_popups:
-            if self.mouse_state[0]:
+            if self.mouse_state[0] and not self.last_mouse_state[0]:
                 self.pause_popups.collide_button(self.mouse_target)
-                self.reset_mouse()
 
             elif any(number_keys):
                 self.pause_popups.index_button(number_keys.index(True))
@@ -418,7 +413,7 @@ class Scene:
 
         # Draw pause surfaces
         if self.pause_popups:
-            pause_ensemble = self.pause_popups.display(self.mouse_target)
+            pause_ensemble = self.pause_popups.display(self.mouse_target, active=not bool(self.menus))
             if pause_ensemble:
                 draw_group.extend(pause_ensemble)
             else:
@@ -432,7 +427,7 @@ class Scene:
         expired_menus = []
         if self.menus:
             for menu in self.menus:
-                draw_group.extend(menu.display(self.mouse_target))
+                draw_group.extend(menu.display(self.mouse_target, active=menu == self.menus[-1]))
                 mouse_on_button = mouse_on_button or any(
                     button.rect.collidepoint(self.mouse_target) for button in menu.buttons_list
                 )
@@ -1234,12 +1229,10 @@ class Scene:
     def hard_unpause(self):
         self.paused = False
 
-    def generate_options_popup(self):
-        self.menus.append(OptionsMenu())
-
-    def reset_mouse(self):
-        # Changing fullscreen status may cause mouse state to be looped; reset it here
-        self.mouse_state = False, False, False
+    def generate_menu_popup(self, menu_class, keywords=None):
+        if keywords is None:
+            keywords = dict()
+        self.menus.append(menu_class(**keywords))
 
 
 class PauseEnsemble(Menu):
@@ -1261,7 +1254,8 @@ class PauseEnsemble(Menu):
         options_button = Button(
             text=[string['menu']['options']],
             rect=options_rect,
-            action=scene.generate_options_popup,
+            action=scene.generate_menu_popup,
+            action_keywords={"menu_class": OptionsMenu},
             kb_index=1
         )
 
@@ -1282,8 +1276,14 @@ class PauseEnsemble(Menu):
         exit_button = Button(
             text=[string['menu']['exit']],
             rect=exit_rect,
-            action=log,
-            action_keywords={"text": "Exit clicked."},
+            action=scene.generate_menu_popup,
+            action_keywords={
+                "menu_class": RUSureMenu,
+                "keywords": {
+                    "confirm_text": string['menu']['confirmed_exit'],
+                    "action": exit_game
+                }
+            },
             kb_index=3
         )
 
@@ -1331,7 +1331,6 @@ class PauseEnsemble(Menu):
             buttons_list=[unpause_button, options_button, menu_button, exit_button],
             decoration_objects=[paused_banner, tip_banner, trivia_banner],
             rect=scene.box,
-            reposition_buttons=False,
             background=False,
             escape_button_index=0
         )

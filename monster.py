@@ -1,5 +1,6 @@
 # todo:
 #  bumping into characters may affect characters in some stages of charge and dogfight
+#  enemies may become scared seeing player axe whirlwind hitting someone
 #  Split AI.execute into submethods to allow for custom AI
 # After tech demo
 # todo:

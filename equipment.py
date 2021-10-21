@@ -76,6 +76,7 @@ class Wielded(Equipment):
     can_parry = True
     hand_rotation = 0
     prevent_activation = True
+    destroys_shield = False
 
     def reset(self, character):
         self.last_angle = self.default_angle if character.facing_right else \
@@ -423,9 +424,9 @@ class Wielded(Equipment):
     def draw(self, character, _custom_surface=None):
         """Draw weapon at hilt position"""
         # Find original center of the image, as pygame will rotate the image around it
-        center = self.surface.get_rect().center
+        center_v = v(self.surface.get_rect().center)
         # Center is going to be rotated as vector around hilt as hilt_v
-        center_vector = v(center) - v(self.hilt)
+        center_vector = center_v - v(self.hilt)
         center_vector.rotate_ip(-self.last_angle)
         # Now center is offset from fixed hilt
         if self.hilt_v is None:
@@ -1147,6 +1148,9 @@ class Spear(Pointed):
         self.active_this_frame = False
         self.held_back_duration = 0
 
+        # Fully charged destroys shields
+        self.destroys_shield = False
+
     def generate(self, size, tier=None):
 
         # Fill missing parts of self.builder on the go:
@@ -1342,6 +1346,10 @@ class Spear(Pointed):
             # Pop own bar:
             character.bars.pop(self.prefer_slot, None)
 
+        # Disable destruction of shields if position is reset:
+        if self.activation_offset == v() and self.held_position == v():
+            self.destroys_shield = False
+
     def activate(self, character, continuous_input):
 
         # AI doesn't need this. Not even balance-wise, this branches off simple stab only for player convenience
@@ -1370,6 +1378,9 @@ class Spear(Pointed):
                 self.last_angle if character.facing_right else -self.last_angle
             )
             self.held_position.from_polar(decrement_args)
+        else:
+            # Destroy shields on full charge
+            self.destroys_shield = True
 
     def reset(self, character):
         super(Spear, self).reset(character)
@@ -1392,7 +1403,7 @@ class Short(Pointed):
     default_angle = 30
     max_tilt = 150
     aim_drain_modifier = 0.5
-    stab_modifier = 1.5
+    stab_modifier = 1
 
     def update_stats(self):
         hilt_material = Material.registry[self.builder["constructor"]["hilt"]["material"]]
@@ -1657,7 +1668,7 @@ class Axe(Bladed):
     default_angle = 40
     hitting_surface = 'head'
     upside = [f'Hold activation to charge whirlwind attack (up to {_max_spins} spins)']
-    downside = ['Only swing attacks']
+    downside = ['Only swing attacks', 'Minimal damage on first whirlwind spins']
 
     def __init__(self, size, *args, **kwargs):
         self.wing_tips = {
@@ -1674,6 +1685,9 @@ class Axe(Bladed):
         self.active_character_speed = None
         self.slow_down_timer = 0
         self.last_spin_crits = False
+
+        # Support destruction of shields
+        self.destroys_shield = False
 
         super(Axe, self).__init__(size * 2 // 3, *args, **kwargs)  # Axes need to use smaller font to fit in
 
@@ -1936,10 +1950,11 @@ class Axe(Bladed):
             self.locked_from_activation = False
 
         self.active_this_frame = False
-
+        self.destroys_shield = False
         if self.spin_remaining > 0:
             character.__dict__[self.prefer_slot] = self.spin_remaining
             character.speed = v(self.active_character_speed or character.speed)
+            self.destroys_shield = True
         elif self.charge_time <= 0:
             self.prevent_regen = False
 
@@ -2022,7 +2037,7 @@ class Falchion(Sword):
     aim_drain_modifier = 0.75
     default_angle = 30
     max_tilt = 150
-    upside = ["Activate to roll in aiming direction"]
+    upside = ["Activate to roll in aiming direction", "Rolling through enemies resets cooldown"]
     downside = ["Minimal damage on stab attacks"]
 
     def __init__(self, *args, **kwargs):
@@ -2459,9 +2474,13 @@ class Shield(OffHand):
 
         block_failed = character.stamina < 0
 
+        # Fully charged Spears and Spinning Axes can destroy shields
+        if weapon:
+            block_failed = block_failed or weapon.destroys_shield
+
         # Prevent protecting from back attacks
         if offender:
-            block_failed = (character.position.x > offender.position.x) == character.facing_right or block_failed
+            block_failed = block_failed or (character.position.x > offender.position.x) == character.facing_right
 
         if block_failed:
             # Displace self by enemy weapon delta
@@ -2746,7 +2765,7 @@ class Katar(Pointed, OffHand):
     stab_cost = 0.25
     upside = [
         "Activate to stab and bleed enemy",
-        "Hold activation to stab and immobilize enemy",
+        "Hold activation to immobilize enemy",
         "Restores stamina equal to damage dealt"
     ]
     downside = [
@@ -2895,7 +2914,7 @@ class Katar(Pointed, OffHand):
         self.agility_modifier = math.sqrt((10.0 + guard.tier) / (1.6 * (1 + blade.weight)))
         # Increased for dagger total weight, reduced for blade tier and hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = self.weight / ((2 + blade.tier) * math.sqrt((guard.weight+blade.weight)/2))
+        self.stamina_drain = self.weight / ((2 + blade.tier) * math.sqrt(guard.weight+blade.weight))
 
         # Calculate damage range depending on weight and tier:
         damage = int((22 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
@@ -3022,7 +3041,7 @@ class Katar(Pointed, OffHand):
         if victor:
             victor.stamina = min(victor.stamina + dealt_damage, victor.max_stamina)
 
-        # If we are holding activation, damage skewers enemy, else bleeds
+        # If we are holding activation, damage skewers enemy
         if all([
                 victor,
                 victim,
@@ -3036,9 +3055,8 @@ class Katar(Pointed, OffHand):
                 # Set minimal duration
                 self.skewer_duration = 0.2
                 victim.anchor_timer = 0.2
-            elif not victim.shielded:
-                self.cause_bleeding(victim)
 
+        self.cause_bleeding(victim)
         return dealt_damage
 
     def reset(self, character):

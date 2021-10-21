@@ -755,7 +755,7 @@ class Character:
 
         # Bounce off boundaries towards center if reached edge
         boundaries = (scene.box.left, scene.box.right), (scene.box.top, scene.box.bottom)
-        center = scene.box.center
+        center_v = scene.box.center
 
         # Push disabled characters or characters somehow outside
         # Don't affect jumping or phasing characters (spawning)
@@ -767,7 +767,7 @@ class Character:
             if self.state in DISABLED or not scene.box.collidepoint(self.position):
                 for coordinate in {0, 1}:
                     if not boundaries[coordinate][0] < self.position[coordinate] < boundaries[coordinate][1]:
-                        to_center = v(center) - v(self.position)
+                        to_center = center_v - v(self.position)
                         to_center.scale_to_length(POKE_THRESHOLD * 2)
                         to_center.y *= 0.6
                         # Log own speed for the scene to handle damage

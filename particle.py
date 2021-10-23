@@ -623,3 +623,40 @@ class CountDown(Particle):
         # Draw (new) first banner:
         self.cache = self.banner_particles[0].draw()
         return self.cache
+
+
+class LootOverlayHelp:
+    def __init__(self, size=BASE_SIZE*3//4):
+        # Get text particles
+        self.particles = [
+            MouseHint(
+                v(0, -BASE_SIZE * 2),
+                colors["inventory_title"],
+                lifetime=REMAINS_SCREENTIME*0.5,
+                text=string["overlay_hint"]["top"],
+                size=size,
+                monitor=None
+            ),
+            MouseHint(
+                v(-BASE_SIZE * 3, 0),
+                colors["inventory_title"],
+                lifetime=REMAINS_SCREENTIME * 0.5,
+                text=string["overlay_hint"]["left"],
+                size=size,
+                monitor=None
+            ),
+            MouseHint(
+                v(BASE_SIZE * 3, 0),
+                colors["inventory_title"],
+                lifetime=REMAINS_SCREENTIME * 0.5,
+                text=string["overlay_hint"]["right"],
+                size=size,
+                monitor=None
+            )
+        ]
+
+    def draw(self):
+        resulting_draw = []
+        for hint in self.particles:
+            resulting_draw.append(hint.draw(pause=False))
+        return resulting_draw

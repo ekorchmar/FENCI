@@ -26,6 +26,7 @@ def load_resource(file_path, directory='resource'):
         return json.loads(resource_json.read())
 
 
+# Resource collections
 raw_materials = load_resource('raw_materials.json')
 colors = load_resource('colors.json')
 parts_dict = load_resource('parts.json')
@@ -33,6 +34,7 @@ character_stats = load_resource('monsters.json')
 artifacts = load_resource('artifact.json')
 string = load_resource('en.json', directory='language')
 
+# Global options
 OPTIONS = load_resource('options.json', 'options')
 
 FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
@@ -519,7 +521,3 @@ def kill_random(scene):
     if scene.player in cohort:
         cohort.remove(scene.player)
     scene.undertake(random.choice(cohort))
-
-
-def log(text):
-    print(pygame.time.get_ticks(), text)

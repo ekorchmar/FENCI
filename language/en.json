@@ -1,4 +1,6 @@
 {
+  "game_title": "FENCI: ASCII Game about fencing, looting and dying. A lot.",
+  "game_subtitle": "Actually, mostly about dying. A whole lot.",
   "protagonist_name": "Fenci",
   "protagonsit_fates": {
     "Sword": "The Dishonored Bodyguard",
@@ -259,14 +261,19 @@
     "tip_label": "TIP"
   },
   "menu": {
+    "campaign": "Campaign",
+    "skirmish": "Skirmish",
     "unpause": "Continue",
     "options": "Options",
     "main": "Main menu",
-    "exit": "Ragequit",
+    "exit_ingame": "Ragequit",
+    "exit": "Quit",
     "back": "Return",
     "confirm_exit": "Quit game?",
-    "confirmed_exit": "I SAID RAGEQUIT",
+    "confirmed_exit_ingame": "I SAID RAGEQUIT",
+    "confirmed_exit": "We done here",
     "confirm_menu": "Return to main menu?",
+    "confirmed_menu": "To the main menu!",
     "option_contents": {
         "bool": {
           "True": "on",
@@ -280,5 +287,10 @@
         "sound": "Sound effects",
         "music": "Music"
     }
+  },
+  "overlay_hint": {
+    "top": "CLOSE",
+    "left": "EQUIP",
+    "right": "STASH"
   }
 }

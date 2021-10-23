@@ -1,7 +1,7 @@
 # todo:
+#  Downward smash enemies with spears
 # After tech demo
 # todo:
-#  shield can't spawn kickers too often
 #  ?? Burning weapons
 #  ?? Mace: activateable main hand weapon, copies falchion activation, increases collision damage to hit characters
 #  ?? Knife: offhand weapon that deals crit damage to airborne, disabled or turned away characters
@@ -1451,7 +1451,7 @@ class Dagger(Short, Bladed):
 
         )
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal', 'bone'], roll_tier(tier))
+            "material", Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
         )
 
         # Create a hilt
@@ -1816,7 +1816,11 @@ class Axe(Bladed):
             ):
                 hm = self.builder["constructor"]["head"]["material"]
             else:
-                hm = Material.pick(['bone', 'wood'], roll_tier(tier))
+                hm = Material.pick(
+                    ['bone', 'wood'],
+                    roll_tier(tier),
+                    lambda x: x.name not in Material.collections['short_bone']
+                )
             return hm
 
         self.builder["constructor"]["handle"]["material"] = self.builder["constructor"]["handle"].get(
@@ -2987,7 +2991,7 @@ class Katar(Pointed, OffHand):
             self._drop_kebab()
 
         if self.kebab:
-            self.activation_offset.scale_to_length(character.size * 3)
+            self.activation_offset.scale_to_length(self.character_specific["grab_distance"])
             self.skewer_duration -= FPS_TICK
             self.speed_limit = 0
 
@@ -3071,6 +3075,7 @@ class Katar(Pointed, OffHand):
         super(Katar, self).on_equip(character)
         # Fill:
         self.character_specific["grab_stamina_drain"] = self.stamina_drain * 250 * FPS_TICK
+        self.character_specific["grab_distance"] = character.size * 2
 
     def cause_bleeding(self, victim, skip_kicker=False):
         super(Katar, self).cause_bleeding(victim, skip_kicker)
@@ -3083,5 +3088,5 @@ class Katar(Pointed, OffHand):
 
     def _skewer(self, character, victim):
         super(Katar, self)._skewer(character, victim)
-        self.activation_offset.scale_to_length(character.size * 3)
+        self.activation_offset.scale_to_length(self.character_specific["grab_distance"])
         self.inertia_vector = v()

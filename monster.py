@@ -1764,3 +1764,4 @@ class DebugOrc(Orc):
     def move(self, *args, **kwargs):
         super(DebugOrc, self).move(*args, **kwargs)
         self.position = v(SCENE_BOUNDS.center)
+

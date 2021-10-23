@@ -16,6 +16,7 @@ class Material:
     registry = {}
     collections = {
         'plateless_bone': {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'},
+        'short_bone': {'mollusc shell', 'dragon scale'},
         'elven': {'mythril', 'mallorn', 'spidersilk', 'elven cloth', 'riverglass'},
         'mythical': {'moonglow silver', "unicorn horn", "moonbeast antler", "dragon scale",
                      "dragonhide", "unicorn kashmir", "Giant's beanstalk", "niflheim ice"},
@@ -115,9 +116,6 @@ if not pygame.get_init():
 
 if not pygame.font.get_init():
     pygame.font.init()
-
-# Set cursor shape:
-pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
 
 
 # Define base classes:

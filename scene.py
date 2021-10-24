@@ -1,13 +1,12 @@
 # todo:
-#  Main menu scene is fullscreen, with no progression or inventory spaces
-#  Fix progression not appearing
+#  ?? Batch spawn randomizes appearing positions
 #  clearing all monsters spawns victory menu with stats & button to go to next difficulty or return to menu
 #  Click on skirmish to choose difficulty
 #  Skirmish spawns monsters in batches, always
 #  "boss iminent" indicator
 #  display combo counter
-#  Picking nothing restores some durability to LEAST damaged weapon
-#  ?? screenshake
+#  Picking nothing restores some durability to LEAST damaged weapon; add banner
+#  ?? screenshake on: player hit, player critting, player shield bashing, monster collides with wall
 # After tech demo
 # todo:
 #  scenario feeds dict with debug info into scene for display_debug
@@ -32,9 +31,10 @@ fps_count = ascii_draw(40, '0', (255, 255, 0))
 class Scene:
     """Takes Rect as bounding box, list of enemies and a player"""
 
-    def __init__(self, player, window, bounds, enemies=None, progression=None):
+    def __init__(self, player, window, bounds, enemies=None, progression=None, decorative=False):
         self.window = window
         self.box = bounds
+        self.decorative = decorative
 
         # Spawn player:
         self.player = player
@@ -160,12 +160,12 @@ class Scene:
         # Debug:
         if debug:
             # print("No debug action set at the moment.")
-            # self.echo(self.player, "Geronimo!", colors["lightning"])
+            self.echo(self.player, "This is debugging key!", colors["lightning"])
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
             # self.player.equip_basic()
             # self.log_weapons()
-            self.menus.append(MainMenu(self))
+            # self.menus.append(MainMenu(self))
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -404,7 +404,7 @@ class Scene:
         # Draw all characters
         for character in self.characters:
 
-            draw_group.extend(character.draw(freeze=self.paused))
+            draw_group.extend(character.draw(freeze=self.paused, no_bars=self.decorative))
 
             # Spawn dust clouds under rolling or ramming characters
             try:
@@ -1136,7 +1136,7 @@ class Scene:
             clear = not any((meatbag.position - position_v).length_squared() < BASE_SIZE * POKE_THRESHOLD
                             for meatbag in self.characters)
 
-        off_screen_x = random.uniform(BASE_SIZE, 3 * BASE_SIZE)
+        off_screen_x = random.uniform(3, 6) * monster.size
 
         if roll_in:
             # Calculate rolling in from distance
@@ -1201,6 +1201,10 @@ class Scene:
         self.log_weapons()
 
     def toggle_pause(self, skip_banner=False):
+        # Background scene can not be paused:
+        if self.decorative:
+            self.hard_unpause()
+
         # Only if player exists
         if not self.player:
             return
@@ -1902,13 +1906,14 @@ class OptionsMenu(Menu):
             update_screen()
 
     def generate_buttons(self):
+        button_rect = DEFAULT_BUTTON_RECT.copy()
+        button_rect.width *= 2
         buttons_list = []
         i = 0
         for key in OPTIONS:
             option_state_text = string['menu']['option_contents']["bool"]["True" if OPTIONS[key] else "False"]
             button_text = f"{string['menu']['option_contents'][key]}: {option_state_text}"
-            button_rect = DEFAULT_BUTTON_RECT.copy()
-            button_rect.width *= 2
+
             buttons_list.append(Button(
                 text=[button_text],
                 action=self.toggle,
@@ -1930,7 +1935,7 @@ class OptionsMenu(Menu):
         buttons_list.append(Button(
             text=[string["menu"]["back"]],
             action=self.fade,
-            rect=DEFAULT_BUTTON_RECT,
+            rect=button_rect,
             kb_index=i
         ))
 
@@ -2416,11 +2421,14 @@ class SceneHandler:
                 self.scene.particles.append(self.victory_banner)
 
         # 4. If scene requests a new handler, hand over:
-        if self.scene.new_sh_hook is not None:
-            self.hand_off_to(self.scene.new_sh_hook)
+        self._process_handover()
 
         # Return True unless scenario is completed
         return not done
+
+    def _process_handover(self):
+        if self.scene.new_sh_hook is not None:
+            self.hand_off_to(self.scene.new_sh_hook)
 
     def spawn_monster(self, force=False):
         # If forced, immediately spawn a monster. Exception unsafe!
@@ -2572,26 +2580,48 @@ class SkirmishScenehandler:
 
 
 class MainMenuSceneHandler(SceneHandler):
+    _gladiator_capacity = 8
+
     def __init__(self):
 
+        self.challenger_classes = [gladiator for gladiator in Character.registry.values() if not gladiator.debug]
         self.spawned_collision_group = 1
-        # todo: Create backlog of monsters each with different collision group to fight among themselves in background
+
+        # Create a custom scene
+        main_menu_scene = Scene(None, SCREEN, EXTENDED_SCENE_BOUNDS, decorative=True)
+        print(main_menu_scene.box)
+
         super(MainMenuSceneHandler, self).__init__(
             tier=0,
             pad_monster_classes=[],
             monster_total_cost=0,
             loot_drops=0,
-            no_player=True
+            no_player=True,
+            scene=main_menu_scene
         )
-        # Create or replace a scene
-        self.scene = Scene(None, SCREEN, SCENE_BOUNDS)
         # Spawn MainMenu in the scene
         self.scene.menus.append(MainMenu(self.scene))
         pass
 
     def execute(self):
-        super(MainMenuSceneHandler, self).execute()
-        # 1. Spawn a monster if less than 5 are present
+        # Spawn a monster if less than 5 are present
+        if len(self.scene.characters) < self._gladiator_capacity:
+            challenger_tier = random.choice(range(1, 5))
+            new_challenger = random.choice(self.challenger_classes)(position=None, tier=challenger_tier)
+            new_challenger.collision_group = self.spawned_collision_group
+            self.monsters.append(new_challenger)
+            self.spawn_monster(force=True)
+            # Python is designed to to indefinetely extend integers, so there is no upper bound to catch exceptions for
+            # Besides, increment is expected to be occuring once per dozen seconds, so it is not imaginable to reach
+            # any kind of memory limit during time person stares at the menu.
+            self.spawned_collision_group += 1
+
+        # 1. Iterate the scene
+        self.scene.iterate()
+        self._process_handover()
+
+        # Main Menu is never completed
+        return False
 
 
 class MainMenu(Menu):
@@ -2696,7 +2726,7 @@ class MainMenu(Menu):
 
         super(MainMenu, self).__init__(
             self.generate_buttons(),
-            reposition_buttons=(1, 4),
+            reposition_buttons=(2, 2),
             background=True,
             title_surface=title_surface,
             decoration_objects=[tip_banner, trivia_banner]

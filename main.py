@@ -12,19 +12,19 @@
 
 from scene import *
 
-print(f"Droppable weapons: {', '.join(Wielded.registry.keys())or 'None'}")
+print(f"Spawnable monsters: {', '.join(Character.registry.keys()) or 'None'}")
+print(f"Droppable weapons: {', '.join(Wielded.registry.keys()) or 'None'}")
 print(f"Droppable hats: {', '.join(Hat.registry.keys()) or 'None'}")
 for tier in range(5):
     level = filter(lambda x: artifacts[x]["tier"] == tier, list(artifacts.keys()))
     print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
 # SceneHandler.active = SceneHandler(1, [Goblin, Orc], [5, 1])
+# SceneHandler.active = SceneHandler(1, [Human])
 SceneHandler.active = MainMenuSceneHandler()
+print(SceneHandler.active.scene.box)
 # SceneHandler.active = SceneHandler(1, [Orc], on_scren_enemies_value=[1, 1], loot_drops=20)
 # SceneHandler.active.player.equip(Dagger(BASE_SIZE, tier_target=2), 'main_hand')
-# SceneHandler.active.player.equip(Swordbreaker(BASE_SIZE, tier_target=2), 'off_hand')
-# SceneHandler.active.player.equip(Katar(BASE_SIZE, tier_target=2), 'backpack')
-# SceneHandler.active.loot_querried = True
 
 while True:
     SceneHandler.active.execute()

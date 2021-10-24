@@ -2,6 +2,7 @@
 #  bumping into characters may affect characters in some stages of charge and dogfight
 #  enemies may become scared seeing player axe whirlwind hitting someone
 #  Split AI.execute into submethods to allow for custom AI
+#  ?? Skeleton class, same as human but with less health and difficulty
 # After tech demo
 # todo:
 #  ?? animate character flip
@@ -78,8 +79,8 @@ class Humanoid(Character):
         else:
             self.state_timer = 0.1
 
-    def draw(self, body_only=False, freeze=False):
-        return_list = super().draw(body_only=body_only)
+    def draw(self, body_only=False, freeze=False, **kwargs):
+        return_list = super().draw(body_only=body_only, **kwargs)
 
         if self.state_timer < -self.blink_timer and self.state == 'idle':
             self.do_blink()
@@ -513,8 +514,17 @@ class AI:
         self.friends = {}
         own_health = min(self.character.hp / self.character.max_hp, self.character.stamina / self.character.max_stamina)
 
+        # Drop dead targets:
+        if self.target and self.target.hp <= 0:
+            self.target = None
+
         # Count enemies, assess their health and assume their weapon reach:
-        for enemy in filter(lambda x: x.collision_group != self.character.collision_group, self.scene.characters):
+        enemies_list = list(
+            filter(lambda x: x.collision_group != self.character.collision_group, self.scene.characters)
+        )
+        # Put target first so that distance to it is assessed first
+        enemies_list.sort(key=lambda x: x is not self.target)
+        for enemy in enemies_list:
             # Ignore enemies with no hitbox:
             if not enemy.hitbox:
                 continue
@@ -542,7 +552,7 @@ class AI:
             }
 
             # Identify closest target
-            if self.target is None or distance < self.enemies[self.target]["distance"] and enemy.hp > 0:
+            if (self.target is None or distance < self.enemies[self.target]["distance"]) and enemy.hp > 0:
                 self.target = enemy
 
         # No enemies? We wait.
@@ -1299,13 +1309,14 @@ class AI:
 
 
 class Goblin(Humanoid):
+    class_name = "Goblin"
     difficulty = 2
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
-        body_stats = character_stats["body"]["goblin"]
-        ai_stats = character_stats["soul"]["goblin"]
-        portraits = character_stats["mind"]["goblin"]
+        body_stats = character_stats["body"]["goblin"].copy()
+        ai_stats = character_stats["soul"]["goblin"].copy()
+        portraits = character_stats["mind"]["goblin"].copy()
 
         body_stats["health"] += 20 * (tier - 1)
         body_stats["max_speed"] += tier / 2
@@ -1503,29 +1514,59 @@ class Goblin(Humanoid):
 
 
 class Human(Humanoid):
+    class_name = "Human"
     difficulty = 3
 
-    def __init__(self, position, tier):
+    def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
-        body_stats = character_stats["body"]["human"]
-        ai_stats = character_stats["soul"]["human"]
-        portraits = character_stats["mind"]["human"]
+        body_stats = character_stats["body"]["human"].copy()
+        ai_stats = character_stats["soul"]["human"].copy()
+        portraits = character_stats["mind"]["human"].copy()
 
         body_stats["health"] += 20 * (tier - 1)
         body_stats["max_speed"] += tier / 2
         ai_stats["skill"] += -0.5 + tier / 2
 
-        super().__init__(position, **body_stats, **colors['enemy'], faces=portraits)
+        super().__init__(
+            position,
+            **body_stats,
+            **colors['enemy'],
+            faces=portraits,
+            name=f"Goblin Lv.{tier:.0f}"
+        )
+
+        # Equal chance for any main hand weapon:
+        main_class = random.choice((Axe, Sword, Dagger, Falchion, Spear))
+
+        # Humans use anything, so allow random generation:
+        self.equip(main_class(tier_target=tier, size=int(BASE_SIZE * body_stats['size'])), 'main_hand')
+        # Shield in 50% cases
+        if random.random() > 0.5:
+            shield = Shield(tier_target=tier, size=int(BASE_SIZE * body_stats['size']))
+            self.equip(shield, 'off_hand')
+            # Force team color, if plate is painted:
+            if (
+                    team_color and
+                    'tags' in shield.builder['constructor']['plate'] and
+                    'painted' in shield.builder['constructor']['plate']['tags']
+            ):
+                shield.builder['constructor']['plate']['color'] = team_color
+                shield.generate(size=int(BASE_SIZE * body_stats['size']))
+                shield.update_stats()
+
+        # Add AI:
+        self.ai = AI(self, **ai_stats)
 
 
 class Orc(Humanoid):
+    class_name = 'Orc'
     difficulty = 3.5
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
-        body_stats = character_stats["body"]["orc"]
-        ai_stats = character_stats["soul"]["orc"]
-        portraits = character_stats["mind"]["orc"]
+        body_stats = character_stats["body"]["orc"].copy()
+        ai_stats = character_stats["soul"]["orc"].copy()
+        portraits = character_stats["mind"]["orc"].copy()
 
         body_stats["health"] += 40 * (tier - 1)
         body_stats["max_speed"] += tier / 3
@@ -1540,7 +1581,6 @@ class Orc(Humanoid):
         )
 
         self.equip(self._main_hand_orc(tier, size=int(BASE_SIZE * body_stats['size'])), 'main_hand')
-        self.equip(self._shield_orc(tier, team_color, size=int(BASE_SIZE * body_stats['size'])), 'off_hand')
         # 80% of the time also generate a heavy Shield
         if random.random() > 0.2:
             self.equip(self._shield_orc(tier, team_color, size=int(BASE_SIZE*body_stats['size'])), 'off_hand')
@@ -1745,6 +1785,8 @@ class Orc(Humanoid):
 
 
 class DebugGoblin(Goblin):
+    class_name = "DebugGoblin"
+    debug = True
 
     def __init__(self, *args, **kwargs):
         super(DebugGoblin, self).__init__(*args, **kwargs)
@@ -1756,6 +1798,8 @@ class DebugGoblin(Goblin):
 
 
 class DebugOrc(Orc):
+    class_name = "DebugOrc"
+    debug = True
 
     def __init__(self, *args, **kwargs):
         super(DebugOrc, self).__init__(*args, **kwargs)
@@ -1764,4 +1808,3 @@ class DebugOrc(Orc):
     def move(self, *args, **kwargs):
         super(DebugOrc, self).move(*args, **kwargs)
         self.position = v(SCENE_BOUNDS.center)
-

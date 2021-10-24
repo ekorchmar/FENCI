@@ -360,6 +360,7 @@ class Equipment:
 
 
 class Character:
+    registry = {}
     weapon_slots = []
     collision_group = 1  # Default for enemies
     hit_immunity = 0.6
@@ -367,6 +368,8 @@ class Character:
     has_blood = True
     pct_cap = 0.15
     dps_pct_cap = 1
+    class_name = None
+    debug = False
 
     def __init__(
             self,
@@ -621,14 +624,14 @@ class Character:
             # Disable hitboxes
             # self.hitbox = []
 
-    def draw(self, body_only=False, freeze=False):
+    def draw(self, body_only=False, freeze=False, no_bars=False):
         """Return set of surface and rectangles to draw them on, depending on what is equipped"""
 
         return_list = []
         self.drawn_equipment = {}
 
         # Draw bars:
-        if not body_only and any(self.bars):
+        if not no_bars and not body_only and any(self.bars):
             bar_placement = v(self.body_coordinates['bars']) + v(self.position)
             drawn_bars = dict()
             bar_rects: dict[str, Any] = {}
@@ -1047,6 +1050,14 @@ class Character:
                 self.disabled_timer += FPS_TICK
         else:
             self.disabled_timer = 0
+
+    @classmethod
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+        # Preserves string literals for each of classes that are eligible to spawn
+        if cls.class_name:
+            cls.registry[cls.class_name] = cls
 
 
 class Particle:

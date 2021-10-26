@@ -1,1 +1,9 @@
-{"screenshake": false, "red_blood": true, "unpause_countdown": false, "fullscreen": false, "grab_mouse": true, "sound": false, "music": false}
+{
+  "fullscreen": false,
+  "grab_mouse": true,
+  "music": false,
+  "red_blood": true,
+  "screenshake": false,
+  "sound": false,
+  "unpause_countdown": false
+}

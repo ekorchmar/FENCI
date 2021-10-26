@@ -1,6 +1,6 @@
 # todo:
 #  bumping into characters may affect characters in some stages of charge and dogfight
-#  enemies may become scared seeing player axe whirlwind hitting someone
+#  enemies may become scared seeing player powering up axe whirlwind
 #  Split AI.execute into submethods to allow for custom AI
 #  ?? Skeleton class, same as human but with less health and difficulty
 # After tech demo
@@ -15,7 +15,6 @@
 #  AI can use off-hand weapons, not just shields
 # todo: celebration state if away from enemy and flexibility >> skill or all enemies dead
 # todo: randomly exchange wait <=> to wander: move to a new position, not too close to arena edge
-# todo: make goblins use appropriate swords: scavenged look a bit too chaotic
 
 from base_class import *
 from particle import AttackWarning
@@ -1532,7 +1531,7 @@ class Human(Humanoid):
             **body_stats,
             **colors['enemy'],
             faces=portraits,
-            name=f"Goblin Lv.{tier:.0f}"
+            name=f"Human Lv.{tier:.0f}"
         )
 
         # Equal chance for any main hand weapon:

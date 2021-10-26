@@ -1,6 +1,6 @@
 {
-  "game_title": "FENCI: ASCII Game about fencing, looting and dying. A lot.",
-  "game_subtitle": "Actually, mostly about dying. A whole lot.",
+  "game_title": "FENCI: ASCII Game about fencing, looting and dying.",
+  "game_subtitle": "Actually, mostly about dying.",
   "protagonist_name": "Fenci",
   "protagonsit_fates": {
     "Sword": "The Dishonored Bodyguard",
@@ -10,11 +10,12 @@
     "Axe": "The Noble Savage"
   },
   "trivia": [
-    "Pig iron is terrible smithing material, made from rejected ore. Orcs love it for it's weight and cheap price.",
-    "Common belief is that faefolk is scared of iron weapons. In reality, anyone avoids enemy weapons regardless of material.",
+    "Pig iron is terrible smithing material, made from rejected ore. Orc warriors love it for it's weight and cheap price.",
+    "Common belief is that some races are scared of iron weapons. In reality, anyone avoids enemy weapons regardless of material.",
     "Fae iron is wrought by fae blacksmiths from human blood. Not really, but fairies enjoy the reputation.",
+    "Fae iron is certainly not iron at all. Faefolk can touch it, and in fact produce most of it.",
     "Shaping quicksilver into smithing metal is graduation exam for student alchemists.",
-    "Kobolds are distant relatives of goblins, characterized by blue skin and spending all their lives in mines.",
+    "Kobolds are distant relatives of goblins, characterized by blue skin and spending their entire lives in mines.",
     "Rumour is that sanchezium is extremely effective against alchemists and artificers. It is not a true rumour.",
     "Dwarfish steel contains no iron or steel at all. Dwarves carefully guard the secret, but sell weapons to any buyer.",
     "It takes at least two powerful wizards to produce moonglow silver. It is extremely rare, because powerful wizards hate working together.",
@@ -25,9 +26,9 @@
     "Conservationists attempts to save unicorns from orcish braconiers led to existence of horses.",
     "Demon horns are not made of gold, despite what many demons themselves may claim.",
     "Moonbeasts are regarded as impossible to hunt. There is no need though, as they shed antlers each moon cycle.",
-    "Cursed bones are magically strengthened skeletal tissue harvested from destroyed undead. They are not 'cursed' per se, but unsettling.",
+    "Cursed bones are magically strengthened skeletal tissue harvested from destroyed undead. They do not seem 'cursed' per se, but are unsettling.",
     "There are no known surviving dragons. Weapons made from their scales are increasingly rare.",
-    "Breaking a wishbone spearhead makes you wish you had another weapon with you.",
+    "Breaking a wishbone spearhead makes you wish you had another good weapon with you.",
     "Breaking a wishbone spearhead brings you good luck, as in good luck finding another tier 4 weapon you dunce.",
     "Riverglass is collected from flooded ruins of ancient elven capital. They say that city was completely green.",
     "Ice from Niflheim newer thaws, which makes it essential for existence of Empire Capital's bars.",
@@ -35,7 +36,7 @@
     "You can't make a weapon by bashing two diamonds with a stick. Not in this game.",
     "Dragonhide seems impossible to obtain, given there are no living dragons. And yet, rich traders still hold on to some stock.",
     "Elves can weave mallorn leaves into thread to make light and warm cloth. Everyone can do it, but only elves deem results worth the effort.",
-    "Djinn's™ denim is made from cotton, dye and clever marketing.",
+    "Djinn's™ denim is made from durable cotton, bright dye and clever marketing.",
     "Spidersilk is light, unprecedented durable, expensive and extremely gross, if you think about it.",
     "There is only one known specimen of giant beanstalk plant, but it is still being mined.",
     "River Styx is the only body of water in Hell, and local papyrus is the only plant that survives in it.",
@@ -43,7 +44,7 @@
 
     "King of Spades lost his only love to plague years ago. Grief changed him.",
     "King of Spades does not trust anyone, except for unsettling number of mages of all kinds gathered at his court.",
-    "King of Spades rules rich neighboring lands from impenetrable fortress, defended by fiercely loyal garrison.",
+    "King of Spades rules rich neighboring lands from impenetrable fortress, defended by a fiercely loyal garrison and a gaggle of mages.",
     "Queen of Clubs is stuck in endless warring crusade to reunite the crumbling Empire under her rule.",
     "Queen of Clubs used to be the head of Empire's church, and from a purely legal standpoint still is.",
     "Queen of Clubs wages war after war against local lords, looking to grow strong enough to overwhelm other houses.",
@@ -84,7 +85,7 @@
     "Some blame Houses in fall of Empire, other claim Demon Lord influence.",
     "Backstab seems to be considered a form of polite greeting among faefolk.",
     "Orcs never lie to your face, and demons seem biologically incapable of telling truth. With elves, you can never tell.",
-    "If you confuse elf with a fairy, elf will take offence. Fairy will attempt to murder you.",
+    "If you confuse an elf with a fae, elf will take offence. Fairy will attempt to murder you.",
     "Empire has only one major religion, but with such number of deities and sects that it makes no difference.",
     "Elves traditional fighting style looks like a dance, and just about as effective. That's why elves stick to ambushes and bows.",
     "No races are inherently evil, and never view themselves as such. Faefolk not included.",
@@ -98,14 +99,15 @@
     "Today's weather is expected to be nice, with small chance of impending apocalypse closer to the evening.",
     "Katars are banned the streets of Empire's Capital. So are most other weapons, but Order makes a big deal out of ban on Katars.",
     "FENCI is the only game where trivia and tips file size is significantly larger than all sprites and models of in-game objects, combined.",
-    "For a secretive order of assassins, Undefined Order is surprisingly politically active. Everyone is, these days.",
+    "For a secretive order of assassins, Undefined Order is surprisingly politically active. Come to think of it, everyone is, these days.",
     "Conventional wizards prefer flashy display of powerful spells to avoid actual combat. Necromancers rely on hordes of reanimated soldiers to do the fighting.",
     "Demons love bargaining with humans. Human mages that can force demons to follow through with their promises are referred to as warlocks.",
-    "Demons have power to grant magical strength, success and immortality to humans. At least they claim so.",
+    "Demons have power to grant magical strength, success and immortality to humans. At least so they claim.",
     "You can sell your soul to any demon for good price. There is no visible consequences to losing your soul, but the Church still preaches against this.",
     "Wizards don't get along with each other. Concept of mutually assured magical destruction can prevent open conflict, but also makes alliance or friendship impossible.",
     "Necromancy is a forbidden art. No self-respecting wizard will turn to necromancy. Those who do will still invent justification for their actions.",
     "Demon Lords were once influential enough to rally demons to start an invasion of Empire. Not one of them was influential enough to keep the invasion on track.",
+    "FENCI lore is chokeful of references to popular fantasy, from Tolkien and Pratchett to even Carrol and L. Frank Baum. That's because the game's author lacks any proper creativity.",
 
     "Trolls will investigate any commotion occuring on their territory. Investigation includes hitting source of commotion until it stops making noise.",
     "Trolls tolerate goblin gangs, as long as latter are successful in providing victim carcasses to the troll.",
@@ -115,7 +117,7 @@
     "Some elves live in peace as citizens alongside humans and other races. Also, alongside other races, they consider Elvenking a bloodthirsty terrorist.",
     "King of Clubs doesn't trust anyone, and fills his court with scheming, ambitious wizards. Politics of his palace is ruthless.",
     "Few people see King of Spades personally. Even his bodyguards only see outside of his door. His will is conveyed through his advisor, Odvalina.",
-    "It is not clear how much free will do reanimated dead retain. It seems that they keep loyalty to necromancer because they need latter magic to exist.",
+    "It is not clear how much free will do reanimated dead retain. It seems that they keep loyalty to necromancer because they need necromancer's magic to exist.",
     "Demon Lords are cunning, intelligent and have unique ability to subdue other demons to their will. They are believed to be absent from our plane.",
     "Each individual demon considers self to be perfect and all-powerful. It takes a very powerful demon to form any kind of hierarchy among kin.",
     "Demon Lords are obviously skilled fighters and powerful magic users, but to actually fight one is to face nightmares beyond human imagination"
@@ -188,7 +190,9 @@
     "Even if you run out of stamina, you can still deal some damage by running into an enemy weapon forward.",
     "You can break enemy shields faster by using heavy weapons. With light weapons, try to hit them from the back.",
     "Fenci is a master duelist. Enemies may not use weapons to their full potential.",
-    "Wounded and exhausted enemies are more likely to flee, giving you space."
+    "Wounded and exhausted enemies are more likely to flee, giving you space.",
+    "This game is designed to put control over any fight in player's hands. Don't give this control up.",
+    "You can destroy enemy shields by overwhelming it with attacks. However, this approach will quickly exhaust your stamina."
   ],
   "gameplay": {
     "paused": "PAUSED",
@@ -199,7 +203,6 @@
       "EZ",
       "VICTORY"
     ],
-
     "progress": {
       "level": "LEVEL",
       "loot": "LOOT",
@@ -261,7 +264,8 @@
       "REWARD FOR DODGING"
     ],
     "trivia_label": "TRIVIA",
-    "tip_label": "TIP"
+    "tip_label": "TIP",
+    "monster_list": "Killed enemies:"
   },
   "menu": {
     "campaign": "Campaign",
@@ -279,8 +283,8 @@
     "confirmed_menu": "To the main menu!",
     "option_contents": {
         "bool": {
-          "True": "on",
-          "False": "off"
+          "True": "ON",
+          "False": "OFF"
         },
         "screenshake": "Screenshake",
         "red_blood": "Red blood color",

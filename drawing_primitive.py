@@ -3,7 +3,7 @@
 # todo: sparks to leave shapes of lines
 # todo: dialogue graphic
 # todo:
-#  use freetype instead
+#  use freetype instead of fonts
 
 import pygame
 import os
@@ -480,7 +480,7 @@ def glue_horizontal(*surfaces: s, offset=0, center_vertically=True):
 
 def frame_text(lines: list[str], style='╔═╗╚╝║'):
     """
-    Possible styles:
+    Styles cheat-sheet:
     ╔═╗╚╝║
     /–\\/|
     ┏━┓┗┛┃

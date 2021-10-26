@@ -1,14 +1,11 @@
 # todo:
-#  ?? Batch spawn randomizes appearing positions
-#  clearing all monsters spawns victory menu with stats & button to go to next difficulty or return to menu
 #  Click on skirmish to choose difficulty
 #  Skirmish spawns monsters in batches, always
-#  "boss iminent" indicator
-#  display combo counter
 #  Picking nothing restores some durability to LEAST damaged weapon; add banner
-#  ?? screenshake on: player hit, player critting, player shield bashing, monster collides with wall
+#  Screenshake on: player hit, player critting, player shield bashing, monster collides with wall
 # After tech demo
 # todo:
+#  display combo counter
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
 #  cut off all surfaces by bounding box
@@ -28,6 +25,7 @@ fps_querried_time = 1000
 fps_count = ascii_draw(40, '0', (255, 255, 0))
 
 
+# Scene class, that draws everything and processess game physics
 class Scene:
     """Takes Rect as bounding box, list of enemies and a player"""
 
@@ -159,13 +157,13 @@ class Scene:
 
         # Debug:
         if debug:
-            # print("No debug action set at the moment.")
             self.echo(self.player, "This is debugging key!", colors["lightning"])
+            # print("No debug action set at the moment.")
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
             # self.player.equip_basic()
             # self.log_weapons()
-            # self.menus.append(MainMenu(self))
+            # self.menus.append(Defeat(self))
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -349,6 +347,10 @@ class Scene:
             elif escape:
                 escape_index = self.menus[-1].escape_button_index
                 self.menus[-1].index_button(escape_index)
+
+            # If menu particles and buttons are empty, despawn it
+            if self.menus[-1].exhausted:
+                self.menus.pop(-1)
 
         # Handle buttons in pause ensemble, if no menus are drawn:
         elif self.pause_popups:
@@ -1046,6 +1048,8 @@ class Scene:
 
     def undertake(self, character):
 
+        character.hp = -1
+
         friends_alive = any(filter(
             lambda x: x.collision_group == character.collision_group and x != character,
             self.characters
@@ -1299,6 +1303,7 @@ class Scene:
         self.new_sh_hook = scene_handler(*args, **kwargs)
 
 
+# Supplemental drawing elements
 class Inventory:
     slots_order = 'main_hand', 'off_hand', 'hat', 'backpack'
 
@@ -1736,6 +1741,49 @@ class Button:
         self.action(*self.action_parameters, **self.action_keywords)
 
 
+class TNT:
+    def __init__(self):
+        self.banners = []
+        self.box = SceneHandler.active.scene.box
+        self.update_banners()
+
+    def update_banners(self):
+        # Info strings options:
+        info_string = {
+            "size": BASE_SIZE * 2 // 3,
+            "max_width": self.box.width - BASE_SIZE * 2,
+            "lifetime": 0.6,
+            "animation_duration": 0.3,
+            "tick_down": False,
+            "animation": 'simple',
+            "anchor": 'bottomleft'
+        }
+
+        # Trivia string at the bottom, greyed out
+        trivia_bottomleft = (self.box.left + BASE_SIZE, self.box.bottom - BASE_SIZE)
+        trivia_banner = Banner(
+            text=f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
+            position=trivia_bottomleft,
+            color=colors["inventory_description"],
+            **info_string
+        )
+
+        # Tip string above trivia string
+        trivia_banner_top = trivia_banner.surface.get_rect(bottomleft=trivia_bottomleft).top
+        tip_banner = Banner(
+            text=f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
+            position=(self.box.left + BASE_SIZE, trivia_banner_top - BASE_SIZE // 2),
+            color=colors["inventory_text"],
+            **info_string
+        )
+
+        self.banners = [tip_banner, trivia_banner]
+
+    def draw(self, pause):
+        return [banner.draw(pause) for banner in self.banners]
+
+
+# All kinds of menus and menu-like objects
 class Menu:
     """Stolen from BamboozleChess."""
 
@@ -1748,7 +1796,8 @@ class Menu:
             offset: int = BASE_SIZE,
             reposition_buttons: tuple = None,
             escape_button_index: int = None,
-            title_surface: s = None
+            title_surface: s = None,
+            add_tnt: bool = False
     ):
 
         # Remember position and contents:
@@ -1759,6 +1808,7 @@ class Menu:
         self.offset = offset
         self.decoration_objects = decoration_objects or list()
         self.fading = False
+        self.exhausted = False
 
         # Remember which button is meant to be escape (unless specified, use max index):
         self.escape_button_index = escape_button_index if escape_button_index is not None else \
@@ -1802,10 +1852,11 @@ class Menu:
             frame_surface(self.background, colors["inventory_text"])
         else:
             self.background.fill([0, 0, 0, 0])
-            self.background.set_alpha(0)
+
+        # Add tip and trivia if needed:
+        self.tnt = TNT() if add_tnt else None
 
         # Modify rect if it is not supplied
-
         if self.title:
             title_rect = self.title.get_rect(midtop=(self.rect.width//2, self.offset))
             self.background.blit(self.title, title_rect)
@@ -1851,7 +1902,8 @@ class Menu:
         draw_order = list()
 
         # Draw background first
-        draw_order.append((self.background, self.rect))
+        if not self.fading:
+            draw_order.append((self.background, self.rect))
 
         # Draw buttons:
         for button in self.buttons_list:
@@ -1865,7 +1917,22 @@ class Menu:
             if banner.lifetime < 0:
                 self.decoration_objects.remove(banner)
 
+        # Add Tips and Trivia if available:
+        if self.tnt:
+            draw_order.extend(self.tnt.draw(not self.fading))
+
+        # Check if menu is still to be drawn:
+        self.check_exhaustion()
+
         return draw_order
+
+    def check_exhaustion(self):
+        self.exhausted = not any((
+            not self.fading,
+            self.buttons_list,
+            self.decoration_objects,
+            (self.tnt.banners[0].lifetime > 0) if self.tnt else False
+        ))
 
     def collide_button(self, mouse_v):
         """Perform button action for given x, y"""
@@ -1880,9 +1947,10 @@ class Menu:
                 self.process(button)
                 break
 
-    @staticmethod
-    def process(button):
+    def process(self, button):
         button.activate()
+        if self.tnt and not self.fading:
+            self.tnt.update_banners()
 
     def fade(self):
         """Remove all buttons, cause all banners to fade"""
@@ -1894,7 +1962,7 @@ class OptionsMenu(Menu):
     def fade(self):
         # Write options dict to json file
         with open(os.path.join('options', 'options.json'), 'w') as options_json:
-            json.dump(OPTIONS, options_json)
+            json.dump(OPTIONS, options_json, sort_keys=True, indent=2)
         super(OptionsMenu, self).fade()
 
     def toggle(self, key):
@@ -2065,56 +2133,268 @@ class PauseEnsemble(Menu):
                 tick_down=False
             )
 
-        # Info strings options:
-        info_string = {
-            "size": BASE_SIZE * 2 // 3,
-            "max_width": scene.box.width - BASE_SIZE * 2,
-            "lifetime": 0.6,
-            "animation_duration": 0.3,
-            "tick_down": False,
-            "animation": 'simple',
-            "anchor": 'bottomleft'
-        }
-
-        # Trivia string at the bottom, greyed out
-        trivia_bottomleft = (scene.box.left + BASE_SIZE, scene.box.bottom - BASE_SIZE)
-        trivia_banner = Banner(
-            text=f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
-            position=trivia_bottomleft,
-            color=colors["inventory_description"],
-            **info_string
-        )
-
-        # Tip string above trivia string
-        trivia_banner_top = trivia_banner.surface.get_rect(bottomleft=trivia_bottomleft).top
-        tip_banner = Banner(
-                text=f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
-                position=(scene.box.left + BASE_SIZE, trivia_banner_top - BASE_SIZE // 2),
-                color=colors["inventory_text"],
-                **info_string
-            )
-
         super(PauseEnsemble, self).__init__(
             buttons_list=[unpause_button, options_button, menu_button, exit_button],
-            decoration_objects=[paused_banner, tip_banner, trivia_banner],
+            decoration_objects=[paused_banner],
             rect=scene.box,
             background=False,
-            escape_button_index=0
+            escape_button_index=0,
+            add_tnt=True
         )
 
 
+class MainMenu(Menu):
+
+    def generate_buttons(self):
+        # Campaign button:
+        campaign_button = Button(
+            text=[string['menu']['campaign']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=print,
+            action_parameters=["Not implemented in demo! How did you reach here, anyway?"],
+            kb_index=0
+        )
+        campaign_button.disabled = True
+
+        # Skirmish button
+        skirmish_button = Button(
+            text=[string['menu']['skirmish']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=self._start_skirmish,
+            action_keywords={
+                "tier": 1
+            },
+            kb_index=1
+        )
+
+        # Options button:
+        options_button = Button(
+            text=[string['menu']['options']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=self.scene.generate_menu_popup,
+            action_keywords={"menu_class": OptionsMenu},
+            kb_index=2
+        )
+
+        # Exit button
+        exit_button = Button(
+            text=[string['menu']['exit']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=self.scene.generate_menu_popup,
+            action_keywords={
+                "menu_class": RUSureMenu,
+                "keywords": {
+                    "title": string["menu"]["confirm_exit"],
+                    "confirm_text": string['menu']['confirmed_exit'],
+                    "action": exit_game
+                }
+            },
+            kb_index=3
+        )
+
+        return [campaign_button, skirmish_button, options_button, exit_button]
+
+    def __init__(self, scene):
+        # Work within scene:
+        self.scene = scene
+
+        text = string["game_title"]
+        decorated_rows = [[row, colors["inventory_title"]] for row in frame_text([text], style='┏━┓┗┛┃').splitlines()]
+        decorated_rows.append([string["game_subtitle"], colors["inventory_description"]])
+        title_surface = ascii_draw_rows(BASE_SIZE, decorated_rows)
+
+        super(MainMenu, self).__init__(
+            self.generate_buttons(),
+            reposition_buttons=(2, 2),
+            background=True,
+            title_surface=title_surface,
+            add_tnt=True
+        )
+
+    def _start_skirmish(self, tier):
+        self.scene.request_new_handler(scene_handler=SceneHandler, args=(tier, [Goblin, Human, Orc], [5, 2, 1]))
+
+
+class Victory(Menu):
+    def __init__(
+            self,
+            scene,
+            next_level_text=None,
+            next_level_action=None,
+            next_level_parameters=None,
+            next_level_keywords=None
+    ):
+        index = 0
+
+        if next_level_text is not None:
+            # Next level button:
+            next_level_button = Button(
+                text=[next_level_text],
+                rect=DEFAULT_BUTTON_RECT,
+                action=next_level_action,
+                action_parameters=next_level_parameters,
+                action_keywords=next_level_keywords,
+                kb_index=index
+            )
+            index += 1
+        else:
+            next_level_button = None
+
+        # Main menu button:
+        menu_button = Button(
+            text=[string['menu']['main']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=scene.generate_menu_popup,
+            action_keywords={
+                "menu_class": RUSureMenu,
+                "keywords": {
+                    "title": string["menu"]["confirm_menu"],
+                    "confirm_text": string['menu']['confirmed_menu'],
+                    "action": scene.request_new_handler,
+                    "action_parameters": [MainMenuSceneHandler]
+                }
+            },
+            kb_index=index
+        )
+        index += 1
+
+        # Quit button
+        exit_button = Button(
+            text=[string['menu']['exit']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=scene.generate_menu_popup,
+            action_keywords={
+                "menu_class": RUSureMenu,
+                "keywords": {
+                    "title": string["menu"]["confirm_exit"],
+                    "confirm_text": string['menu']['confirmed_exit'],
+                    "action": exit_game
+                }
+            },
+            kb_index=index
+        )
+
+        buttons_list = [next_level_button, menu_button, exit_button] if next_level_button is not None else \
+            [menu_button, exit_button]
+
+        # Form victory surface for title:
+        # 1. Victory statement surface
+        victory_string = random.choice(string['gameplay']['scene_clear'])
+        statement_surface = ascii_draw(BASE_SIZE*2, victory_string, colors['inventory_better'])
+        # 2. Form killed monsters list surface
+        if scene.dead_characters:
+            killed_monsters_count = dict()
+            for enemy in scene.dead_characters:
+                killed_monsters_count[enemy.class_name] = killed_monsters_count.get(enemy.class_name, 0) + 1
+
+            colored_header_row = [[string["gameplay"]["monster_list"].ljust(20), colors["inventory_text"]]]
+
+            content_rows = frame_text(
+                [
+                    f"{key_value[0]}: {key_value[1]}".ljust(15)
+                    for key_value in
+                    sorted(killed_monsters_count.items(), key=lambda x: -x[1])
+                ],
+                '━━━━━ '
+            )
+
+            colored_content_rows = [[row, colors["inventory_text"]] for row in content_rows.splitlines()]
+
+            killed_monsters_surface = ascii_draw_rows(BASE_SIZE, colored_header_row+colored_content_rows)
+
+        else:
+            killed_monsters_surface = s((0, 0))
+
+        total_title_surface = s(
+            (
+                max(statement_surface.get_width(), killed_monsters_surface.get_width()) + BASE_SIZE * 2,
+                BASE_SIZE * 3 + statement_surface.get_height() + killed_monsters_surface.get_height()
+            ),
+            pygame.SRCALPHA
+        )
+        frame_surface(total_title_surface, colors['inventory_text'])
+        total_title_surface.blit(statement_surface, (BASE_SIZE, BASE_SIZE))
+        total_title_surface.blit(killed_monsters_surface, (BASE_SIZE, BASE_SIZE*2 + statement_surface.get_height()))
+
+        super().__init__(
+            buttons_list=buttons_list,
+            title_surface=total_title_surface,
+            reposition_buttons=(1, len(buttons_list)),
+            escape_button_index=menu_button.kb_index,
+            add_tnt=True
+        )
+
+
+class Defeat(Menu):
+
+    def __init__(self, scene):
+        # Main menu button:
+        menu_button = Button(
+            text=[string['menu']['main']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=scene.generate_menu_popup,
+            action_keywords={
+                "menu_class": RUSureMenu,
+                "keywords": {
+                    "title": string["menu"]["confirm_menu"],
+                    "confirm_text": string['menu']['confirmed_menu'],
+                    "action": scene.request_new_handler,
+                    "action_parameters": [MainMenuSceneHandler]
+                }
+            },
+            kb_index=0
+        )
+
+        # Quit button
+        exit_button = Button(
+            text=[string['menu']['exit_ingame']],
+            rect=DEFAULT_BUTTON_RECT,
+            action=scene.generate_menu_popup,
+            action_keywords={
+                "menu_class": RUSureMenu,
+                "keywords": {
+                    "title": string["menu"]["confirm_exit"],
+                    "confirm_text": string['menu']['confirmed_exit_ingame'],
+                    "action": exit_game
+                }
+            },
+            kb_index=1
+        )
+
+        buttons_list = [menu_button, exit_button]
+
+        defeat_banner = Banner(
+            string['gameplay']['game_over'],
+            BASE_SIZE * 2,
+            v(scene.box.center[:]) - v(0, scene.box.height//3),
+            colors["game_over"],
+            lifetime=30,
+            animation_duration=3,
+            tick_down=False
+        )
+
+        super().__init__(
+            buttons_list=buttons_list,
+            decoration_objects=[defeat_banner],
+            reposition_buttons=(1, 2),
+            escape_button_index=menu_button.kb_index,
+            add_tnt=True
+        )
+
+
+# Player character class
 class Player(Humanoid):
     hit_immunity = 1.2
 
-    def __init__(self, position):
-        player_body = character_stats["body"]["human"].copy()
+    def __init__(self, position, species='human'):
+        player_body = character_stats["body"][species].copy()
         player_body["agility"] *= 2
 
         super(Player, self).__init__(
             position,
             **player_body,
             **colors["player"],
-            faces=character_stats["mind"]["human"],
+            faces=character_stats["mind"][species],
             name=string["protagonist_name"]
         )
         self.flip(new_collision=0)
@@ -2161,6 +2441,7 @@ class Player(Humanoid):
             self.equip(generated, weapon[1])
 
 
+# Scene Handlers: 'brains' of Scenes
 class SceneHandler:
     # Stores persistent reference to active scene handler to help instances of SceneHandler exchange game states:
     active = None
@@ -2179,7 +2460,8 @@ class SceneHandler:
             enemy_color=c(100, 0, 0),
             spawn_delay: float = (8.0, 2.0),
             sort_loot: bool = False,
-            no_player: bool = False
+            no_player: bool = False,
+            next_level_options: dict = None
     ):
         # If there is no active SceneHandler, proclaim self to be one:
         if SceneHandler.active is None:
@@ -2276,7 +2558,6 @@ class SceneHandler:
 
         # Own spawn delay
         self.respawn_banner: [None, Banner] = None
-        self.game_over_banner: [None, Banner] = None
         self.player_survived = True
 
         # Support for looting sequence:
@@ -2287,6 +2568,14 @@ class SceneHandler:
 
         # Spawn monsters for scene inception:
         self.batch_spawn(self.on_scren_enemies_value_range[0])
+
+        # Button that takes us to the next level:
+        self.next_level_options = next_level_options or {
+            "next_level_text": None,
+            "next_level_action": None,
+            "next_level_parameters": None,
+            "next_level_keywords": None
+        }
 
     def introduce_player(self):
         self.scene.player = self.player
@@ -2400,25 +2689,18 @@ class SceneHandler:
         # 3. Test if scenario is done
         #  Test if scene is clear from enemies, no monsters left to spawn and all loot is picked up
         done = not any([
-            self.player,
+            not self.player,
             self.monsters,
             self.scene.paused,
             self.loot_querried,
+            self.spawn_queued,
             self.scene.loot_overlay,
             any(char for char in self.scene.characters if char.collision_group != self.player.collision_group)
         ])
 
-        # todo: Spawn victory menu
-        if done:
-            self.victory_banner = self.victory_banner or Banner(
-                "placeholder",
-                BASE_SIZE,
-                self.scene.box.center,
-                (255, 255, 255),
-                tick_down=False
-            )
-            if self.victory_banner not in self.scene.particles:
-                self.scene.particles.append(self.victory_banner)
+        # Spawn victory menu
+        if done and not any(victory for victory in self.scene.menus if isinstance(victory, Victory)):
+            self.scene.menus.append(Victory(self.scene, **self.next_level_options))
 
         # 4. If scene requests a new handler, hand over:
         self._process_handover()
@@ -2468,11 +2750,9 @@ class SceneHandler:
             self.spawn_timer = current_spawn_delay
 
     def death_sequence(self, respawn_bang=True):
-        if self.game_over_banner:
-            self.game_over_banner.lifetime = max(
-                self.game_over_banner.lifetime,
-                self.game_over_banner.max_lifetime - self.game_over_banner.animation_duration
-            )
+
+        if any(defeat for defeat in self.scene.menus if isinstance(defeat, Defeat)):
+            return
 
         elif self.respawn_banner is None:
             self.player_survived, report = self.player.penalize()
@@ -2491,17 +2771,7 @@ class SceneHandler:
             self.scene.particles.append(report_banner)
 
             if not self.player_survived:
-                self.game_over_banner = Banner(
-                    string['gameplay']['game_over'],
-                    BASE_SIZE * 2,
-                    self.scene.box.center[:],
-                    colors["game_over"],
-                    lifetime=30,
-                    animation_duration=3,
-                    tick_down=False
-                )
-                self.scene.particles.append(self.game_over_banner)
-
+                self.scene.menus.append(Defeat(self.scene))
                 # Exit the loop
                 return
 
@@ -2552,8 +2822,8 @@ class SceneHandler:
             if isinstance(banner, Banner):
                 banner.tick_down = True
 
-        # Transplant scene particles and menus and player.
-        scene_handler.scene.particles.extend(self.scene.particles)
+        # Transplant scene banners and menus and player.
+        scene_handler.scene.particles.extend(banner for banner in self.scene.particles if isinstance(banner, Banner))
         scene_handler.scene.menus.extend(self.scene.menus)
 
         if not isinstance(scene_handler, MainMenuSceneHandler) and self.player is not None and give_player:
@@ -2589,7 +2859,6 @@ class MainMenuSceneHandler(SceneHandler):
 
         # Create a custom scene
         main_menu_scene = Scene(None, SCREEN, EXTENDED_SCENE_BOUNDS, decorative=True)
-        print(main_menu_scene.box)
 
         super(MainMenuSceneHandler, self).__init__(
             tier=0,
@@ -2601,7 +2870,6 @@ class MainMenuSceneHandler(SceneHandler):
         )
         # Spawn MainMenu in the scene
         self.scene.menus.append(MainMenu(self.scene))
-        pass
 
     def execute(self):
         # Spawn a monster if less than 5 are present
@@ -2622,112 +2890,3 @@ class MainMenuSceneHandler(SceneHandler):
 
         # Main Menu is never completed
         return False
-
-
-class MainMenu(Menu):
-
-    def generate_buttons(self):
-        # Campaign button:
-        campaign_button = Button(
-            text=[string['menu']['unpause']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=print,
-            action_parameters=["Not implemented in demo! How did you reach here, anyway?"],
-            kb_index=0
-        )
-        campaign_button.disabled = True
-
-        # Campaign button:
-        campaign_button = Button(
-            text=[string['menu']['campaign']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=print,
-            action_parameters=["Not implemented in demo! How did you reach here, anyway?"],
-            kb_index=0
-        )
-        campaign_button.disabled = True
-
-        # Skirmish button
-        skirmish_button = Button(
-            text=[string['menu']['skirmish']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.scene.request_new_handler,
-            action_keywords={
-                "scene_handler": SceneHandler,
-                "args": [1, [Goblin, Orc], [5, 1]]
-            },
-            kb_index=1
-        )
-
-        # Options button:
-        options_button = Button(
-            text=[string['menu']['options']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.scene.generate_menu_popup,
-            action_keywords={"menu_class": OptionsMenu},
-            kb_index=2
-        )
-
-        # Exit button
-        exit_button = Button(
-            text=[string['menu']['exit']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_exit"],
-                    "confirm_text": string['menu']['confirmed_exit'],
-                    "action": exit_game
-                }
-            },
-            kb_index=3
-        )
-
-        return [campaign_button, skirmish_button, options_button, exit_button]
-
-    def __init__(self, scene):
-        # Work within scene:
-        self.scene = scene
-
-        text = string["game_title"]
-        decorated_rows = [[row, colors["inventory_title"]] for row in frame_text([text], style='┏━┓┗┛┃').splitlines()]
-        decorated_rows.append([string["game_subtitle"], colors["inventory_description"]])
-        title_surface = ascii_draw_rows(BASE_SIZE, decorated_rows)
-
-        # Info strings options:
-        info_string = {
-            "size": BASE_SIZE * 2 // 3,
-            "max_width": scene.box.width - BASE_SIZE * 2,
-            "lifetime": 0.6,
-            "animation_duration": 0.3,
-            "tick_down": False,
-            "animation": 'simple',
-            "anchor": 'bottomleft'
-        }
-
-        # Trivia string at the bottom, greyed out
-        trivia_bottomleft = (scene.box.left + BASE_SIZE, scene.box.bottom - BASE_SIZE)
-        trivia_banner = Banner(
-            text=f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
-            position=trivia_bottomleft,
-            color=colors["inventory_description"],
-            **info_string
-        )
-
-        # Tip string above trivia string
-        trivia_banner_top = trivia_banner.surface.get_rect(bottomleft=trivia_bottomleft).top
-        tip_banner = Banner(
-            text=f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
-            position=(scene.box.left + BASE_SIZE, trivia_banner_top - BASE_SIZE // 2),
-            color=colors["inventory_text"],
-            **info_string
-        )
-
-        super(MainMenu, self).__init__(
-            self.generate_buttons(),
-            reposition_buttons=(2, 2),
-            background=True,
-            title_surface=title_surface,
-            decoration_objects=[tip_banner, trivia_banner]
-        )

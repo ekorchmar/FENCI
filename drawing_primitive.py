@@ -102,14 +102,6 @@ DEFAULT_BUTTON_RECT = r(
     WINDOW_SIZE[1] // 10
 )
 
-OPTIONS_POPUP_RECT = r(
-    0,
-    0,
-    DEFAULT_BUTTON_RECT.width * 3,
-    WINDOW_SIZE[1] * 5 // 6
-)
-OPTIONS_POPUP_RECT.center = WINDOW_SIZE[0]//2, WINDOW_SIZE[1]//2
-
 # Initial player position
 # Initial position is (1/6, 1/2) of scene bounding box,
 PLAYER_SPAWN = v(

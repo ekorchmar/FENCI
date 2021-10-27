@@ -1,5 +1,5 @@
 # todo:
-#  Screenshake on: player hit, player critting, player shield bashing, monster collides with wall
+#  Small Screenshake on player blocking a hit or hitting a block
 # After tech demo
 # todo:
 #  display combo counter
@@ -378,7 +378,7 @@ class Scene:
 
         # Find the least damaged equipment to repair
         least_damaged = None
-        least_damage = 0
+        least_damage = 100
 
         random_order = list(self.player.slots.keys())
         random.shuffle(random_order)
@@ -391,6 +391,7 @@ class Scene:
             damage = equipped.max_durability - equipped.durability
             if least_damage > damage > 0:
                 least_damaged = equipped
+                least_damage = damage
 
         # Repair durability to least damaged; spawn a banner
         if least_damaged is not None:
@@ -441,7 +442,19 @@ class Scene:
         # Draw all characters
         for character in self.characters:
 
-            draw_group.extend(character.draw(freeze=self.paused, no_bars=self.decorative))
+            drawn_pairs = character.draw(freeze=self.paused, no_bars=self.decorative)
+
+            # Respect screenshake:
+            if self.shake_v:
+                drawn_new = []
+                for pair in drawn_pairs:
+                    surf, placement = pair
+                    new_placement = (v(placement[:2]) + self.shake_v)
+                    drawn_new.append((surf, new_placement))
+
+                draw_group.extend(drawn_new)
+            else:
+                draw_group.extend(drawn_pairs)
 
             # Spawn dust clouds under rolling or ramming characters
             try:
@@ -458,12 +471,28 @@ class Scene:
 
             # Remains are returning lists of tuples:
             if isinstance(particle, Remains):
-                draw_group.extend(particle.draw(pause=self.paused))
+                drawn_remains = particle.draw(pause=self.paused)
+
+                # Respect screenshake:
+                if self.shake_v:
+                    drawn_new = []
+                    for pair in drawn_remains:
+                        surf, placement = pair
+                        new_placement = (v(placement[:2]) + self.shake_v)
+                        drawn_new.append((surf, new_placement))
+                    drawn_remains = drawn_new
+
+                draw_group.extend(drawn_remains)
+
             # Everything else returns tuples or nothing:
             else:
                 drawn = particle.draw(pause=self.paused)
                 if drawn:
-                    draw_group.append(drawn)
+                    # Respect screenshake if particle is shakeable (e.g. Banners stay static):
+                    if self.shake_v and particle.shakeable:
+                        draw_group.append((drawn[0], v(drawn[1][:2]) + self.shake_v))
+                    else:
+                        draw_group.append(drawn)
                     # If particle is outside bounds and not a Banner, despawn it
                     if not (drawn[1].colliderect(self.box) or isinstance(particle, Banner)):
                         exhausted.append(particle)
@@ -477,7 +506,8 @@ class Scene:
         # Draw UI elements:
         if self.player:
             for ui in (self.player.inventory, self.progression):
-                draw_group.append(ui.draw())
+                drawn = ui.draw()
+                draw_group.append((drawn[0], v(drawn[1][:2]) + self.shake_v) if self.shake_v else drawn)
 
         # Draw pause surfaces
         if self.pause_popups:
@@ -859,7 +889,26 @@ class Scene:
                     # Spawn kicker and blood:
                     self.splatter(point, target, actual_damage, weapon)
 
+                    if owner == self.player and actual_damage == weapon.damage_range[1]:
+                        self.shaker.add_shake(0.005 * actual_damage)
+
                 elif isinstance(target, Wielded):
+                    # If player is participating and both weapons are dangerous, shake the scene:
+                    if (
+                            OPTIONS["screenshake"] and
+                            self.player in {owner, opponent} and
+                            weapon.dangerous and
+                            target.dangerous
+                    ):
+                        enemy_weapon = target if self.player == owner else weapon
+                        # Calculate the impact force
+                        speed_impact = (weapon.tip_delta - target.tip_delta).length_squared() / \
+                                       (9 * POKE_THRESHOLD * POKE_THRESHOLD)
+                        # Calculate weight of enemy weapon:
+                        weight_impact = enemy_weapon.weight / 18
+                        self.shaker.add_shake(speed_impact * weight_impact)
+
+                    # Perform parry
                     weapon.parry(owner, opponent, target)
 
                     # Spawn sparks
@@ -997,7 +1046,7 @@ class Scene:
 
                 if equipment.queue_destroy:
                     # Destroying a shields cause screenshake
-                    self.shaker.add_shake(1.0)
+                    self.shaker.add_shake(equipment.weight*0.125)
                     self.item_drop(character, equipment, slot)
                     # Inform AI it no longer has a shield
                     character.shielded = None
@@ -1085,6 +1134,9 @@ class Scene:
                     ))
                 blood = Spark(target.position, vector, attack_color=target.color, angle_spread=(-60, 60))
                 self.particles.append(blood)
+
+        if target == self.player:
+            self.shaker.add_shake(damage*0.01)
 
     def undertake(self, character):
 
@@ -1234,6 +1286,7 @@ class Scene:
         if character not in self.dead_characters:
             raise KeyError("Can't find this name in my graveyard")
 
+        self.shaker.add_shake(0.5)
         character.reset()
         character.position = position
 
@@ -1619,7 +1672,6 @@ class ProgressionBars:
     def __init__(
             self,
             content: dict[str, [Bar, Indicator]],
-            draw_order: list[str],
             base_color=DISPLAY_COLOR,
             rect=LEVEL_BAR_SPACE,
             font_size=BASE_SIZE*2//3,
@@ -1633,7 +1685,6 @@ class ProgressionBars:
         self.offset = offset
 
         # Contents (Bars and Indicators)
-        self.draw_order = draw_order
         self.content = content
 
     def update(self, values: list):
@@ -1641,9 +1692,8 @@ class ProgressionBars:
         # Draw from top and right:
         x, y = self.rect.width - self.offset, self.offset
 
-        for i in range(len(self.draw_order)):
-            name = self.draw_order[i]
-            graphic = self.content[name]
+        for i in range(len(self.content)):
+            name, graphic = list(self.content.items())[i]
             value = values[i]
 
             if isinstance(graphic, Bar):
@@ -2675,14 +2725,23 @@ class SceneHandler:
     def fill_scene_progression(self):
         bar_size = BASE_SIZE
         items = {
-            "LEVEL": Bar(bar_size, 10, colors["inventory_durability"], self.absolute_level_value,
-                         base_color=colors['inventory_durability']),
-            "LOOT": Bar(bar_size, 10, colors["inventory_durability"], self.loot_progression_required,
-                        base_color=colors['inventory_durability']),
+            f"LEVEL{self.tier}": Bar(
+                bar_size,
+                10,
+                colors["inventory_durability"],
+                self.absolute_level_value,
+                base_color=colors['inventory_durability']
+            ),
+            "LOOT": Bar(
+                bar_size,
+                10,
+                colors["inventory_durability"],
+                self.loot_progression_required,
+                base_color=colors['inventory_durability']
+            ),
             "loot_drop": Indicator(ascii_draw(bar_size, "LOOT ON CLEAR!", c(colors["indicator_good"])))
         }
-        item_order = ["LEVEL", "LOOT", "loot_drop"]
-        self.scene.progression = ProgressionBars(items, item_order, font_size=bar_size)
+        self.scene.progression = ProgressionBars(items, font_size=bar_size)
 
     def batch_spawn(self, value=None):
         self.batch_spawn_after_loot = False

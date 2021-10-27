@@ -23,8 +23,11 @@ for tier in range(5):
     print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
 # SceneHandler.active = SceneHandler(1, [Goblin, Orc], [5, 1])
-# SceneHandler.active = SceneHandler(1, [Human], monster_total_cost=5, loot_drops=0)
+# SceneHandler.active = SceneHandler(1, [Orc], monster_total_cost=5, loot_drops=0)
 SceneHandler.active = MainMenuSceneHandler()
+# SceneHandler.active.scene.player.equip(Spear(BASE_SIZE, tier_target=2), 'main_hand')
+# SceneHandler.active.scene.player.equip(Swordbreaker(BASE_SIZE, tier_target=2), 'off_hand')
+
 
 while True:
     SceneHandler.active.execute()

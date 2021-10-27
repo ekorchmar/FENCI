@@ -111,7 +111,7 @@ class Material:
 
 class Shaker:
     _max_duration = 1.2
-    _max_shake = 3*BASE_SIZE
+    _max_shake = 2*BASE_SIZE
     _minimum_intensity = 0.05
     _frequency = 0.003
 
@@ -120,7 +120,7 @@ class Shaker:
 
     def add_shake(self, intensity):
         seed = pygame.time.get_ticks()
-        self.oscillators.append((intensity, PerlinNoise(seed=seed), PerlinNoise(seed=2*seed)))
+        self.oscillators.append((min(1.0, intensity), PerlinNoise(seed=seed), PerlinNoise(seed=2*seed)))
 
     def get_current_v(self):
         repacked_oscillators = []
@@ -1098,6 +1098,7 @@ class Character:
 
 
 class Particle:
+    shakeable = False
 
     @staticmethod
     def _monitor_decoy():

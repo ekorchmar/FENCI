@@ -5,6 +5,8 @@ from base_class import *
 
 
 class Kicker(Particle):
+    shakeable = False
+
     """Display oscilating floating damage number when character is hit"""
     def __init__(
             self,
@@ -67,6 +69,8 @@ class Kicker(Particle):
 
 
 class Remains:
+    shakeable = True
+
     def __init__(self, blitting_list, bounding_box, particle_dump: list = None):
         """Takes list of lists of three: surface, drawing rect, initial movement vector"""
         self.bounding_box = bounding_box
@@ -142,6 +146,8 @@ class Remains:
 
 
 class Spark(Particle):
+    shakeable = True
+
     def __init__(
             self,
             position,
@@ -194,6 +200,8 @@ class Spark(Particle):
 
 
 class Droplet(Particle):
+    shakeable = True
+
     def __init__(self, position, character, lifetime=REMAINS_SCREENTIME/4, size=0.5, spawn_delay=None):
         if spawn_delay is None:
             spawn_delay = random.uniform(0, 0.6)
@@ -253,6 +261,7 @@ class Droplet(Particle):
 
 
 class AttackWarning(Particle):
+    shakeable = True
 
     def __init__(
             self,
@@ -289,6 +298,8 @@ class AttackWarning(Particle):
 
 
 class Banner(Particle):
+    shakeable = False
+
     def __init__(
             self,
             text,
@@ -426,6 +437,8 @@ class Banner(Particle):
 
 
 class Stunned(Particle):
+    shakeable = True
+
     def __init__(
             self,
             character,
@@ -461,6 +474,8 @@ class Stunned(Particle):
 
 
 class SpeechBubble(Particle):
+    shakeable = False
+
     def __init__(
         self,
         relative_position,
@@ -495,6 +510,8 @@ class SpeechBubble(Particle):
 
 
 class DustCloud(Particle):
+    shakeable = True
+
     def __init__(self, spawn_rect: r, color=c(colors["dust"]), max_size=BASE_SIZE*2, lifetime=0.5, max_opacity=200):
         self.surface = ascii_draw(max_size, "☁", color)
         self.max_lifetime = self.lifetime = lifetime
@@ -524,6 +541,7 @@ class DustCloud(Particle):
 
 
 class MouseHint(Particle):
+    shakeable = False
 
     def __init__(
             self,
@@ -561,6 +579,8 @@ class MouseHint(Particle):
 
 
 class CountDown(Particle):
+    shakeable = False
+
     def __init__(
             self,
             action,
@@ -626,6 +646,8 @@ class CountDown(Particle):
 
 
 class LootOverlayHelp:
+    shakeable = False
+
     def __init__(self, size=BASE_SIZE*3//4):
         # Get text particles
         self.particles = [

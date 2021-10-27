@@ -1,6 +1,6 @@
 {
-  "game_title": "FENCI: ASCII Game about fencing, looting and dying.",
-  "game_subtitle": "Actually, mostly about dying.",
+  "game_title": "FENCI: ASCII Game about fencing, looting and dying¹",
+  "game_subtitle": "¹Actually, mostly about dying.",
   "protagonist_name": "Fenci",
   "protagonsit_fates": {
     "Sword": "The Dishonored Bodyguard",
@@ -71,7 +71,7 @@
     "Demon Lords can change their appearance at will. Conspiracy theorists will claim any popular person to be a Demon Lord in disguise.",
     "In Empire, it is impolite to ask strangers about their gender. At the very least, it is stored in 8 bytes of protected memory space.",
     "There are human, elven and dwarven kingdoms outside the Empire. Most Empire citizens, however, don't travel much.",
-    "Houses with the strongest claim to Empires throne are Clubs, Hearts, Diamonds and Spades. The only card game allowed in Empire is Gwent.",
+    "Houses with the strongest claim to Empire's throne are Clubs, Hearts, Diamonds and Spades. The only card game allowed in Empire is Gwent.",
     "Monks of Wailing Monastery often leave the Monastery on personal crusade as penitence for their sins.",
     "Djinni are real, and they are really greedy. After all, wishes don't grow on trees.",
     "Why can you find a magic Tier 4 Sword in dead goblin's pocket? Video-game logic, shut up.",
@@ -179,7 +179,7 @@
     "Axe whirlwind will instantly break any shield. That works both ways.",
 
     "Katars deal little damage up front, but provide good utility in restoring stamina, bleeding and controling enemies.",
-    "Heavy Katars cause heavier bleeding, but light ones allow you to hold enemies for much longer. Use accordingly",
+    "Heavy Katars cause heavier bleeding, but light ones allow you to hold enemies for much longer. Use accordingly.",
     "Katar stab costs very little stamina and restores stamina on each successful hit. Keep up the aggression.",
     "Use your main weapons on enemies you hold with Katar for maximum damage. Warning: might be considered a war crime.",
 
@@ -269,10 +269,12 @@
   },
   "menu": {
     "campaign": "Campaign",
-    "skirmish": "Skirmish",
+    "skirmish": "Arena",
     "unpause": "Continue",
     "options": "Options",
     "main": "Main menu",
+    "difficulty_choose": "Choose difficulty:",
+    "difficulty": "Level",
     "exit_ingame": "Ragequit",
     "exit": "Quit",
     "back": "Close this menu",
@@ -299,5 +301,6 @@
     "top": "CLOSE",
     "left": "EQUIP",
     "right": "STASH"
-  }
+  },
+  "equipped": "[Equipped]"
 }

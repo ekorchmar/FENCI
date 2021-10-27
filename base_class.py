@@ -9,8 +9,10 @@
 import copy
 from typing import Any
 from drawing_primitive import *
+from perlin_noise import PerlinNoise
 
 
+# Define base classes:
 class Material:
     _metal_bonus = 2
     registry = {}
@@ -107,18 +109,51 @@ class Material:
                 cls.registry[sample].attacks_color = c(cls.registry[sample].attacks_color)
 
 
-# Initiate material registry:
-Material.init()
+class Shaker:
+    _max_duration = 1.2
+    _max_shake = 3*BASE_SIZE
+    _minimum_intensity = 0.05
+    _frequency = 0.003
 
-# Start pygame:
-if not pygame.get_init():
-    pygame.init()
+    def __init__(self):
+        self.oscillators: list[tuple[float, PerlinNoise, PerlinNoise]] = []
 
-if not pygame.font.get_init():
-    pygame.font.init()
+    def add_shake(self, intensity):
+        seed = pygame.time.get_ticks()
+        self.oscillators.append((intensity, PerlinNoise(seed=seed), PerlinNoise(seed=2*seed)))
+
+    def get_current_v(self):
+        repacked_oscillators = []
+        timestamp = self._frequency * pygame.time.get_ticks()
+        cumulative_v = v()
+        for triple in self.oscillators:
+            intensity, shaker_x, shaker_y = triple
+            cumulative_v.x += self._max_shake*intensity*shaker_x(timestamp)
+            cumulative_v.y += self._max_shake*intensity*shaker_y(timestamp)
+
+            # Reduce intensity:
+            time_remaining = lerp((0, self._max_duration), intensity) - FPS_TICK
+            new_intensity = lerp((0, 1), time_remaining / self._max_duration)
+
+            # Repack if intensity is above treshold:
+            if intensity > self._minimum_intensity:
+                repacked_oscillators.append((new_intensity, shaker_x, shaker_y))
+
+        # Save repacked oscillators:
+        self.oscillators = repacked_oscillators
+
+        # Set max shake limits:
+        cumulative_v.x = cumulative_v.x if cumulative_v.x < self._max_shake*0.5 else self._max_shake*0.5
+        cumulative_v.x = cumulative_v.x if cumulative_v.x > -self._max_shake*0.5 else -self._max_shake*0.5
+        cumulative_v.y = cumulative_v.y if cumulative_v.y < self._max_shake*0.5 else self._max_shake*0.5
+        cumulative_v.y = cumulative_v.y if cumulative_v.y > -self._max_shake*0.5 else -self._max_shake*0.5
+
+        return cumulative_v
+
+    def reset(self):
+        self.oscillators = []
 
 
-# Define base classes:
 class Bar:
     def __init__(
             self,
@@ -189,7 +224,9 @@ class Equipment:
     upside = []
     downside = []
 
-    def __init__(self, *args, equipment_dict=None, **kwargs):
+    def __init__(self, *args, equipment_dict=None, roll_stats=True, **kwargs):
+        self.roll_stats = roll_stats
+
         if equipment_dict is None:
             self.builder = dict()
             self.tier = None
@@ -213,7 +250,7 @@ class Equipment:
         # Generate durability (2-5):
         self.durability = self.max_durability = 3 + random.choices(
             [-1, 0, 1, 2],
-            [10, 50, 10, 5]
+            [10, 50, 10, 5] if roll_stats else [0, 1, 0, 0]
         )[0]
 
         # Some equipment has chance to be dropped:

@@ -23,6 +23,7 @@ from typing import Any
 
 
 class Humanoid(Character):
+    skirmish_spawn_rate = 0
     weapon_slots = ["main_hand", "off_hand"]
     body_coordinates = {
         "face": [0, 0],
@@ -1308,6 +1309,7 @@ class AI:
 
 
 class Goblin(Humanoid):
+    skirmish_spawn_rate = 5
     class_name = "Goblin"
     difficulty = 2
 
@@ -1513,6 +1515,7 @@ class Goblin(Humanoid):
 
 
 class Human(Humanoid):
+    skirmish_spawn_rate = 2
     class_name = "Human"
     difficulty = 3
 
@@ -1558,6 +1561,7 @@ class Human(Humanoid):
 
 
 class Orc(Humanoid):
+    skirmish_spawn_rate = 1
     class_name = 'Orc'
     difficulty = 3.5
 
@@ -1784,6 +1788,7 @@ class Orc(Humanoid):
 
 
 class DebugGoblin(Goblin):
+    skirmish_spawn_rate = 0
     class_name = "DebugGoblin"
     debug = True
 
@@ -1797,6 +1802,7 @@ class DebugGoblin(Goblin):
 
 
 class DebugOrc(Orc):
+    skirmish_spawn_rate = 0
     class_name = "DebugOrc"
     debug = True
 

@@ -1,7 +1,4 @@
 # todo:
-#  Click on skirmish to choose difficulty
-#  Skirmish spawns monsters in batches, always
-#  Picking nothing restores some durability to LEAST damaged weapon; add banner
 #  Screenshake on: player hit, player critting, player shield bashing, monster collides with wall
 # After tech demo
 # todo:
@@ -89,6 +86,10 @@ class Scene:
         # Property as shortcut for SceneHandler to know when to hand over; scene can not do it by itself
         self.new_sh_hook = None
 
+        # Create own shaker for camera shake:
+        self.shaker = Shaker()
+        self.shake_v = v()
+
     def log_weapons(self):
         for character in self.characters:
             self.colliding_weapons[character] = []
@@ -157,23 +158,25 @@ class Scene:
 
         # Debug:
         if debug:
-            self.echo(self.player, "This is debugging key!", colors["lightning"])
+            # if self.player:
+            #    self.echo(self.player, "This is debugging key!", colors["lightning"])
             # print("No debug action set at the moment.")
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
             # self.player.equip_basic()
             # self.log_weapons()
             # self.menus.append(Defeat(self))
+            self.shaker.add_shake(1.0)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
             # Set cursor shape:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_CROSSHAIR)
 
-            # Toggle pause
-            if escape:
+            # Toggle pause if no menus are drawn
+            if escape and not self.menus:
                 self.toggle_pause()
-                # Prevent menu instantly closing
+                # Prevent Pause menu instantly closing
                 escape = False
 
             # Start channeling flip
@@ -257,7 +260,7 @@ class Scene:
 
                 # Middle click closes overlay
                 if self.mouse_state[1]:
-                    self.loot_overlay = None
+                    self._close_and_repair()
 
                 else:
                     # Draw help around the mouse:
@@ -279,7 +282,7 @@ class Scene:
                             # Mark 'Equipped':
                             card_surface = card_surface.convert_alpha()
                             card_surface.blit(
-                                ascii_draw(BASE_SIZE*2//3, f"[Equipped]", colors["inventory_title"]),
+                                ascii_draw(BASE_SIZE*2//3, string["equipped"], colors["inventory_title"]),
                                 (self.loot_overlay.offset*0.5, self.loot_overlay.offset*0.5)
                             )
                             self.draw_group_append.append([card_surface, card_rect])
@@ -370,6 +373,35 @@ class Scene:
         # Save to determine if mouse buttons are held for the next frame
         self.last_mouse_state = self.mouse_state[:]
 
+    def _close_and_repair(self):
+        self.loot_overlay = None
+
+        # Find the least damaged equipment to repair
+        least_damaged = None
+        least_damage = 0
+
+        random_order = list(self.player.slots.keys())
+        random.shuffle(random_order)
+        for slot in random_order:
+            equipped = self.player.slots[slot]
+
+            if not equipped:
+                continue
+
+            damage = equipped.max_durability - equipped.durability
+            if least_damage > damage > 0:
+                least_damaged = equipped
+
+        # Repair durability to least damaged; spawn a banner
+        if least_damaged is not None:
+            least_damaged.durability += 1
+            self.log_weapons()
+            text = f"Repaired Tier {least_damaged.tier} {least_damaged.builder['class'].lower()}!"
+        else:
+            text = "Loot skipped!"
+
+        self._loot_info_banner(text)
+
     def _from_loot_overlay(self, item, slot):
         if not item:
             return
@@ -390,6 +422,9 @@ class Scene:
             slot == "backpack" else \
             f"Equipped Tier {item.tier} {item.builder['class'].lower()}"
 
+        self._loot_info_banner(text)
+
+    def _loot_info_banner(self, text):
         looted_banner = Banner(
             text=text,
             size=BASE_SIZE * 2,
@@ -410,7 +445,7 @@ class Scene:
 
             # Spawn dust clouds under rolling or ramming characters
             try:
-                if character.rolling > 0 or character.ramming:
+                if character.hitbox and character.rolling > 0 or character.ramming:
                     # Spawn on average 10/s for standard size:
                     if random.random() < 10*FPS_TICK*character.size/BASE_SIZE:
                         self.particles.append(DustCloud(random.choice(character.hitbox)))
@@ -871,6 +906,8 @@ class Scene:
                         self.alert_ai(target)
 
                     self.splatter(target.position, target, bash_damage, shield)
+                    self.shaker.add_shake(1.0)
+
                     for _ in range(random.randint(5, 7)):
                         spark = Spark(
                             position=point,
@@ -959,6 +996,8 @@ class Scene:
                 equipment.particles = []
 
                 if equipment.queue_destroy:
+                    # Destroying a shields cause screenshake
+                    self.shaker.add_shake(1.0)
                     self.item_drop(character, equipment, slot)
                     # Inform AI it no longer has a shield
                     character.shielded = None
@@ -1001,6 +1040,7 @@ class Scene:
                 target=character,
                 damage=impact_damage
             )
+            self.shaker.add_shake(character.size / 2*BASE_SIZE)
             character.wall_collision_v = v()
 
     def splatter(self, point, target, damage, weapon=None):
@@ -1082,9 +1122,17 @@ class Scene:
             self.characters = [self.player] + self.characters
             self.log_weapons()
 
+        # Calculate shake vector
+        if OPTIONS["screenshake"]:
+            self.shake_v = self.shaker.get_current_v()
+        else:
+            self.shaker.reset()
+            self.shake_v = v()
+
         # Draw bg:
         self.window.fill(colors["base"])
-        pygame.draw.rect(surface=self.window, rect=self.box, color=DISPLAY_COLOR)
+        filling_rect = self.box.move(self.shake_v)
+        pygame.draw.rect(surface=self.window, rect=filling_rect, color=DISPLAY_COLOR)
 
         # Iterate scene:
         self.update_input()
@@ -1096,7 +1144,7 @@ class Scene:
         pygame.event.pump()
 
         # Prevent losing mouse:
-        pygame.event.set_grab(OPTIONS['grab_mouse'] and not self.paused)
+        pygame.event.set_grab(OPTIONS['grab_mouse'] and not self.paused and not self.menus)
 
         # Pause on losing focus:
         if not pygame.mouse.get_focused() and not (self.paused or self.loot_overlay):
@@ -1996,7 +2044,7 @@ class OptionsMenu(Menu):
                 buttons_list[-1].disabled = True
 
             # Disabled for now:
-            if key in ("sound", "music", "screenshake"):
+            if key in ("sound", "music"):
                 buttons_list[-1].disabled = True
 
         # Add close button
@@ -2160,9 +2208,10 @@ class MainMenu(Menu):
         skirmish_button = Button(
             text=[string['menu']['skirmish']],
             rect=DEFAULT_BUTTON_RECT,
-            action=self._start_skirmish,
+            action=self.scene.generate_menu_popup,
             action_keywords={
-                "tier": 1
+                "menu_class": Difficulty,
+                "keywords": {"action": self._start_skirmish}
             },
             kb_index=1
         )
@@ -2200,7 +2249,8 @@ class MainMenu(Menu):
 
         text = string["game_title"]
         decorated_rows = [[row, colors["inventory_title"]] for row in frame_text([text], style='┏━┓┗┛┃').splitlines()]
-        decorated_rows.append([string["game_subtitle"], colors["inventory_description"]])
+        row_length = len(decorated_rows[0][0])
+        decorated_rows.append([string["game_subtitle"].rjust(row_length), colors["inventory_description"]])
         title_surface = ascii_draw_rows(BASE_SIZE, decorated_rows)
 
         super(MainMenu, self).__init__(
@@ -2212,7 +2262,7 @@ class MainMenu(Menu):
         )
 
     def _start_skirmish(self, tier):
-        self.scene.request_new_handler(scene_handler=SceneHandler, args=(tier, [Goblin, Human, Orc], [5, 2, 1]))
+        self.scene.request_new_handler(scene_handler=SkirmishScenehandler, args=[tier])
 
 
 class Victory(Menu):
@@ -2382,6 +2432,46 @@ class Defeat(Menu):
         )
 
 
+class Difficulty(Menu):
+    def __init__(self, action):
+
+        button_list = []
+        index = 0
+
+        # Generate buttons for difficulty levels
+        for difficulty in range(1, 5):
+            button = Button(
+                text=[f"{string['menu']['difficulty']}: {difficulty}"],
+                action=action,
+                rect=DEFAULT_BUTTON_RECT,
+                action_keywords={"tier": difficulty},
+                kb_index=index
+            )
+
+            index += 1
+            button_list.append(button)
+
+        # Generate back buton:
+        button_rect = DEFAULT_BUTTON_RECT.copy()
+        button_rect.width *= 2
+        button_list.append(Button(
+                text=[string["menu"]["back"]],
+                action=self.fade,
+                kb_index=index,
+                rect=button_rect
+        ))
+
+        # Generate title:
+        title_surface = ascii_draw(BASE_SIZE, string['menu']['difficulty_choose'], colors["inventory_title"])
+
+        super().__init__(
+            button_list,
+            reposition_buttons=(index+1, 1),
+            background=True,
+            title_surface=title_surface
+        )
+
+
 # Player character class
 class Player(Humanoid):
     hit_immunity = 1.2
@@ -2437,7 +2527,7 @@ class Player(Humanoid):
 
         for weapon in (main_hand_pick, off_hand_pick):
             weapon_gen = Wielded.registry[artifacts[weapon[0]]["class"]]
-            generated = weapon_gen(24, equipment_dict=artifacts[weapon[0]])
+            generated = weapon_gen(24, equipment_dict=artifacts[weapon[0]], roll_stats=False)
             self.equip(generated, weapon[1])
 
 
@@ -2552,6 +2642,7 @@ class SceneHandler:
         self.fill_scene_progression()
 
         # Enemy spawn delays
+        self.spawn_enemies = True
         self.spawn_delay_range = spawn_delay
         self.spawn_queued: [None, Character] = None
         self.spawn_timer = 0
@@ -2566,9 +2657,6 @@ class SceneHandler:
         self.loot_dropped = 0
         self.batch_spawn_after_loot = False
 
-        # Spawn monsters for scene inception:
-        self.batch_spawn(self.on_scren_enemies_value_range[0])
-
         # Button that takes us to the next level:
         self.next_level_options = next_level_options or {
             "next_level_text": None,
@@ -2579,7 +2667,8 @@ class SceneHandler:
 
     def introduce_player(self):
         self.scene.player = self.player
-        self.scene.characters = [self.player] + self.scene.characters
+        if self.player not in self.scene.characters:
+            self.scene.characters = [self.player] + self.scene.characters
         self.fill_scene_progression()
         self.scene.log_weapons()
 
@@ -2611,12 +2700,12 @@ class SceneHandler:
         # 2. Affect the scene:
         # 2.1. Check and spawn monsters if needed
         # Check if loot is queued to be spawned
-        if not self.loot_querried and not self.scene.loot_overlay and not self.scene.paused:
-            # If player just picked up some loot, spawn bunch of monsters:
+        if self.spawn_enemies and not any((self.loot_querried, self.scene.loot_overlay, self.scene.paused)):
+            # If player just picked up loot, spawn bunch of monsters:
             if self.batch_spawn_after_loot:
                 self.batch_spawn()
             # If scene is empty and player is chainkilling spawning enemies, spawn bunch at once:
-            elif (
+            elif (self.scene.count_enemies_value() == 0 and self.scene.enemies_count_on_death == []) or (
                     len(self.scene.enemies_count_on_death) > 3 and
                     self.scene.enemies_count_on_death[-3:] == [0, 0, 0] and
                     self.scene.count_enemies_value() == 0
@@ -2827,15 +2916,20 @@ class SceneHandler:
         scene_handler.scene.menus.extend(self.scene.menus)
 
         if not isinstance(scene_handler, MainMenuSceneHandler) and self.player is not None and give_player:
-            scene_handler.player = self.player
+            scene_handler.player = scene_handler.scene.player = self.player
 
-            # Also supplement to the scene:
+            # Also supplement to the scene character list:
             try:
-                player_index = scene_handler.scene.characters.index(scene_handler.player)
+                player_index = scene_handler.scene.characters.index(self.player)
                 scene_handler.scene.characters[player_index] = self.player
             except ValueError:
                 # Player is not supposed to be alive in the scene? That's alright.
-                pass
+                try:
+                    player_index = scene_handler.scene.dead_characters.index(self.player)
+                    scene_handler.scene.dead_characters[player_index] = self.player
+                except ValueError:
+                    # Special Handlers (CampaignHandler) may introduce player later
+                    pass
 
             # Remind new SH to initiate on the scene:
             scene_handler.introduce_player()
@@ -2845,8 +2939,49 @@ class SceneHandler:
         SceneHandler.active = scene_handler
 
 
-class SkirmishScenehandler:
-    pass
+class SkirmishScenehandler(SceneHandler):
+    def __init__(self, tier: int, *args, **kwargs):
+
+        pad_monster_classes = list(Character.registry.values())
+        pad_monster_weights = [monster_class.skirmish_spawn_rate for monster_class in pad_monster_classes]
+
+        super().__init__(
+            tier=tier,
+            *args,
+            pad_monster_classes=pad_monster_classes,
+            pad_monster_weights=pad_monster_weights,
+            **kwargs
+        )
+
+        # Make sure Victory Screen has button to go to the next difficulty level
+        if tier < 4:
+            self.next_level_options = {
+                "next_level_text": f"{string['menu']['difficulty']}: {tier+1}",
+                "next_level_action": self.scene.request_new_handler,
+                "next_level_parameters": [SkirmishScenehandler],
+                "next_level_keywords": {
+                    "kwargs": {
+                        "tier": tier+1,
+                        "player": self.player,  # Make sure the player is handed over!
+                        **kwargs
+                    }
+                }
+            }
+
+        # Pause monster spawning, and add a unpause countdown
+        self.spawn_enemies = False
+        self.scene.particles.append(CountDown(
+                self._start_spawning,
+                {},
+                colors["pause_popup"],
+                position=self.scene.box.center[:],
+                go_text="FIGHT!"
+            ))
+
+    def _start_spawning(self):
+        self.spawn_enemies = True
+        # Spawn monsters for scene inception:
+        self.batch_spawn(self.on_scren_enemies_value_range[0])
 
 
 class MainMenuSceneHandler(SceneHandler):

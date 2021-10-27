@@ -12,6 +12,9 @@
 
 from scene import *
 
+# Initiate material registry:
+Material.init()
+
 print(f"Spawnable monsters: {', '.join(Character.registry.keys()) or 'None'}")
 print(f"Droppable weapons: {', '.join(Wielded.registry.keys()) or 'None'}")
 print(f"Droppable hats: {', '.join(Hat.registry.keys()) or 'None'}")
@@ -20,10 +23,8 @@ for tier in range(5):
     print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
 # SceneHandler.active = SceneHandler(1, [Goblin, Orc], [5, 1])
-SceneHandler.active = SceneHandler(1, [Human], monster_total_cost=5, loot_drops=0)
-# SceneHandler.active = MainMenuSceneHandler()
-# SceneHandler.active = SceneHandler(1, [Orc], on_scren_enemies_value=[1, 1], loot_drops=20)
-# SceneHandler.active.player.equip(Dagger(BASE_SIZE, tier_target=2), 'main_hand')
+# SceneHandler.active = SceneHandler(1, [Human], monster_total_cost=5, loot_drops=0)
+SceneHandler.active = MainMenuSceneHandler()
 
 while True:
     SceneHandler.active.execute()

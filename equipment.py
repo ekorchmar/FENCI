@@ -1,5 +1,5 @@
 # todo:
-#  Downward smash enemies with spears
+#  Katar immobilises owner, self and enemy in place, not weapon tip
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -107,8 +107,8 @@ class Wielded(Equipment):
             self.hilt_v = None
             self.tip_v = None
 
-    def __init__(self, size, color=None, tier_target=None, equipment_dict=None):
-        super().__init__(size, color=None, tier_target=None, equipment_dict=equipment_dict)
+    def __init__(self, size, color=None, tier_target=None, equipment_dict=None, **kwargs):
+        super().__init__(size, color=None, tier_target=None, equipment_dict=equipment_dict, **kwargs)
         self.hilt = None
 
         # Remember for generation scripts
@@ -146,12 +146,12 @@ class Wielded(Equipment):
         self.update_stats()
 
         # Randomize damage and other values
-        if self.damage_range != (0, 0):
+        if self.roll_stats and self.damage_range != (0, 0):
             self.damage_range = round(triangle_roll(self.damage_range[0], 0.07)), \
                                 round(triangle_roll(self.damage_range[1], 0.07))
-        if self.agility_modifier is not None:
+        if self.roll_stats and self.agility_modifier is not None:
             self.agility_modifier = triangle_roll(self.agility_modifier, 0.07)
-        if self.stamina_drain is not None:
+        if self.roll_stats and self.stamina_drain is not None:
             self.stamina_drain = triangle_roll(self.stamina_drain, 0.07)
         self.loot_cards[None] = LootCard(self)
 
@@ -1237,7 +1237,11 @@ class Spear(Pointed):
         self.redraw_loot()
 
         # Heavy and long spear have higher bleed intensity:
-        self.bleed = 0.15 * triangle_roll(self.weight/12 - 0.033*(10-shaft_len), 0.07)
+        self.bleed = 0.15 * (self.weight / 12 - 0.033 * (10 - shaft_len))
+        if self.roll_stats:
+            self.bleed = triangle_roll(self.bleed, 0.07)
+
+        self.redraw_loot()
 
     def deal_damage(self, vector=v(), victim=None, victor=None):
 
@@ -1899,7 +1903,10 @@ class Axe(Bladed):
 
         # Charge time depends on total weight and tier
         weight_percentile = (self.weight - 6) / 2.5
-        self.full_charge_time = triangle_roll(lerp((2, 3), weight_percentile) - 0.1*self.tier, 0.07)
+        self.full_charge_time = lerp((2, 3), weight_percentile) - 0.1*self.tier
+
+        if self.roll_stats:
+            self.full_charge_time = triangle_roll(self.full_charge_time, 0.07)
 
         self.redraw_loot()
 
@@ -2048,7 +2055,6 @@ class Falchion(Sword):
         # To be set by update_stats
         self.roll_cooldown = 0
         super(Falchion, self).__init__(*args, **kwargs)
-        self.roll_cooldown = triangle_roll(self.roll_cooldown, 0.07)
 
     def generate(self, size, tier=None):
 
@@ -2146,6 +2152,10 @@ class Falchion(Sword):
             1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
             (1 + 0.1 * Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
         ) + 0.2
+
+        if self.roll_stats:
+            self.roll_cooldown = triangle_roll(self.roll_cooldown, 0.07)
+        self.redraw_loot()
 
     def deal_damage(self, vector=v(), victim=None, victor=None):
         # Stab component is always min damage
@@ -2319,7 +2329,9 @@ class Shield(OffHand):
         self.stamina_drain = 1 + ((1 - 0.1 * self.weight) / math.sqrt(1 + 0.1 * plate_material.tier))
         # Increased by weight, reduced by tier
         self.equip_time = 0.1 * self.weight / math.sqrt(1 + 0.1 * self.tier)
-        self.equip_time = triangle_roll(self.equip_time, 0.07)
+
+        if self.roll_stats:
+            self.equip_time = triangle_roll(self.equip_time, 0.07)
         # Damage is constant, modified by weight and tier
         damage = round(self.weight**2 * math.sqrt(1+0.1*self.tier))
         self.damage_range = damage, damage
@@ -2925,7 +2937,9 @@ class Katar(Pointed, OffHand):
         self.damage_range = damage, damage
 
         # Depends on total weight and heavily on blade tier
-        self.bleed = triangle_roll(0.01 * (self.weight + blade.tier**2), 0.07)
+        self.bleed = 0.01 * (self.weight + blade.tier**2)
+        if self.roll_stats:
+            self.bleed = triangle_roll(self.bleed, 0.07)
 
         self.redraw_loot()
 

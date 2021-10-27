@@ -12,6 +12,12 @@ import math
 import json
 import sys
 
+# Start pygame:
+if not pygame.get_init():
+    pygame.init()
+
+if not pygame.font.get_init():
+    pygame.font.init()
 
 # Alisases
 v = pygame.math.Vector2
@@ -156,20 +162,6 @@ NUMBER_LABELS = {i: str(i+1) for i in range(9)}
 # Pygame display and clock
 pygame.display.set_caption("FENCI")
 SCREEN = None
-
-
-def update_screen():
-    global SCREEN
-    display_flags = pygame.SCALED | pygame.FULLSCREEN if OPTIONS['fullscreen'] else pygame.SCALED
-    SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
-
-
-def exit_game():
-    pygame.quit()
-    sys.exit()
-
-
-update_screen()
 CLOCK = pygame.time.Clock()
 
 
@@ -353,7 +345,22 @@ def triangle_roll(value, offset):
     return result
 
 
+def exit_game():
+    pygame.quit()
+    sys.exit()
+
+
 # Drawing tools
+def update_screen():
+    global SCREEN
+    display_flags = pygame.SCALED | pygame.FULLSCREEN if OPTIONS['fullscreen'] else pygame.SCALED
+    SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
+
+
+# Start the screen immediately:
+update_screen()
+
+
 def ascii_draw(font_size: int, ascii_string: str, draw_color):
     """Create a surface from text. Input is font size, string, and color"""
     use_font = pygame.font.Font(FONT, font_size)

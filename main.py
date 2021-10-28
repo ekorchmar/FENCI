@@ -1,6 +1,5 @@
 # todo:
-#  starting equipment choice dialogue
-#  placeholder Nexuiz music
+#  8 bit sounds for weapon and character collisions
 # After tech demo
 # todo:
 #  make ALL string constants come from language json
@@ -23,11 +22,12 @@ for tier in range(5):
     print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
 # SceneHandler.active = SceneHandler(1, [Goblin, Orc], [5, 1])
-# SceneHandler.active = SceneHandler(1, [Orc], monster_total_cost=5, loot_drops=0)
+# SceneHandler.active = SceneHandler(1, [Orc], monster_total_cost=50, loot_drops=0, on_scren_enemies_value=(1, 1))
 SceneHandler.active = MainMenuSceneHandler()
-# SceneHandler.active.scene.player.equip(Spear(BASE_SIZE, tier_target=2), 'main_hand')
-# SceneHandler.active.scene.player.equip(Swordbreaker(BASE_SIZE, tier_target=2), 'off_hand')
+# SceneHandler.active.scene.player.equip(Sword(BASE_SIZE, tier_target=2), 'main_hand')
+# SceneHandler.active.scene.player.equip(Katar(BASE_SIZE, tier_target=2), 'off_hand')
+# SceneHandler.active.scene.log_weapons()
 
-
-while True:
-    SceneHandler.active.execute()
+if __name__ == "__main__":
+    while True:
+        SceneHandler.active.execute()

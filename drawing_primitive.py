@@ -14,6 +14,7 @@ import sys
 
 # Start pygame:
 if not pygame.get_init():
+    pygame.mixer.pre_init()
     pygame.init()
 
 if not pygame.font.get_init():
@@ -338,6 +339,7 @@ def triangle_roll(value, offset):
 
 
 def exit_game():
+    pygame.mixer.quit()
     pygame.quit()
     sys.exit()
 
@@ -501,6 +503,23 @@ def frame_surface(surface, color):
         surface.get_height() - BASE_SIZE // 6
     )
     pygame.draw.rect(surface, color, frame_rect, BASE_SIZE // 6)
+
+
+# Sound management
+def play_theme(filepath):
+    if pygame.mixer.music.get_busy():
+        pygame.mixer.music.stop()
+        pygame.mixer.music.unload()
+
+    pygame.mixer.music.load(filepath)
+    pygame.mixer.music.set_volume(0.7)
+    pygame.mixer.music.play(loops=-1, fade_ms=1000)
+
+
+def end_theme():
+    if pygame.mixer.music.get_busy():
+        pygame.mixer.music.fadeout(100)
+        pygame.mixer.music.unload()
 
 
 # Cheats/debugs

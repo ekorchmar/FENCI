@@ -1,8 +1,8 @@
 # todo:
-#  Small Screenshake on player blocking a hit or hitting a block
+#  Choose main and offhand weapon in Difficulty menu
+#  display combo counter
 # After tech demo
 # todo:
-#  display combo counter
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
 #  cut off all surfaces by bounding box
@@ -163,10 +163,10 @@ class Scene:
             # print("No debug action set at the moment.")
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
-            # self.player.equip_basic()
-            # self.log_weapons()
+            self.player.equip_basic()
+            self.log_weapons()
             # self.menus.append(Defeat(self))
-            self.shaker.add_shake(1.0)
+            # self.shaker.add_shake(1.0)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -886,11 +886,22 @@ class Scene:
                             )
                             self.particles.append(spark)
 
+                        # If player was hit or performed the hit, add small screenshake:
+                        if self.player == target:
+                            # Wielding lighter shield causes heavier screenshake:
+                            self.shaker.add_shake(0.001 * damage * (10-shield.weight))
+                        elif self.player == owner:
+                            self.shaker.add_shake(0.0025 * damage)
+
                     # Spawn kicker and blood:
                     self.splatter(point, target, actual_damage, weapon)
 
-                    if owner == self.player and actual_damage == weapon.damage_range[1]:
-                        self.shaker.add_shake(0.005 * actual_damage)
+                    # Half shakeup for crits and Executions, quarter for everything else
+                    if owner == self.player:
+                        if actual_damage == weapon.damage_range[1] or target.anchor_weapon is not None:
+                            self.shaker.add_shake(0.005 * actual_damage)
+                        else:
+                            self.shaker.add_shake(0.0025 * actual_damage)
 
                 elif isinstance(target, Wielded):
                     # If player is participating and both weapons are dangerous, shake the scene:
@@ -1106,7 +1117,7 @@ class Scene:
         )
         self.particles.append(kicker)
 
-        if target.has_blood:
+        if target.has_blood and not OPTIONS["red_blood"] == 2:
             # Spawn a blood particle 50% of the time for each 7 damage suffered
             # Spawn 1 instantly always:
             first_blood = Droplet(point, target, spawn_delay=0)
@@ -1196,7 +1207,7 @@ class Scene:
         pygame.event.pump()
 
         # Prevent losing mouse:
-        pygame.event.set_grab(OPTIONS['grab_mouse'] and not self.paused and not self.menus)
+        pygame.event.set_grab(OPTIONS["grab_mouse"] and not self.paused and not self.menus)
 
         # Pause on losing focus:
         if not pygame.mouse.get_focused() and not (self.paused or self.loot_overlay):
@@ -1332,7 +1343,7 @@ class Scene:
             self.paused = True
 
         # Spawn countdown to unpause, unless it is already in scene particles:
-        elif OPTIONS["unpause_countdown"] and not any(
+        elif OPTIONS["unpause_countdown"] != 0 and not any(
                 True
                 for countdown in self.particles
                 if isinstance(countdown, CountDown) and countdown.action == self.hard_unpause
@@ -1342,8 +1353,9 @@ class Scene:
                 {},
                 colors["pause_popup"],
                 position=self.box.center[:],
-                go_text="GO!",
-                ignore_pause=True
+                go_text="GO!" if OPTIONS["unpause_countdown"] == 2 else None,
+                ignore_pause=True,
+                total_duration=OPTIONS["unpause_countdown"]
             ))
 
         else:
@@ -2060,16 +2072,28 @@ class OptionsMenu(Menu):
     def fade(self):
         # Write options dict to json file
         with open(os.path.join('options', 'options.json'), 'w') as options_json:
-            json.dump(OPTIONS, options_json, sort_keys=True, indent=2)
+            json.dump(OPTIONS, options_json, sort_keys=False, indent=2)
         super(OptionsMenu, self).fade()
 
     def toggle(self, key):
         # Toggle an option and cause redrawing all buttons
-        OPTIONS[key] = not OPTIONS[key]
+        if isinstance(OPTIONS[key], bool):
+            OPTIONS[key] = not OPTIONS[key]
+        else:
+            # Get possible options count from localization file
+            options_count = len(string['menu']['option_contents'][key+'_states'])
+            OPTIONS[key] = (OPTIONS[key] + 1) % options_count
         self.redraw()
+
+        # Special scripts:
         if key == 'fullscreen':
             OPTIONS["grab_mouse"] = True
             update_screen()
+        elif key == "music":
+            if not OPTIONS["music"]:
+                end_theme()
+            elif SceneHandler.active.theme:
+                SceneHandler.active.play_theme()
 
     def generate_buttons(self):
         button_rect = DEFAULT_BUTTON_RECT.copy()
@@ -2077,7 +2101,11 @@ class OptionsMenu(Menu):
         buttons_list = []
         i = 0
         for key in OPTIONS:
-            option_state_text = string['menu']['option_contents']["bool"]["True" if OPTIONS[key] else "False"]
+            if isinstance(OPTIONS[key], bool):
+                option_state_text = string['menu']['option_contents']["bool"]["True" if OPTIONS[key] else "False"]
+            else:
+                option_state_text = string['menu']['option_contents'][key+'_states'][str(OPTIONS[key])]
+
             button_text = f"{string['menu']['option_contents'][key]}: {option_state_text}"
 
             buttons_list.append(Button(
@@ -2094,7 +2122,7 @@ class OptionsMenu(Menu):
                 buttons_list[-1].disabled = True
 
             # Disabled for now:
-            if key in ("sound", "music"):
+            if key == "sound":
                 buttons_list[-1].disabled = True
 
         # Add close button
@@ -2583,6 +2611,7 @@ class Player(Humanoid):
 
 # Scene Handlers: 'brains' of Scenes
 class SceneHandler:
+    theme = None
     # Stores persistent reference to active scene handler to help instances of SceneHandler exchange game states:
     active = None
 
@@ -2707,13 +2736,17 @@ class SceneHandler:
         self.loot_dropped = 0
         self.batch_spawn_after_loot = False
 
-        # Button that takes us to the next level:
+        # Button that takes us to the next level (subclasses set own, this is just a skeleton):
         self.next_level_options = next_level_options or {
             "next_level_text": None,
             "next_level_action": None,
             "next_level_parameters": None,
             "next_level_keywords": None
         }
+
+        # Play music
+        if OPTIONS["music"] and self.theme and not pygame.mixer.music.get_busy():
+            self.play_theme()
 
     def introduce_player(self):
         self.scene.player = self.player
@@ -2997,8 +3030,19 @@ class SceneHandler:
         # Give up control:
         SceneHandler.active = scene_handler
 
+        # Switch theme:
+        if OPTIONS["music"]:
+            end_theme()
+            if SceneHandler.active.theme is not None:
+                SceneHandler.active.play_theme()
+
+    def play_theme(self):
+        play_theme(os.path.join('music', self.theme))
+
 
 class SkirmishScenehandler(SceneHandler):
+    theme = 'blkrbt_ninesix.ogg'
+
     def __init__(self, tier: int, *args, **kwargs):
 
         pad_monster_classes = list(Character.registry.values())
@@ -3045,6 +3089,7 @@ class SkirmishScenehandler(SceneHandler):
 
 class MainMenuSceneHandler(SceneHandler):
     _gladiator_capacity = 8
+    theme = 'blkrbt_brokenlight.ogg'
 
     def __init__(self):
 

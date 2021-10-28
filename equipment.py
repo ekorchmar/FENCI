@@ -1,5 +1,4 @@
 # todo:
-#  Katar immobilises owner, self and enemy in place, not weapon tip
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -64,7 +63,6 @@ class Hat(Equipment):
 class Wielded(Equipment):
     registry = {}
     """Weapons, shields"""
-    aim_drain_modifier = 1.0
     default_angle = 0
     max_tilt = None
     hitting_surface = "blade"
@@ -379,10 +377,10 @@ class Wielded(Equipment):
                 self.last_angle = self.last_angle + 360
 
         # If speed is changing, drain stamina; disabled or recently locked weapons don't drain stamina
-        if speed_delta != 0 and not self.disabled and self.stamina_ignore_timer <= 0:
+        if speed_delta != 0 and not self.disabled and self.stamina_ignore_timer <= 0 and not isinstance(self, OffHand):
             character.stamina -= self.character_specific["stamina_drain"]
             # If stamina is empty, lock the weapon
-            if character.stamina <= 0 < self.aim_drain_modifier:
+            if character.stamina <= 0 and not isinstance(self, OffHand):
                 character.stamina = 0
                 character.set_state('exhausted', 1)
                 self.lock(duration=0.5, angle=self.last_angle)
@@ -642,7 +640,7 @@ class Wielded(Equipment):
         # Reset:
         self.character_specific = dict()
         # Fill:
-        self.character_specific["stamina_drain"] = self.stamina_drain * 250 * FPS_TICK * self.aim_drain_modifier
+        self.character_specific["stamina_drain"] = self.stamina_drain * 250 * FPS_TICK
         self.character_specific["acceleration"] = character.agility * self.agility_modifier * FPS_TICK * 6.67
 
     def cause_bleeding(self, victim, skip_kicker=False):
@@ -655,7 +653,7 @@ class Wielded(Equipment):
             return
         # Add particle kicker:
         bleed_kicker = Kicker(
-            position=v(self.tip_v),
+            position=v(self.tip_v) + v(0, -BASE_SIZE),
             damage_value=0,
             color=colors["crit_kicker"],
             override_string='BLEEDING!'
@@ -992,7 +990,6 @@ class Pointed(Wielded):
 
 
 class Sword(Bladed, Pointed):
-    aim_drain_modifier = 0.8
     default_angle = 30
     max_tilt = 120
     upside = ["Activate to dash and stab", "Powerful swing and stab attacks"]
@@ -1105,11 +1102,12 @@ class Sword(Bladed, Pointed):
         self.agility_modifier = math.sqrt((10.0 + hilt_material.tier) / (blade_len * blade_material.weight)) * .7
         # Increased for sword total weight, reduced for blade tier and hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = math.sqrt(0.3 * self.weight /
-                                       ((2 + blade_material.tier) * math.sqrt(hilt_material.weight)))
+        self.stamina_drain = 0.8 * math.sqrt(
+            0.3 * self.weight / ((2 + blade_material.tier) * math.sqrt(hilt_material.weight))
+        )
 
         # Calculate damage range depending on weight, size and tier:
-        min_damage = int((40 + self.weight) * 1.08 ** (self.tier - 1))
+        min_damage = int(1.15 * (40 + self.weight) * 1.08 ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(1 + blade_len / 5))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -1123,7 +1121,6 @@ class Sword(Bladed, Pointed):
 class Spear(Pointed):
     default_angle = 60
     max_tilt = 110
-    aim_drain_modifier = 1.75
     stab_modifier = 0.75
     hitting_surface = 'shaft'
     upside = [
@@ -1226,7 +1223,7 @@ class Spear(Pointed):
         # reduced for total weight, increased for shaft tier
         self.agility_modifier = math.sqrt(1 + 0.1 * shaft_material.tier) * (10 / shaft_len)
         # Increased for spear total weight and length, reduced for shaft tier
-        self.stamina_drain = self.weight * 0.05 * math.sqrt(1 + 0.1 * shaft_len) * 0.7 /\
+        self.stamina_drain = self.weight * 1.75 * 0.05 * math.sqrt(1 + 0.1 * shaft_len) * 0.7 /\
             math.sqrt(1 + 0.1 * shaft_material.tier)
 
         # Calculate damage range depending on weight and tier; longer range reduces damage,
@@ -1406,7 +1403,6 @@ class Short(Pointed):
     """Daggers, Swordbreakers"""
     default_angle = 30
     max_tilt = 150
-    aim_drain_modifier = 0.5
     stab_modifier = 1
 
     def update_stats(self):
@@ -1421,7 +1417,7 @@ class Short(Pointed):
         self.agility_modifier = math.sqrt((10.0 + hilt_material.tier) / (2 * (1 + blade_material.weight)) * 0.6)
         # Increased for dagger total weight, reduced for blade tier and hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = math.sqrt(self.weight / ((2 + blade_material.tier) * math.sqrt(hilt_material.weight)))
+        self.stamina_drain = 0.5*math.sqrt(self.weight / ((2 + blade_material.tier) * math.sqrt(hilt_material.weight)))
 
         # Calculate damage range depending on weight and tier:
         min_damage = int((60 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
@@ -1893,7 +1889,7 @@ class Axe(Bladed):
         self.agility_modifier = math.sqrt((8.0 + handle_material.tier) / (3 * head_material.weight)) * .65
         # Increased for axe total weight, reduced for head tier (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = math.sqrt(0.3 * self.weight / (2 + head_material.tier))
+        self.stamina_drain = (0.3 * self.weight / (2 + head_material.tier)) ** 0.25
 
         # Calculate damage range depending on weight, size and tier:
         # High tier axes scale better, weight is very important
@@ -2045,7 +2041,6 @@ class Axe(Bladed):
 
 class Falchion(Sword):
     class_name = 'Falchion'
-    aim_drain_modifier = 0.75
     default_angle = 30
     max_tilt = 150
     upside = ["Activate to roll in aiming direction", "Rolling through enemies resets cooldown"]
@@ -2146,7 +2141,11 @@ class Falchion(Sword):
         # Steal from swords, than increase damage range by 15%
         super().update_stats()
         # Increase damage
-        self.damage_range = int(self.damage_range[0] * 0.85), int(self.damage_range[1] * 1.15)
+        self.damage_range = int(self.damage_range[0] * 0.85) / 1.15, int(self.damage_range[1])
+
+        # Reduce drain
+        self.stamina_drain = self.stamina_drain * 0.75 / 0.8
+
         # Roll cooldown depends reduced by hilt tier and increased by blade material weight
         self.roll_cooldown = math.sqrt(
             1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
@@ -2206,7 +2205,6 @@ class Falchion(Sword):
 
 
 class OffHand(Wielded):
-    aim_drain_modifier = 0.0
     prefer_slot = "off_hand"
 
 
@@ -3005,7 +3003,11 @@ class Katar(Pointed, OffHand):
             self._drop_kebab()
 
         if self.kebab:
-            self.activation_offset.scale_to_length(self.character_specific["grab_distance"])
+            grab_distance = max(
+                self.character_specific["grab_distance"],
+                character.hitbox[0].width*0.5 + self.kebab.hitbox[0].width*0.5 + BASE_SIZE * 0.5
+            )
+            self.activation_offset.scale_to_length(grab_distance)
             self.skewer_duration -= FPS_TICK
             self.speed_limit = 0
 
@@ -3088,8 +3090,8 @@ class Katar(Pointed, OffHand):
         # Reset:
         super(Katar, self).on_equip(character)
         # Fill:
-        self.character_specific["grab_stamina_drain"] = self.stamina_drain * 250 * FPS_TICK
-        self.character_specific["grab_distance"] = character.size * 2
+        self.character_specific["grab_stamina_drain"] = self.stamina_drain * 125 * FPS_TICK
+        self.character_specific["grab_distance"] = character.size * 3.5
 
     def cause_bleeding(self, victim, skip_kicker=False):
         super(Katar, self).cause_bleeding(victim, skip_kicker)
@@ -3102,5 +3104,9 @@ class Katar(Pointed, OffHand):
 
     def _skewer(self, character, victim):
         super(Katar, self)._skewer(character, victim)
-        self.activation_offset.scale_to_length(self.character_specific["grab_distance"])
+        grab_distance = max(
+            self.character_specific["grab_distance"],
+            character.hitbox[0].width * 0.5 + victim.hitbox[0].width * 0.5 + BASE_SIZE * 0.5
+        )
+        self.activation_offset.scale_to_length(grab_distance)
         self.inertia_vector = v()

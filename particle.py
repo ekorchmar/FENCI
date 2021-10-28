@@ -1,5 +1,4 @@
 # todo:
-#  sparks use varying parts of weapon and attack color for color generation
 
 from base_class import *
 
@@ -169,7 +168,14 @@ class Spark(Particle):
         if weapon is None or (attack_color and random.random() > 0.34):
             color = attack_color
         else:
-            color = weapon.builder["constructor"][weapon.hitting_surface]["color"]
+            # Hitting surface should be more likely to be used for spark color
+            weapon_parts = list(weapon.builder["constructor"].keys())
+            weapon_part_weights = [
+                (3 if part == weapon.hitting_surface else 1) for part in weapon_parts
+            ]
+            crumbling_part = random.choices(weapon_parts, weapon_part_weights)[0]
+
+            color = weapon.builder["constructor"][crumbling_part]["color"]
             # Make color lighter
             color = c(color)
             hsl_list = [*color.hsla]
@@ -203,6 +209,10 @@ class Droplet(Particle):
     shakeable = True
 
     def __init__(self, position, character, lifetime=REMAINS_SCREENTIME/4, size=0.5, spawn_delay=None):
+        # If blood is disabled, instantly despawn any droplets
+        if OPTIONS["red_blood"] == 2:
+            lifetime = -1
+
         if spawn_delay is None:
             spawn_delay = random.uniform(0, 0.6)
 
@@ -215,7 +225,11 @@ class Droplet(Particle):
 
         shape = random.choice(['♥', '❤', '♠'])
 
-        self.surface = ascii_draw(int(size*BASE_SIZE), shape, c(204, 0, 0) if OPTIONS["red_blood"] else character.blood)
+        self.surface = ascii_draw(
+            int(size*BASE_SIZE),
+            shape,
+            c(204, 0, 0) if OPTIONS["red_blood"] == 0 else character.blood
+        )
 
         # If character is alive, tether own position to the character
         self.character = character

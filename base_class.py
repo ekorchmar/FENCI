@@ -1,4 +1,5 @@
 # todo:
+#  Face generation to class method to reduce load times
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -143,10 +144,11 @@ class Shaker:
         self.oscillators = repacked_oscillators
 
         # Set max shake limits:
-        cumulative_v.x = cumulative_v.x if cumulative_v.x < self._max_shake*0.5 else self._max_shake*0.5
-        cumulative_v.x = cumulative_v.x if cumulative_v.x > -self._max_shake*0.5 else -self._max_shake*0.5
-        cumulative_v.y = cumulative_v.y if cumulative_v.y < self._max_shake*0.5 else self._max_shake*0.5
-        cumulative_v.y = cumulative_v.y if cumulative_v.y > -self._max_shake*0.5 else -self._max_shake*0.5
+        limit = self._max_shake*0.5 if OPTIONS["screenshake"] == 2 else self._max_shake*0.25
+        cumulative_v.x = cumulative_v.x if cumulative_v.x < limit else limit
+        cumulative_v.x = cumulative_v.x if cumulative_v.x > -limit else -limit
+        cumulative_v.y = cumulative_v.y if cumulative_v.y < limit else limit
+        cumulative_v.y = cumulative_v.y if cumulative_v.y > -limit else -limit
 
         return cumulative_v
 
@@ -397,7 +399,7 @@ class Equipment:
 
 
 class Character:
-    registry = {}
+    registry = dict()
     weapon_slots = []
     collision_group = 1  # Default for enemies
     hit_immunity = 0.6
@@ -912,8 +914,10 @@ class Character:
             # Make weapon not consume stamina for duration
             weapon.stamina_ignore_timer = duration
 
-        if vector != v():
+        if vector != v() and self.anchor_weapon is None:
             self.push(vector, duration, state='hurt')
+        else:
+            self.set_state('hurt', duration)
 
         if damage > 0:
             self.immune_timer = self.hit_immunity

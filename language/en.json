@@ -60,7 +60,7 @@
     "Elves avoidance of iron is cultural. Most elves will not touch any metal, with coins being unsurprising exception.",
     "Faefolk are constrained by rules, enforced by same powers that give them existence. They can't touch iron, break a promise or enter a home uninvited.",
     "Long time ago, the united Empire held off orcish invasion. But now now orcs are natural citizens, and every aristocrat calls themselves a king.",
-    "Orcs employ unique fighting style, that is impossible to copy. Only an orc can hold a sword by the wrong end and still club an enemy to death.",
+    "Orcs employ unique fighting style, that is impossible to copy. Only an orc can hold a sword by the wrong end and still clobber an enemy to death.",
     "Demons attempt at invasion was a disastrous failure. Infighting, rebellion and intrigues split demon armies before a single Empire city fell.",
     "Some demons are civilized enough to live in human cities. Some are even civilized enough to avoid living in human cities.",
     "Demon will absolutely literally sell you it's own horns, if the price is right. Even better, other demon's horns.",
@@ -107,7 +107,7 @@
     "Wizards don't get along with each other. Concept of mutually assured magical destruction can prevent open conflict, but also makes alliance or friendship impossible.",
     "Necromancy is a forbidden art. No self-respecting wizard will turn to necromancy. Those who do will still invent justification for their actions.",
     "Demon Lords were once influential enough to rally demons to start an invasion of Empire. Not one of them was influential enough to keep the invasion on track.",
-    "FENCI lore is chokeful of references to popular fantasy, from Tolkien and Pratchett to even Carrol and L. Frank Baum. That's because the game's author lacks any proper creativity.",
+    "FENCI lore is chokeful of references to popular fantasy, from Tolkien and Pratchett to even Carrol and Baum. That's because the game's author lacks any proper creativity.",
 
     "Trolls will investigate any commotion occuring on their territory. Investigation includes hitting source of commotion until it stops making noise.",
     "Trolls tolerate goblin gangs, as long as latter are successful in providing victim carcasses to the troll.",
@@ -289,16 +289,35 @@
           "False": "OFF"
         },
         "screenshake": "Screenshake",
-        "red_blood": "Red blood color",
+        "screenshake_states": {
+          "0": "OFF",
+          "1": "TAME",
+          "2": "FULL"
+        },
+        "red_blood": "Blood color",
+        "red_blood_states": {
+          "0": "RED",
+          "1": "MONSTER",
+          "2": "OFF"
+        },
         "unpause_countdown": "Unpause countdown",
+        "unpause_countdown_states": {
+          "0": "OFF",
+          "1": "1S",
+          "2": "2S"
+        },
         "fullscreen": "Fullscreen",
         "grab_mouse": "Capture mouse",
         "sound": "Sound effects",
+        "sound_states": {
+          "0": "OFF",
+          "1": "8BIT"
+        },
         "music": "Music"
     }
   },
   "overlay_hint": {
-    "top": "CLOSE",
+    "top": "CLOSE&REPAIR",
     "left": "EQUIP",
     "right": "STASH"
   },

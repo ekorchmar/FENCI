@@ -1,10 +1,8 @@
 # todo:
-#  bumping into characters may affect characters in some stages of charge and dogfight
-#  enemies may become scared seeing player powering up axe whirlwind
-#  Split AI.execute into submethods to allow for custom AI
-#  ?? Skeleton class, same as human but with less health and difficulty
+#  ?? Split AI.execute into submethods to allow for custom AI
 # After tech demo
 # todo:
+#  ?? Skeleton class, same as human but with less health and difficulty
 #  ?? animate character flip
 #  ?? Treasure goblins
 #  hat oscillates instead oor together with face
@@ -347,7 +345,7 @@ class AI:
         # Own equipment assessments:
 
         # These constants are not subject to be randomized by skill function, as they are base
-        self.tick_stamina_consumption = self.weapon.stamina_drain * 250 * FPS_TICK * self.weapon.aim_drain_modifier
+        self.tick_stamina_consumption = self.weapon.stamina_drain * 250 * FPS_TICK
         self.angular_acceleration = self.character.agility * self.weapon.agility_modifier * FPS_TICK * 6.7
 
         # Stab attack of Pointed weapon
@@ -534,8 +532,8 @@ class AI:
 
             if not enemy_weapon:
                 reach = 0
-            elif isinstance(enemy_weapon, Pointed):
-                reach = enemy_weapon.length * 1.1 + v(enemy.body_coordinates[weapon_slot]).length()
+            elif isinstance(enemy_weapon, (Spear, Sword, Dagger)):
+                reach = enemy_weapon.length * 1.2 + v(enemy.body_coordinates[weapon_slot]).length()
             else:
                 reach = enemy_weapon.length + v(enemy.body_coordinates[weapon_slot]).length()
 
@@ -720,7 +718,6 @@ class AI:
             return
 
     def execute(self):
-
         """Modify own behavior depending on state; returns movement direction vector and aiming target"""
         self.strategy_timer -= FPS_TICK
         self.fof_time += FPS_TICK
@@ -1222,7 +1219,8 @@ class AI:
                     if "ccw" in self.strategy_dict:
                         self.strategy_dict['ccw'] = not self.strategy_dict['ccw']
 
-                    if body == self.target and self.strategy != 'dogfight':
+                    if body == self.target and \
+                            not (self.strategy == 'dogfight' and self.strategy_dict["stage"] == "hit"):
                         # Consider fleeing, then consider aggression
                         self.fight_or_flight(victim=self.character)
                         self.fight_or_flight(victim=self.target)
@@ -1234,7 +1232,6 @@ class AI:
         Takes an object in scene, either a hurt character or a parried weapon. Reaction can be either to charge in,
         start fleeing, querry up a state change, or analyze situation anew
         """
-        # todo: weapon processing
         # Can't activate FOF too often:
         if self.fof_time < self.flexibility * 5:
             return

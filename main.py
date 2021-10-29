@@ -1,10 +1,11 @@
 # todo:
+#  Sound system
 #  8 bit sounds for weapon and character collisions
+#  Credits in Main Menu and after beating Lvl4 Skirmish
 # After tech demo
 # todo:
 #  make ALL string constants come from language json
 #  seeded random
-#  Sound system
 #  Speedrun mode
 #  split threads by Input+calculation // drawing OR try to draw less often after splitting input from drawing
 #  try to update FPS_TICK by get_time

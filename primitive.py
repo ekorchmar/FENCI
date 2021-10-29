@@ -120,16 +120,10 @@ FFA = pygame.math.Vector2(0, 3.33*FPS_TICK)
 # Inventory constants:
 TIERS = range(1, 5)
 TIER_WEIGHTS = {
-    1: (0.60, 0.35, 0.20, 0.05),
-    2: (0.20, 0.70, 0.15, 0.05),
-    3: (0.05, 0.10, 0.60, 0.25),
-    4: (0.05, 0.15, 0.30, 0.50)
-}
-SLOT_NAMES = {
-    "main_hand": 'Sword hand',
-    "off_hand": 'Off hand',
-    "hat": 'Hat',
-    "backpack": 'Backpack'
+    1: (0.80, 0.15, 0.05, 0.00),
+    2: (0.40, 0.40, 0.15, 0.05),
+    3: (0.20, 0.25, 0.25, 0.20),
+    4: (0.15, 0.20, 0.40, 0.25)
 }
 
 PLAYER_SLOTS = ("main_hand", "hat", "off_hand")  # ordered for mouse input

@@ -158,13 +158,13 @@ class Scene:
 
         # Debug:
         if debug:
-            # if self.player:
-            #    self.echo(self.player, "This is debugging key!", colors["lightning"])
+            if self.player and self.player in self.characters:
+                self.echo(self.player, "This is debugging key!", colors["lightning"])
             # print("No debug action set at the moment.")
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
-            self.player.equip_basic()
-            self.log_weapons()
+            # self.player.equip_basic()
+            # self.log_weapons()
             # self.menus.append(Defeat(self))
             # self.shaker.add_shake(1.0)
 
@@ -190,8 +190,8 @@ class Scene:
 
             # Start channeling weapon switch
             if wheel and self.player in self.characters and self.player.slots["backpack"]:
-                # Duration depends on agility mod of backpack weapon
-                switch_time = self.player.flip_time * 0.75 * self.player.slots["backpack"].agility_modifier
+                # Duration depends on weight of backpack weapon
+                switch_time = self.player.flip_time * self.player.slots["backpack"].weight * 0.1
                 self.player.channel(switch_time, self.player.backpack_swap, {"scene": self})
 
             # Feed input to characters
@@ -229,6 +229,9 @@ class Scene:
             for char in new_character_states:
                 try:
                     if new_character_states[char] not in AIRBORNE and self.character_states[char] in AIRBORNE:
+                        # Shake up:
+                        if OPTIONS["screenshake"]:
+                            self.shaker.add_shake(0.25 * char.size / BASE_SIZE)
                         # Spawn dust clouds
                         for _ in range(int(char.weight*0.02)):
                             self.particles.append(DustCloud(random.choice(char.hitbox)))
@@ -249,13 +252,11 @@ class Scene:
 
         # Allow player to instantly switch weapons if loot overlay is displayed:
         elif wheel and self.loot_overlay:
-            self.draw_helper = True
             self.player.backpack_swap(scene=self)
             self.loot_overlay.redraw_loot()
 
         # Process clicks and keypresses on loot overlay
         elif self.loot_overlay:
-            self.draw_helper = True
             if self.loot_overlay.rect.collidepoint(self.mouse_target):
 
                 # Middle click closes overlay
@@ -328,7 +329,7 @@ class Scene:
                                 "dropped_item": self.player.slots[slot],
                                 "slot": slot
                             },
-                            text=f"DROP {SLOT_NAMES[slot].upper()}"
+                            text=f"{string['inventory_drop']} {string['slot_names'][slot].upper()}"
                         )
 
         # Handle procession and deletion of HeldMouse object:
@@ -385,7 +386,8 @@ class Scene:
         for slot in random_order:
             equipped = self.player.slots[slot]
 
-            if not equipped:
+            # Can't repair completely broken equipment
+            if not equipped or equipped.durability == 0:
                 continue
 
             damage = equipped.max_durability - equipped.durability
@@ -396,10 +398,14 @@ class Scene:
         # Repair durability to least damaged; spawn a banner
         if least_damaged is not None:
             least_damaged.durability += 1
+            text = f"{string['loot']['repair']} {least_damaged.name}!"
+
+            # Update loot cards in the scene:
+            least_damaged.redraw_loot()
             self.log_weapons()
-            text = f"Repaired Tier {least_damaged.tier} {least_damaged.builder['class'].lower()}!"
+
         else:
-            text = "Loot skipped!"
+            text = string["loot"]["skip"]
 
         self._loot_info_banner(text)
 
@@ -419,9 +425,8 @@ class Scene:
         self.loot_overlay = None
 
         # Show info banner:
-        text = f"Stashed Tier {item.tier} {item.builder['class'].lower()} in backpack!" if \
-            slot == "backpack" else \
-            f"Equipped Tier {item.tier} {item.builder['class'].lower()}"
+        text = f"{string['loot']['backpack1']} {item.name} {string['loot']['backpack2']}" if slot == "backpack" else \
+            f"{string['loot']['equip']} {item.name}!"
 
         self._loot_info_banner(text)
 
@@ -521,7 +526,7 @@ class Scene:
             draw_group.append(self.loot_overlay.draw())
 
             # Draw helper:
-            if self.loot_overlay.helper:
+            if self.draw_helper:
                 draw_group.extend(self.loot_overlay.helper.draw())
 
         # Draw menus:
@@ -1316,7 +1321,7 @@ class Scene:
             self.characters.append(character)
         self.log_weapons()
 
-    def toggle_pause(self, skip_banner=False):
+    def toggle_pause(self):
         # Background scene can not be paused:
         if self.decorative:
             self.hard_unpause()
@@ -1326,21 +1331,18 @@ class Scene:
             return
 
         if not self.paused:
-
-            if not skip_banner:
-                self.pause_popups = PauseEnsemble(self)
+            # Pause instantly
+            self.pause_popups = PauseEnsemble(self)
+            self.paused = True
 
             # Update stat cards for every character
             for character in self.characters:
                 for compare_key in character.stat_cards:
                     character.stat_cards[compare_key].redraw()
 
-        elif self.paused and not skip_banner:
-            self.pause_popups.fade()
-
-        # Pause instantly
-        if not self.paused:
-            self.paused = True
+            # Reduce theme music volume:
+            if pygame.mixer.music.get_busy():
+                pygame.mixer.music.set_volume(0.2)
 
         # Spawn countdown to unpause, unless it is already in scene particles:
         elif OPTIONS["unpause_countdown"] != 0 and not any(
@@ -1348,6 +1350,7 @@ class Scene:
                 for countdown in self.particles
                 if isinstance(countdown, CountDown) and countdown.action == self.hard_unpause
         ):
+            self.pause_popups.fade()
             self.particles.append(CountDown(
                 self.hard_unpause,
                 {},
@@ -1359,6 +1362,7 @@ class Scene:
             ))
 
         else:
+            self.pause_popups = None
             self.hard_unpause()
 
     def count_enemies_value(self):
@@ -1403,6 +1407,9 @@ class Scene:
         )
 
     def hard_unpause(self):
+        # Restore theme music volume:
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.set_volume(0.7)
         self.paused = False
 
     def generate_menu_popup(self, menu_class, keywords=None):
@@ -1443,7 +1450,7 @@ class Inventory:
             self.slot_rects[slot] = slot_rect
 
             # Write name of the slot
-            slot_name_surf = ascii_draw(BASE_SIZE//2, SLOT_NAMES[slot], colors["inventory_text"])
+            slot_name_surf = ascii_draw(BASE_SIZE//2, string["slot_names"][slot], colors["inventory_text"])
             slot_name_rect = slot_name_surf.get_rect(right=slot_x+slot_rect.width, top=0)
             self.base.blit(slot_name_surf, slot_name_rect)
 
@@ -1500,7 +1507,7 @@ class Inventory:
             class_surf = ascii_draw(BASE_SIZE // 2, class_string, colors["inventory_text"])
             class_rect = class_surf.get_rect(left=self.slot_rects[slot].left + BASE_SIZE//2)
 
-            tier_string = f'Tier {content.tier}'
+            tier_string = f'{string["tier"]} {content.tier}'
             tier_surf = ascii_draw(BASE_SIZE//2, tier_string, colors["inventory_text"])
             tier_rect = tier_surf.get_rect(bottomright=self.slot_rects[slot].bottomright)
 
@@ -2758,21 +2765,25 @@ class SceneHandler:
     def fill_scene_progression(self):
         bar_size = BASE_SIZE
         items = {
-            f"LEVEL{self.tier}": Bar(
+            f"{string['progression']['level']}{self.tier}": Bar(
                 bar_size,
                 10,
                 colors["inventory_durability"],
                 self.absolute_level_value,
                 base_color=colors['inventory_durability']
             ),
-            "LOOT": Bar(
+            string['progression']['loot_drop']: Bar(
                 bar_size,
                 10,
                 colors["inventory_durability"],
                 self.loot_progression_required,
                 base_color=colors['inventory_durability']
             ),
-            "loot_drop": Indicator(ascii_draw(bar_size, "LOOT ON CLEAR!", c(colors["indicator_good"])))
+            "loot_drop": Indicator(ascii_draw(
+                bar_size,
+                string['progression']['loot_soon'],
+                c(colors["indicator_good"])
+            ))
         }
         self.scene.progression = ProgressionBars(items, font_size=bar_size)
 

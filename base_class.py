@@ -9,7 +9,7 @@
 
 import copy
 from typing import Any
-from drawing_primitive import *
+from primitive import *
 from perlin_noise import PerlinNoise
 
 
@@ -222,7 +222,6 @@ class Equipment:
     class_name = None
     hitting_surface = None
     prefer_slot = None
-    action_string = None
     upside = []
     downside = []
 
@@ -1188,7 +1187,7 @@ class LootCard(Card):
         next_element_top = portrait.height
 
         # 2. Weapon class name, durability and tier
-        class_string = f'{equipment.builder["class"]} ({SLOT_NAMES[equipment.prefer_slot].lower()})'
+        class_string = f'{equipment.builder["class"]} ({string["slot_names"][equipment.prefer_slot].lower()})'
         next_element_top += blit_cascade_text(
             uncut_surface,
             BASE_SIZE * 2 // 3,

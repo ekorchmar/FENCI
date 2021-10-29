@@ -105,7 +105,7 @@ class Wielded(Equipment):
             self.hilt_v = None
             self.tip_v = None
 
-    def __init__(self, size, color=None, tier_target=None, equipment_dict=None, **kwargs):
+    def __init__(self, size, color=None, tier_target=None, equipment_dict=None, name=None, **kwargs):
         super().__init__(size, color=None, tier_target=None, equipment_dict=equipment_dict, **kwargs)
         self.hilt = None
 
@@ -142,6 +142,7 @@ class Wielded(Equipment):
         self.color = color
         self.generate(size, tier_target)
         self.update_stats()
+        self.name = name or self.generate_name()
 
         # Randomize damage and other values
         if self.roll_stats and self.damage_range != (0, 0):
@@ -163,6 +164,9 @@ class Wielded(Equipment):
         # Draw 0.2s worth of frames of weapon last position if it's fast enough to do damage
         self.trail_frames: list = [None] * int(FPS_TARGET * 0.03)
         self.frame_counter = 0  # only log every 3rd frame
+
+    def generate_name(self):
+        return f"{string['tier']} {self.tier} {self.class_name.lower()}"
 
     def show_stats(self, compare_to=None):
         """
@@ -199,11 +203,6 @@ class Wielded(Equipment):
                 "text": f'{self.length - self.length%5:.0f} cm',
                 "value": (self.length - self.length % 5)
             }
-
-            if "LENGTH" in comparison_dict:
-                stats_dict["LENGTH"]["evaluation"] = (
-                    (self.length - self.length % 5) - comparison_dict["LENGTH"]["value"]
-                )
 
         stats_dict["SPEED"] = {"text": f'{self.agility_modifier * 100:.0f}', "value": self.agility_modifier}
         if "SPEED" in comparison_dict:
@@ -775,14 +774,14 @@ class Bladed(Wielded):
             # Spawn particle along the hitbox (Approx. 14/s)
             if random.random() < FPS_TICK * 14:
                 spark_position = random_point(*self.hitbox())
-                spark_speed = random.triangular(0.2, 0.5) * self.tip_delta
+                spark_speed = random.triangular(0.1, 0.3) * self.tip_delta
                 self.particles.append(
                     Spark(
                         spark_position,
                         spark_speed,
                         weapon=self,
                         attack_color=self.color,
-                        lifetime=REMAINS_SCREENTIME*0.0625
+                        lifetime=REMAINS_SCREENTIME*0.03
                     )
                 )
 
@@ -1030,7 +1029,10 @@ class Sword(Bladed, Pointed):
         )
 
         def new_hilt_material():
-            if random.random() > 0.4:  # 40% of the time, pick same material for hilt
+            # Prevent same material generation if tier is above current tier
+            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+
+            if random.random() > 0.4 and blade_tier <= tier:  # 40% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -1094,7 +1096,7 @@ class Sword(Bladed, Pointed):
         blade_len = len(self.builder["constructor"]["blade"]["str"])
 
         # Generate stats according to Material.registry
-        self.weight = 1 + hilt_material.weight + blade_len * (1 + blade_material.weight)
+        self.weight = 1 + hilt_material.weight + blade_len * (1 + math.sqrt(blade_material.weight))
         self.tier = int((hilt_material.tier+blade_material.tier)*0.5)
 
         # reduced for blade weight, increased for hilt tier
@@ -1107,7 +1109,7 @@ class Sword(Bladed, Pointed):
         )
 
         # Calculate damage range depending on weight, size and tier:
-        min_damage = int(1.15 * (40 + self.weight) * 1.08 ** (self.tier - 1))
+        min_damage = int(1.15 * (50 + self.weight) * 1.08 ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(1 + blade_len / 5))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -1270,6 +1272,10 @@ class Spear(Pointed):
             comparison_dict = compare_to.show_stats()
         else:
             comparison_dict = dict()
+
+        # Show effective and (actual) length
+        actual_length_cm = self.surface.get_width() - self.surface.get_width() % 5
+        stats_dict["LENGTH"]["text"] = f'{self.length - self.length % 5:.0f}({actual_length_cm}) cm'
 
         stats_dict["BLEED"] = {
             "value": self.bleed,
@@ -1461,7 +1467,10 @@ class Dagger(Short, Bladed):
         )
 
         def new_hilt_material():
-            if random.random() > 0.7:  # 30% of the time, pick same material for hilt
+            # Prevent same material generation if tier is above current tier
+            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+
+            if random.random() > 0.7 and blade_tier <= tier:  # 30% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -1639,7 +1648,7 @@ class Dagger(Short, Bladed):
 
         if self.last_parry:
             arrow_v = v(self.last_parry.position) - v(character.position)
-            if arrow_v:
+            if arrow_v.length_squared() != 0:
                 arrow_v.scale_to_length(character.hitbox[0].width)
             arrow_position = character.position + arrow_v
 
@@ -1659,10 +1668,11 @@ class Dagger(Short, Bladed):
 
 class Axe(Bladed):
     class_name = "Axe"
-    _handle_length = 3
+    _handle_length = 4
     _max_spins = 3
     _prepare_angle = 110
     _slow_down = 2
+    _power_up_drain = 0.7
 
     max_tilt = 130
     default_angle = 40
@@ -1689,7 +1699,7 @@ class Axe(Bladed):
         # Support destruction of shields
         self.destroys_shield = False
 
-        super(Axe, self).__init__(size * 2 // 3, *args, **kwargs)  # Axes need to use smaller font to fit in
+        super(Axe, self).__init__(size // 2, *args, **kwargs)  # Axes need to use smaller font to fit in
 
     def on_equip(self, character):
         super(Axe, self).on_equip(character)
@@ -1709,7 +1719,10 @@ class Axe(Bladed):
 
         self.active_this_frame = True
         if self.spins_charged < self._max_spins:  # prevent not being enough for 3 spins
-            character.stamina = max(0, character.stamina - self.character_specific["stamina_drain"])
+            character.stamina = max(
+                0,
+                character.stamina - self.character_specific["stamina_drain"] * self._power_up_drain
+            )
             character.set_state('active', 0.2)
             self.charge_time += FPS_TICK
             if self.charge_time // self.character_specific["time_per_spin"] > self.spins_charged:
@@ -1809,8 +1822,12 @@ class Axe(Bladed):
         )
 
         def new_handle_material():
+            # Prevent same material generation if tier is above current tier
+            blade_tier = Material.registry[self.builder["constructor"]["head"]["material"]].tier
+
             # 20% of the time, pick same metal for METALLIC hilt
             if (
+                    blade_tier <= tier and
                     random.random() > 0.8 and
                     Material.registry[self.builder["constructor"]["head"]["material"]].physics in ('metal', 'precious')
             ):
@@ -2079,7 +2096,10 @@ class Falchion(Sword):
         )
 
         def new_hilt_material():
-            if random.random() > 0.6:  # 40% of the time, pick same material for hilt
+            # Prevent same material generation if tier is above current tier
+            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+
+            if random.random() > 0.6 and blade_tier <= tier:  # 40% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -2140,8 +2160,8 @@ class Falchion(Sword):
     def update_stats(self):
         # Steal from swords, than increase damage range by 15%
         super().update_stats()
-        # Increase damage
-        self.damage_range = int(self.damage_range[0] * 0.85) / 1.15, int(self.damage_range[1])
+        # Increase damage spread
+        self.damage_range = int(self.damage_range[0] * 0.85 / 1.15), int(self.damage_range[1])
 
         # Reduce drain
         self.stamina_drain = self.stamina_drain * 0.75 / 0.8
@@ -2154,6 +2174,7 @@ class Falchion(Sword):
 
         if self.roll_stats:
             self.roll_cooldown = triangle_roll(self.roll_cooldown, 0.07)
+
         self.redraw_loot()
 
     def deal_damage(self, vector=v(), victim=None, victor=None):
@@ -2215,7 +2236,6 @@ class Shield(OffHand):
     max_tilt = 45
     return_time = 0.4
     hides_hand = True
-    action_string = "Hold action button to block enemy attacks; Activate while running for shield bash"
     upside = ["Hold action button to block", "Activate while running to bash"]
     downside = ["Low damage", "Can't block from behind"]
 
@@ -2492,9 +2512,10 @@ class Shield(OffHand):
         if weapon:
             block_failed = block_failed or weapon.destroys_shield
 
-        # Prevent protecting from back attacks
+        # Prevent protecting from back attacks, unless character is moving
         if offender:
-            block_failed = block_failed or (character.position.x > offender.position.x) == character.facing_right
+            block_failed = block_failed or \
+                    ((character.position.x > offender.position.x) == character.facing_right and not character.ramming)
 
         if block_failed:
             # Displace self by enemy weapon delta
@@ -2681,7 +2702,10 @@ class Swordbreaker(Dagger, OffHand):
         )
 
         def new_hilt_material():
-            if random.random() > 0.7:  # 30% of the time, pick same material for hilt
+            # Prevent same material generation if tier is above current tier
+            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+
+            if random.random() > 0.7 and blade_tier <= tier:  # 30% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'wood', 'bone', 'precious'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]

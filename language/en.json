@@ -139,6 +139,19 @@
     "Your weapon's damage is not random. The faster it moves, the harder it hits.",
     "Off-hand weapons do not consume stamina for aiming and even provide means to restoer it.",
     "There are no player 'classes' in FENCI. You can perform with any equipment.",
+    "Skipping a loot pickup repairs a least damaged piece of equipment. Completely broken equipment can not be repaired.",
+    "Fighting large enemies wielding heavy weapons may require you to get creative with your positioning.",
+    "If everything else fails, you can disrupt an enemy attack by bumping into them.",
+    "Bleeding deals more damage to enemies with higher health pools. It is never lethal though.",
+    "If you were better, you would have survived that one time. Get good.",
+    "Even if you run out of stamina, you can still deal some damage by running into an enemy weapon forward.",
+    "You can break enemy shields faster by using heavy weapons. With light weapons, try to hit them from the back.",
+    "Fenci is a master duelist. Enemies may not use weapons to their full potential.",
+    "Wounded and exhausted enemies are more likely to flee, giving you space.",
+    "This game is designed to put control over any fight in player's hands. Don't give this control up.",
+    "You can destroy enemy shields by overwhelming it with attacks. However, this approach will quickly exhaust your stamina.",
+    "If you have multiple roll-granting weapons, you may change direction while rolling. Is it useful? Probably not, but it is fun to do.",
+    "Short weapons like Daggers and Katars are painfully ineffective once you get surrounded.",
 
     "Shield can't protect you from the back. Don't get surrounded.",
     "Initiating fight with a shield bash into a group of enemies is great way to scatter them.",
@@ -150,12 +163,15 @@
 
     "Swords are simple, deal a lot of damage and are a reliable tool in most situations.",
     "Long and heavy swords are very powerful, but require strict discipline with stamina management.",
-    "Light short sword is a go-to weapon for most combat encounters.",
+    "Light and short Sword is a go-to weapon for most combat encounters. It's a reliable weapon for a newbie, and a mastery tool for experienced player",
     "Swords don't offer much in terms of mobility. Pay attention to your positioning.",
+    "He who lives by the Sword, stands a decent chance even against overwhelming numbers of enemies.",
 
     "Daggers have very short swinging range and modest damage, but offer best tactical options.",
     "Even accidental parry with a dagger will allow you to roll through your foes. Always look out for options!",
-    "Daggers provide constant, consistent damage at low stamina cost, even when swung.",
+    "Daggers provide constant, consistent damage when swung, with a flashy finisher in stabbing attack.",
+    "A Sword or an Axe will leave you without stamina after two swings, while Dagger will take you to the finish line with half a stamina bar.",
+    "Dagger makes a good back-up for a heavier weapon. Light weapons are quick to pull out of a your backpack.",
 
     "Spears are extremely powerful if you can keep your distance from your enemies.",
     "Even a powerful spear will perform poorly if you are swarmed by enemies. Keep a backup dagger.",
@@ -170,7 +186,8 @@
     "Falchion rolls do not require stamina, and allow you to restore it while rolling circles around the battlefield.",
     "Falchions have wild damage spread. Prepare your strikes carefully to stay efficient.",
     "Falchions lack Swords' reach and burst damage of stabbing attack. Be creative with your rolls to stay on top of enemies.",
-    "Rolling into the enemy may seem dangerous, but it is also the way to keep your rolls off cooldown.",
+    "Rolling into the enemy with Falchion may seem dangerous, but it is also the way to keep your rolls off cooldown.",
+    "Falchions are short, but heavy. If you are low on stamina, roll away to safety to catch your breath.",
 
     "Axe whirlwind is powerful, but requires a lot of preparation time and may leave you without stamina. Don't get caught.",
     "You don't always need whirlwind to fight multiple enemies with an Axe, it is effective even when simply swung.",
@@ -182,17 +199,7 @@
     "Heavy Katars cause heavier bleeding, but light ones allow you to hold enemies for much longer. Use accordingly.",
     "Katar stab costs very little stamina and restores stamina on each successful hit. Keep up the aggression.",
     "Use your main weapons on enemies you hold with Katar for maximum damage. Warning: might be considered a war crime.",
-
-    "Fighting large enemies wielding heavy weapons may require you to get creative with your positioning.",
-    "If everything else fails, you can disrupt an enemy attack by bumping into them.",
-    "Bleeding deals more damage to enemies with higher health pools. It is never lethal though.",
-    "If you were better, you would have survived that one time. Get good.",
-    "Even if you run out of stamina, you can still deal some damage by running into an enemy weapon forward.",
-    "You can break enemy shields faster by using heavy weapons. With light weapons, try to hit them from the back.",
-    "Fenci is a master duelist. Enemies may not use weapons to their full potential.",
-    "Wounded and exhausted enemies are more likely to flee, giving you space.",
-    "This game is designed to put control over any fight in player's hands. Don't give this control up.",
-    "You can destroy enemy shields by overwhelming it with attacks. However, this approach will quickly exhaust your stamina."
+    "Alternating Katar stabs with your main weapon hits is perfect way to steadily ramp up critical damage while regenerating stamina."
   ],
   "gameplay": {
     "paused": "PAUSED",
@@ -321,5 +328,25 @@
     "left": "EQUIP",
     "right": "STASH"
   },
-  "equipped": "[Equipped]"
+  "equipped": "[Equipped]",
+  "slot_names": {
+    "main_hand": "Sword hand",
+    "off_hand": "Off hand",
+    "hat": "Hat",
+    "backpack": "Backpack"
+},
+  "inventory_drop": "DROPPING",
+  "loot": {
+    "skip": "Loot skipped!",
+    "repair": "Repaired",
+    "backpack1": "Stashed",
+    "backpack2": "in backpack!",
+    "equip": "Equipped"
+  },
+  "tier": "Tier",
+  "progression": {
+    "level": "LEVEL",
+    "loot_drop": "LOOT",
+    "loot_soon": "LOOT ON CLEAR!"
+  }
 }

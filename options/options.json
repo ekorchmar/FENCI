@@ -3,7 +3,7 @@
   "grab_mouse": true,
   "red_blood": 1,
   "screenshake": 2,
-  "unpause_countdown": 1,
+  "unpause_countdown": 0,
   "music": true,
-  "sound": 0
+  "sound": 1
 }

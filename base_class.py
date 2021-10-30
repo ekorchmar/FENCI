@@ -16,7 +16,7 @@ from perlin_noise import PerlinNoise
 # Define base classes:
 class Material:
     _metal_bonus = 2
-    registry = {}
+    registry = dict()
     collections = {
         'plateless_bone': {'cattle horn', 'game antler', 'demon horn', 'unicorn horn', 'moonbeast antler', 'wishbone'},
         'short_bone': {'mollusc shell', 'dragon scale'},
@@ -28,6 +28,17 @@ class Material:
         'bendable_bone': {"fish bone", 'cattle horn', 'game antler', 'demon horn', 'unicorn horn',
                           'moonbeast antler', 'wishbone', 'carbon plate', 'cursed bones'},
         'celestial': {'moonglow silver', "moonbeast antler"}
+    }
+    sounds = {
+        "metal": "metal",
+        "precious": "metal",
+        "wood": "wood",
+        "reed": "wood",
+        "leather": "wood",
+        "bone": "bone",
+        "feather": "bone",
+        "mineral": "mineral",
+        "cloth": "mineral"
     }
 
     def __init__(self, name, hsl_min, hsl_max, tier, physics, weight, attacks_color=None, occurence=2):
@@ -697,6 +708,10 @@ class Character:
         return return_list
 
     def set_state(self, state, duration):
+        # Special state sounds:
+        if state == 'jumping':
+            play_sound('jump', 0.3 * self.size / BASE_SIZE)
+
         self.state = state
         self.state_timer = duration
         self.ramming = (state == 'bashing')

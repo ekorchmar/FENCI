@@ -159,7 +159,9 @@ class Scene:
         # Debug:
         if debug:
             if self.player and self.player in self.characters:
-                self.echo(self.player, "This is debugging key!", colors["lightning"])
+                self.echo(self.player, "Let's make some noise!", colors["lightning"])
+            # play_sound(random.choice(list(SOUND.keys())), 1.0)
+            play_sound('landing', 1)
             # print("No debug action set at the moment.")
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
@@ -232,6 +234,10 @@ class Scene:
                         # Shake up:
                         if OPTIONS["screenshake"]:
                             self.shaker.add_shake(0.25 * char.size / BASE_SIZE)
+
+                        # Play sound:
+                        play_sound('landing', 0.5 * char.size / BASE_SIZE)
+
                         # Spawn dust clouds
                         for _ in range(int(char.weight*0.02)):
                             self.particles.append(DustCloud(random.choice(char.hitbox)))
@@ -1155,7 +1161,7 @@ class Scene:
             self.shaker.add_shake(damage*0.01)
 
     def undertake(self, character):
-
+        play_sound('death', 0.5*character.size/BASE_SIZE)
         character.hp = -1
 
         friends_alive = any(filter(
@@ -1208,15 +1214,24 @@ class Scene:
         if not (self.paused or self.loot_overlay):
             self.collide()
 
-        # Prevent overflow
-        pygame.event.pump()
-
         # Prevent losing mouse:
         pygame.event.set_grab(OPTIONS["grab_mouse"] and not self.paused and not self.menus)
 
-        # Pause on losing focus:
-        if not pygame.mouse.get_focused() and not (self.paused or self.loot_overlay):
-            self.toggle_pause()
+        # Pause game and music on losing focus:
+        if not pygame.mouse.get_focused():
+            if pygame.mixer.music.get_busy():
+                pygame.mixer.music.pause()
+
+            if not (self.paused or self.loot_overlay):
+                self.toggle_pause()
+
+            # Kill sounds:
+            if pygame.mixer.get_busy():
+                pygame.mixer.stop()
+
+        else:
+            # Unpause music:
+            pygame.mixer.music.unpause()
 
     def spawn(self, monster, position_v=None):
 
@@ -1302,6 +1317,7 @@ class Scene:
         if character not in self.dead_characters:
             raise KeyError("Can't find this name in my graveyard")
 
+        play_sound('respawn', 1)
         self.shaker.add_shake(0.5)
         character.reset()
         character.position = position
@@ -1853,6 +1869,7 @@ class Button:
         return self.moused_over_surface if moused_over else self.surface, self.rect
 
     def activate(self):
+        play_sound('button', 0.5)
         if self.disabled:
             return
         self.action(*self.action_parameters, **self.action_keywords)
@@ -2094,6 +2111,7 @@ class OptionsMenu(Menu):
 
         # Special scripts:
         if key == 'fullscreen':
+            # Windowed mode grabs mouse by default
             OPTIONS["grab_mouse"] = True
             update_screen()
         elif key == "music":
@@ -2101,6 +2119,8 @@ class OptionsMenu(Menu):
                 end_theme()
             elif SceneHandler.active.theme:
                 SceneHandler.active.play_theme()
+        elif key == 'sound':
+            load_sound_profile(OPTIONS["sound"])
 
     def generate_buttons(self):
         button_rect = DEFAULT_BUTTON_RECT.copy()
@@ -2126,10 +2146,6 @@ class OptionsMenu(Menu):
 
             # Disable certain options conditionally:
             if OPTIONS["fullscreen"] and key == 'grab_mouse':
-                buttons_list[-1].disabled = True
-
-            # Disabled for now:
-            if key == "sound":
                 buttons_list[-1].disabled = True
 
         # Add close button
@@ -2359,8 +2375,11 @@ class Victory(Menu):
             next_level_parameters=None,
             next_level_keywords=None
     ):
-        index = 0
 
+        # Play sound:
+        play_sound('level_clear', 1)
+
+        index = 0
         if next_level_text is not None:
             # Next level button:
             next_level_button = Button(
@@ -2463,6 +2482,9 @@ class Victory(Menu):
 class Defeat(Menu):
 
     def __init__(self, scene):
+        # Play sound:
+        play_sound('level_failed', 1)
+
         # Main menu button:
         menu_button = Button(
             text=[string['menu']['main']],
@@ -2968,6 +2990,7 @@ class SceneHandler:
                 return
 
             banner_text = random.choice(string['gameplay']['respawn_successful'])
+            play_sound('player_death', 1)
             self.respawn_banner = Banner(
                 banner_text,
                 BASE_SIZE * 2,
@@ -3099,6 +3122,7 @@ class SkirmishScenehandler(SceneHandler):
 
 
 class MainMenuSceneHandler(SceneHandler):
+    _spawn_delay = 2
     _gladiator_capacity = 8
     theme = 'blkrbt_brokenlight.ogg'
 
@@ -3106,6 +3130,7 @@ class MainMenuSceneHandler(SceneHandler):
 
         self.challenger_classes = [gladiator for gladiator in Character.registry.values() if not gladiator.debug]
         self.spawned_collision_group = 1
+        self.spawn_timer = 0
 
         # Create a custom scene
         main_menu_scene = Scene(None, SCREEN, EXTENDED_SCENE_BOUNDS, decorative=True)
@@ -3118,12 +3143,13 @@ class MainMenuSceneHandler(SceneHandler):
             no_player=True,
             scene=main_menu_scene
         )
+
         # Spawn MainMenu in the scene
         self.scene.menus.append(MainMenu(self.scene))
 
     def execute(self):
-        # Spawn a monster if less than 5 are present
-        if len(self.scene.characters) < self._gladiator_capacity:
+        # Spawn a monster if less than N are present
+        if len(self.scene.characters) < self._gladiator_capacity and self.spawn_timer <= 0:
             challenger_tier = random.choice(range(1, 5))
             new_challenger = random.choice(self.challenger_classes)(position=None, tier=challenger_tier)
             new_challenger.collision_group = self.spawned_collision_group
@@ -3133,6 +3159,9 @@ class MainMenuSceneHandler(SceneHandler):
             # Besides, increment is expected to be occuring once per dozen seconds, so it is not imaginable to reach
             # any kind of memory limit during time person stares at the menu.
             self.spawned_collision_group += 1
+            self.spawn_timer = self._spawn_delay
+        else:
+            self.spawn_timer -= FPS_TICK
 
         # 1. Iterate the scene
         self.scene.iterate()

@@ -193,6 +193,9 @@ class Humanoid(Character):
         scene.log_weapons()
 
     def roll(self, vector, roll_cooldown=0, duration=0.5):
+        # Play roll sound:
+        play_sound('roll', 0.3*self.size/BASE_SIZE)
+
         # Set constants:
         self.rolled_through = []
         self.anchor_timer = 0

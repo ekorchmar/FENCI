@@ -14,8 +14,9 @@ import sys
 
 # Start pygame:
 if not pygame.get_init():
-    pygame.mixer.pre_init()
+    pygame.mixer.pre_init(buffer=4096)
     pygame.init()
+    pygame.mixer.set_num_channels(4)
 
 if not pygame.font.get_init():
     pygame.font.init()
@@ -28,21 +29,21 @@ s = pygame.surface.Surface
 
 
 # Load JSON dicts:
-def load_resource(file_path, directory='resource'):
+def load_json(file_path, directory='resource'):
     with open(os.path.join(directory, file_path)) as resource_json:
         return json.loads(resource_json.read())
 
 
 # Resource collections
-raw_materials = load_resource('raw_materials.json')
-colors = load_resource('colors.json')
-parts_dict = load_resource('parts.json')
-character_stats = load_resource('monsters.json')
-artifacts = load_resource('artifact.json')
-string = load_resource('en.json', directory='language')
+raw_materials = load_json('raw_materials.json')
+colors = load_json('colors.json')
+parts_dict = load_json('parts.json')
+character_stats = load_json('monsters.json')
+artifacts = load_json('artifact.json')
+string = load_json('en.json', directory='language')
 
 # Global options
-OPTIONS = load_resource('options.json', 'options')
+OPTIONS = load_json('options.json', 'options')
 
 FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
 
@@ -52,6 +53,14 @@ FPS_TARGET = 60
 FPS_TICK = 1 / FPS_TARGET
 BASE_SIZE = 24
 DISPLAY_COLOR = colors["background"]
+
+# All sounds:
+WEAPON_SOUNDS = 'shield', 'metal', 'bone', 'wood', 'mineral'  # Also serves as priority for collision sounds
+CREATURE_SOUNDS = 'hurt', 'jump', 'roll', 'collision', 'landing', 'death', 'swing'
+GAME_SOUNDS = 'player_death', 'respawn', 'level_clear', 'level_failed'
+MENU_SOUNDS = 'button', 'level_clear', 'level_failed'
+SOUND_PROFILES = None, '8bit'
+SOUND = dict()
 
 # Calculated standard Rects
 SCENE_BOUNDS = r(
@@ -333,7 +342,6 @@ def triangle_roll(value, offset):
 
 
 def exit_game():
-    pygame.mixer.quit()
     pygame.quit()
     sys.exit()
 
@@ -514,6 +522,46 @@ def end_theme():
     if pygame.mixer.music.get_busy():
         pygame.mixer.music.fadeout(100)
         pygame.mixer.music.unload()
+
+
+def load_sound_profile(profile_number, file_extension='wav'):
+    all_sounds = (*WEAPON_SOUNDS, *CREATURE_SOUNDS, *GAME_SOUNDS, *MENU_SOUNDS)
+    pygame.mixer.stop()
+
+    # Stop and drop existing sounds, if any
+    if pygame.mixer.get_busy():
+        pygame.mixer.stop()
+    SOUND.clear()
+
+    # Load new sounds:
+    if profile_number == 0:
+        return
+
+    profile = SOUND_PROFILES[profile_number]
+    for sound in all_sounds:
+        SOUND[sound] = pygame.mixer.Sound(file=os.path.join('sound', profile, f"{sound}.{file_extension}"))
+
+
+def play_sound(sound, volume, **kwargs):
+    if OPTIONS["sound"] == 0:
+        return
+
+    # Normalize volume:
+    volume = min(1, volume)
+    volume = max(0, volume)
+
+    # Free up a sound channel if needed:
+    free_channel = pygame.mixer.find_channel(False)
+
+    if free_channel is None:
+        return
+    if free_channel.get_busy():
+        free_channel.stop()
+
+    # Copy and play the sound using freed channel:
+    sound_instance = pygame.mixer.Sound(SOUND[sound])
+    free_channel.play(sound_instance, **kwargs)
+    free_channel.set_volume(volume)
 
 
 # Cheats/debugs

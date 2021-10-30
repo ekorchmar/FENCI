@@ -497,7 +497,7 @@ class Wielded(Equipment):
 
         self.disabled = False
         self.dangerous = False
-        return *self.draw(character)[:2], speed
+        return [*self.draw(character)[:2], speed]
 
     def deal_damage(self, vector=v(), victim=None, victor=None):
         return 0

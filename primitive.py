@@ -14,7 +14,7 @@ import sys
 
 # Start pygame:
 if not pygame.get_init():
-    pygame.mixer.pre_init(buffer=4096)
+    pygame.mixer.pre_init(buffer=4096, frequency=44100)
     pygame.init()
     pygame.mixer.set_num_channels(4)
 
@@ -404,7 +404,7 @@ def ascii_draws(font_size: int, draw_order):
     return glue_horizontal(*surfaces)
 
 
-def ascii_draw_rows(font_size, rows: list[list]):
+def ascii_draw_rows(font_size, rows: list):
     """Take input in form of multiple rows of ascii_draws. Assume rows are already of same length"""
     # Form list of surfaces from each row
     surfaces = [ascii_draws(font_size, [row]) for row in rows]
@@ -481,7 +481,7 @@ def glue_horizontal(*surfaces: s, offset=0, center_vertically=True):
     return resulting_surface
 
 
-def frame_text(lines: list[str], style='╔═╗╚╝║'):
+def frame_text(lines: list, style='╔═╗╚╝║'):
     """
     Styles cheat-sheet:
     ╔═╗╚╝║

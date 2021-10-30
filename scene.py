@@ -1218,7 +1218,7 @@ class Scene:
         pygame.event.set_grab(OPTIONS["grab_mouse"] and not self.paused and not self.menus)
 
         # Pause game and music on losing focus:
-        if not pygame.mouse.get_focused():
+        if not (pygame.mouse.get_focused() or pygame.key.get_focused() or pygame.display.get_active()):
             if pygame.mixer.music.get_busy():
                 pygame.mixer.music.pause()
 
@@ -1231,7 +1231,8 @@ class Scene:
 
         else:
             # Unpause music:
-            pygame.mixer.music.unpause()
+            if OPTIONS["music"] and SceneHandler.active.theme and not pygame.mixer.music.get_busy():
+                pygame.mixer.music.unpause()
 
     def spawn(self, monster, position_v=None):
 

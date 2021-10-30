@@ -14,7 +14,7 @@ import sys
 
 # Start pygame:
 if not pygame.get_init():
-    pygame.mixer.pre_init(buffer=4096, frequency=44100)
+    pygame.mixer.pre_init(44100, -16, 2, 1024)
     pygame.init()
     pygame.mixer.set_num_channels(4)
 

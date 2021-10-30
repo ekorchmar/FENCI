@@ -1539,7 +1539,7 @@ class Inventory:
 class LootOverlay:
     def __init__(
             self,
-            loot_list: list[Equipment],
+            loot_list: list,
             character: Character,
             rect: r = LOOT_SPACE,
             label_size: int = BASE_SIZE * 3 // 2,
@@ -1547,7 +1547,7 @@ class LootOverlay:
             offset: int = BASE_SIZE,
             appear_from: v = None,
             animation_time: float = 1.5,
-            draw_shortcuts: bool = True
+            draw_shortcuts=True
     ):
         self.loot_list = loot_list
         self.character = character
@@ -1706,7 +1706,7 @@ class Indicator:
 class ProgressionBars:
     def __init__(
             self,
-            content: dict[str, [Bar, Indicator]],
+            content: dict,
             base_color=DISPLAY_COLOR,
             rect=LEVEL_BAR_SPACE,
             font_size=BASE_SIZE*2//3,
@@ -1811,13 +1811,13 @@ class HeldMouse:
 class Button:
     def __init__(
             self,
-            text: list[str],
+            text: list,
             rect: r,
             action,
             action_parameters: list = None,
             action_keywords: dict = None,
             size: int = BASE_SIZE,
-            mouse_over_text: list[str] = None,
+            mouse_over_text: list = None,
             kb_index: int = None
     ):
         # Basis:
@@ -1923,9 +1923,9 @@ class Menu:
 
     def __init__(
             self,
-            buttons_list: list[Button],
+            buttons_list: list,
             rect: r = None,
-            decoration_objects: list[Banner] = None,
+            decoration_objects: list = None,
             background: bool = False,
             offset: int = BASE_SIZE,
             reposition_buttons: tuple = None,
@@ -2648,8 +2648,8 @@ class SceneHandler:
             self,
             tier: int,
             pad_monster_classes: list,
-            pad_monster_weights: list[float] = None,
-            monsters: list[Character] = None,
+            pad_monster_weights: list = None,
+            monsters: list = None,
             loot_drops: int = 4,
             monster_total_cost: int = 100,
             on_scren_enemies_value=(7, 12),

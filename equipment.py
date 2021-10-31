@@ -1,4 +1,5 @@
 # todo:
+#  Bash cooldown for shields
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -517,6 +518,7 @@ class Wielded(Equipment):
                     isinstance(other_weapon, Shield) or
                     (not self.dangerous and isinstance(other_weapon, Bladed) and other_weapon.spin_remaining > 0)
             ):
+                # Pass impact vector to other weapon
                 other_weapon.parry(
                     owner=opponent,
                     opponent=owner,
@@ -525,6 +527,13 @@ class Wielded(Equipment):
                 )
         else:
             collision_vector = calculated_impact
+
+        # Play sound dependent on collision vector, divide by other weapon weight:
+        sound_v = collision_vector/other_weapon.weight
+        sound_intensity = sound_v.length_squared() / (9*POKE_THRESHOLD*POKE_THRESHOLD)
+        material_physics = Material.registry[self.builder['constructor'][self.hitting_surface]['material']].physics
+        material_sound = Material.sounds[material_physics]
+        play_sound(material_sound, sound_intensity)
 
         # Don't get parried if:
         #   -Enemy weapon was not dangerous,
@@ -757,7 +766,10 @@ class Bladed(Wielded):
         else:
             # Spin without any angle restrictions and stamina consumption
             self.stamina_ignore_timer -= FPS_TICK
-            self.spin_remaining -= abs(self.angular_speed)
+            new_spin_remaining = self.spin_remaining - abs(self.angular_speed)
+            if new_spin_remaining // 360 < self.spin_remaining // 360:
+                play_sound('swing', 0.1*self.weight)
+            self.spin_remaining = new_spin_remaining
             self.last_angle += self.angular_speed
 
             # Normalize angle to pygame constraints (-180, 180):
@@ -842,6 +854,9 @@ class Pointed(Wielded):
         self._stab(character)
 
     def _stab(self, character, supplemental_v=None):
+        # Play sound:
+        play_sound('swing', 0.1*self.weight)
+
         if supplemental_v is None:
             supplemental_v = v()
 
@@ -1727,6 +1742,7 @@ class Axe(Bladed):
             self.charge_time += FPS_TICK
             if self.charge_time // self.character_specific["time_per_spin"] > self.spins_charged:
                 self.spins_charged += 1
+                play_sound('beep1', 0.5 if character.ai else 1)
                 # Spawn counting kicker:
                 count_kicker = Kicker(
                     size=BASE_SIZE,
@@ -1740,7 +1756,7 @@ class Axe(Bladed):
 
                 # Spawn sparks if max count is reached
                 if self.spins_charged == self._max_spins:
-
+                    play_sound('beep2', 0.5 if character.ai else 1)
                     self.last_spin_crits = True
                     for _ in range(5):
                         spark_v = v()
@@ -1753,6 +1769,7 @@ class Axe(Bladed):
                             lifetime=REMAINS_SCREENTIME * 0.0625
                         )
                         self.particles.append(spark)
+
         else:
             self.prevent_regen = True
 

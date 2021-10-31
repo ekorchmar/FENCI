@@ -1161,7 +1161,7 @@ class Scene:
             self.shaker.add_shake(damage*0.01)
 
     def undertake(self, character):
-        play_sound('death', 0.5*character.size/BASE_SIZE)
+        play_sound('death', character.size/BASE_SIZE)
         character.hp = -1
 
         friends_alive = any(filter(
@@ -1426,7 +1426,7 @@ class Scene:
     def hard_unpause(self):
         # Restore theme music volume:
         if pygame.mixer.music.get_busy():
-            pygame.mixer.music.set_volume(0.7)
+            pygame.mixer.music.set_volume(MUSIC_VOLUME)
         self.paused = False
 
     def generate_menu_popup(self, menu_class, keywords=None):
@@ -3082,6 +3082,10 @@ class SkirmishScenehandler(SceneHandler):
 
         pad_monster_classes = list(Character.registry.values())
         pad_monster_weights = [monster_class.skirmish_spawn_rate for monster_class in pad_monster_classes]
+
+        # Custom loot offering screens for newly spawning player:
+        self.offer_off_hand = False
+        self.offer_main_hand = False
 
         super().__init__(
             tier=tier,

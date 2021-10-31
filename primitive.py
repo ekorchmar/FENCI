@@ -54,9 +54,10 @@ FPS_TICK = 1 / FPS_TARGET
 BASE_SIZE = 24
 DISPLAY_COLOR = colors["background"]
 
-# All sounds:
+# All sounds and constants:
+MUSIC_VOLUME = 0.5
 WEAPON_SOUNDS = 'shield', 'metal', 'bone', 'wood', 'mineral'  # Also serves as priority for collision sounds
-CREATURE_SOUNDS = 'hurt', 'jump', 'roll', 'collision', 'landing', 'death', 'swing'
+CREATURE_SOUNDS = 'hurt', 'jump', 'roll', 'collision', 'landing', 'death', 'swing', 'beep1', 'beep2'
 GAME_SOUNDS = 'player_death', 'respawn', 'level_clear', 'level_failed'
 MENU_SOUNDS = 'button', 'level_clear', 'level_failed'
 SOUND_PROFILES = None, '8bit'
@@ -514,7 +515,7 @@ def play_theme(filepath):
         pygame.mixer.music.unload()
 
     pygame.mixer.music.load(filepath)
-    pygame.mixer.music.set_volume(0.7)
+    pygame.mixer.music.set_volume(MUSIC_VOLUME)
     pygame.mixer.music.play(loops=-1, fade_ms=1000)
 
 

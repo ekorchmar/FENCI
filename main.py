@@ -1,5 +1,4 @@
 # todo:
-#  8 bit sounds for weapon and character collisions
 #  Credits in Main Menu and after beating Lvl4 Skirmish
 # After tech demo
 # todo:
@@ -37,10 +36,9 @@ if __name__ == "__main__":
     SceneHandler.active = MainMenuSceneHandler()
 
     # Custom equipment (will not work in Main Menu)
-    # SceneHandler.active.scene.player.equip(Sword(BASE_SIZE, tier_target=2), 'main_hand')
+    # SceneHandler.active.scene.player.equip(Axe(BASE_SIZE, tier_target=2), 'main_hand')
     # SceneHandler.active.scene.player.equip(Katar(BASE_SIZE, tier_target=2), 'off_hand')
     # SceneHandler.active.scene.log_weapons()
 
     while True:
         SceneHandler.active.execute()
-        pygame.event.pump()

@@ -16,7 +16,7 @@ import sys
 if not pygame.get_init():
     pygame.mixer.pre_init(44100, -16, 2, 1024)
     pygame.init()
-    pygame.mixer.set_num_channels(4)
+    pygame.mixer.set_num_channels(8)
 
 if not pygame.font.get_init():
     pygame.font.init()
@@ -57,9 +57,9 @@ DISPLAY_COLOR = colors["background"]
 # All sounds and constants:
 MUSIC_VOLUME = 0.5
 WEAPON_SOUNDS = 'shield', 'metal', 'bone', 'wood', 'mineral'  # Also serves as priority for collision sounds
-CREATURE_SOUNDS = 'hurt', 'jump', 'roll', 'collision', 'landing', 'death', 'swing', 'beep1', 'beep2'
+CREATURE_SOUNDS = 'hurt', 'jump', 'roll', 'collision', 'landing', 'death', 'swing', 'beep1', 'beep2', 'drop', 'ram'
 GAME_SOUNDS = 'player_death', 'respawn', 'level_clear', 'level_failed'
-MENU_SOUNDS = 'button', 'level_clear', 'level_failed'
+MENU_SOUNDS = 'button', 'level_clear', 'level_failed', 'loot'
 SOUND_PROFILES = None, '8bit'
 SOUND = dict()
 

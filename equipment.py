@@ -485,11 +485,15 @@ class Wielded(Equipment):
         if character.position is None:
             return
 
+        # If character is not dead, play drop sound:
+        if character.hp > 0:
+            play_sound('drop', 0.5)
+
         # Set place if not set
         if self.hilt_v is None:
             self.reset(character)
 
-        # Surface and Recxt are provided by .draw
+        # Surface and Rect are provided by .draw
         # Movement vector is character's speed with added random push between 60º and 120º
         speed = v()
         r_phi = character.max_speed, -random.randint(45, 135)
@@ -768,7 +772,7 @@ class Bladed(Wielded):
             self.stamina_ignore_timer -= FPS_TICK
             new_spin_remaining = self.spin_remaining - abs(self.angular_speed)
             if new_spin_remaining // 360 < self.spin_remaining // 360:
-                play_sound('swing', 0.1*self.weight)
+                play_sound('swing', self.stamina_drain if character.ai else 1)
             self.spin_remaining = new_spin_remaining
             self.last_angle += self.angular_speed
 
@@ -854,8 +858,8 @@ class Pointed(Wielded):
         self._stab(character)
 
     def _stab(self, character, supplemental_v=None):
-        # Play sound:
-        play_sound('swing', 0.1*self.weight)
+        # Play sound, max volume for player:
+        play_sound('swing', 0.1*self.weight if character.ai else 1)
 
         if supplemental_v is None:
             supplemental_v = v()
@@ -1341,6 +1345,9 @@ class Spear(Pointed):
 
             # If tip reached SWING_THRESHOLD3/4, detach target
             if abs(self.angular_speed) > SWING_THRESHOLD*0.75:
+                # Play sound
+                play_sound('drop', 1)
+
                 # Unanchor and push in same direction
                 self.kebab.anchor_timer = 0
                 push_v = v(self.tip_delta)
@@ -2393,6 +2400,7 @@ class Shield(OffHand):
 
         # Player characters may activate shields instantly when running; also causes bash attack
         if self.can_bash(character) and not continuous_input:
+            play_sound('ram', 1)
             character.stamina *= 0.5
 
             self.held_counter = self.equip_time
@@ -2645,6 +2653,13 @@ class Shield(OffHand):
         self.active_last_frame = self.active_this_frame
         # If activation timer is completed, set character.shielded to True
         if self.held_counter >= self.equip_time:
+            # Play equip sound:
+            if (
+                    self.reactivation_timer <= 0 and
+                    self.held_counter <= self.equip_time + FPS_TICK and
+                    character.ai is None
+            ):
+                play_sound('shield', 0.3)
             character.shielded = self
         if not self.active_this_frame:
             character.bars.pop(self.prefer_slot, None)

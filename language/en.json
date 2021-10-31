@@ -108,6 +108,7 @@
     "Necromancy is a forbidden art. No self-respecting wizard will turn to necromancy. Those who do will still invent justification for their actions.",
     "Demon Lords were once influential enough to rally demons to start an invasion of Empire. Not one of them was influential enough to keep the invasion on track.",
     "FENCI lore is chokeful of references to popular fantasy, from Tolkien and Pratchett to even Carrol and Baum. That's because the game's author lacks any proper creativity.",
+    "Although elves and humans are usual students of wizard schools, there are legends of powerful orcish wizards, whose heavy staves are as dangerous as their spells.",
 
     "Trolls will investigate any commotion occuring on their territory. Investigation includes hitting source of commotion until it stops making noise.",
     "Trolls tolerate goblin gangs, as long as latter are successful in providing victim carcasses to the troll.",
@@ -159,13 +160,14 @@
     "Lighter Shields have longer bash range and are faster to pick up.",
     "Shield damage potential is not to be underestimated. Enemies take additional damage from being thrown into a wall.",
     "Lighter shields have high DRAIN stat and convert more blocked damage in stamina loss.",
-    "Shield bash usually restores more stamina on successful hit than it costs.",
+    "Shield bash restores more stamina on successful hit than it costs.",
 
     "Swords are simple, deal a lot of damage and are a reliable tool in most situations.",
     "Long and heavy swords are very powerful, but require strict discipline with stamina management.",
     "Light and short Sword is a go-to weapon for most combat encounters. It's a reliable weapon for a newbie, and a mastery tool for experienced player",
     "Swords don't offer much in terms of mobility. Pay attention to your positioning.",
     "He who lives by the Sword, stands a decent chance even against overwhelming numbers of enemies.",
+    "Most weapons are most effective in their niche, or rely on combos with other weapons. Swords are always perfect.",
 
     "Daggers have very short swinging range and modest damage, but offer best tactical options.",
     "Even accidental parry with a dagger will allow you to roll through your foes. Always look out for options!",
@@ -247,6 +249,7 @@
 
     },
     "loot_label_first": ["LOOT TIME! CHOOSE ONE."],
+    "loot_label_arena": ["CHOOSE YOUR WEAPON!"],
     "loot_label": [
       "LOOT TIME!",
       "DESERVED!",

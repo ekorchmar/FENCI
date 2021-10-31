@@ -1,5 +1,4 @@
 # todo:
-#  Choose main and offhand weapon in Difficulty menu
 #  display combo counter
 # After tech demo
 # todo:
@@ -343,7 +342,7 @@ class Scene:
             if not self.mouse_state[0] or self.held_mouse.hold():
                 self.held_mouse = None
 
-        # Handle last displayed menu:
+        # Handle most recent displayed menu:
         if self.menus:
             # Set cursor shape:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
@@ -379,6 +378,9 @@ class Scene:
 
         # Save to determine if mouse buttons are held for the next frame
         self.last_mouse_state = self.mouse_state[:]
+
+        # Prevent event queue overflow:
+        # pygame.event.pump()
 
     def _close_and_repair(self):
         self.loot_overlay = None
@@ -882,6 +884,7 @@ class Scene:
                         self.undertake(target)
                     # Cause FOF reaction in bots
                     elif actual_damage > 0:
+                        play_sound('hurt', actual_damage * 0.01)
                         self.alert_ai(target)
 
                     elif isinstance(target.shielded, Shield):
@@ -901,8 +904,10 @@ class Scene:
                         if self.player == target:
                             # Wielding lighter shield causes heavier screenshake:
                             self.shaker.add_shake(0.001 * damage * (10-shield.weight))
+                            play_sound('shield', 0.01 * damage)
                         elif self.player == owner:
                             self.shaker.add_shake(0.0025 * damage)
+                            play_sound('shield', 0.005 * damage)
 
                     # Spawn kicker and blood:
                     self.splatter(point, target, actual_damage, weapon)
@@ -970,6 +975,8 @@ class Scene:
                         deflectable=False  # Shield bash can't be blocked
                     )
 
+                    play_sound('shield', 1)
+
                     if not survived:
                         self.undertake(target)
                     # Cause FOF reaction in bots
@@ -1021,6 +1028,7 @@ class Scene:
                         damage_modifier = lerp((0.25 * POKE_THRESHOLD*POKE_THRESHOLD, POKE_THRESHOLD*POKE_THRESHOLD),
                                                relative_v.length_squared())
                         impact_damage = 0.05 * weapon.weight * damage_modifier
+                        play_sound('collision', 0.01 * impact_damage)
 
                         # Cap impact damage at 15% of target health:
                         impact_damage = min(impact_damage, target.pct_cap*target.max_hp)
@@ -1048,6 +1056,7 @@ class Scene:
                         weapon.speed *= 0.5 * weapon.weight/target.weight
 
                 else:
+                    play_sound('collision', 0.2)
                     collision_v.scale_to_length(POKE_THRESHOLD)
                     if not (weapon.shielded or weapon.anchor_timer > 0):
                         weapon.push(collision_v, 0.2, 'active')
@@ -1090,6 +1099,7 @@ class Scene:
             damage_modifier = lerp((0.25 * POKE_THRESHOLD * POKE_THRESHOLD, POKE_THRESHOLD * POKE_THRESHOLD),
                                    character.wall_collision_v.length_squared())
             impact_damage = 0.025 * character.weight * damage_modifier
+            play_sound('collision', 0.01*impact_damage)
 
             # Cap at 15% max_hp
             impact_damage = min(impact_damage, character.pct_cap * character.max_hp)
@@ -1218,7 +1228,7 @@ class Scene:
         pygame.event.set_grab(OPTIONS["grab_mouse"] and not self.paused and not self.menus)
 
         # Pause game and music on losing focus:
-        if not (pygame.mouse.get_focused() or pygame.key.get_focused() or pygame.display.get_active()):
+        if not (pygame.mouse.get_focused() or pygame.display.get_active()):
             if pygame.mixer.music.get_busy():
                 pygame.mixer.music.pause()
 
@@ -1548,7 +1558,8 @@ class LootOverlay:
             offset: int = BASE_SIZE,
             appear_from: v = None,
             animation_time: float = 1.5,
-            draw_shortcuts=True
+            draw_shortcuts=True,
+            sound=True
     ):
         self.loot_list = loot_list
         self.character = character
@@ -1577,6 +1588,10 @@ class LootOverlay:
 
         # Display help:
         self.helper = LootOverlayHelp()
+
+        # Play sound:
+        if sound:
+            play_sound('loot', 1)
 
     def redraw_loot(self):
         # Draw loot cards:
@@ -2483,7 +2498,8 @@ class Victory(Menu):
 class Defeat(Menu):
 
     def __init__(self, scene):
-        # Play sound:
+        # Stop theme music, play sound:
+        pygame.mixer.music.stop()
         play_sound('level_failed', 1)
 
         # Main menu button:
@@ -2635,7 +2651,7 @@ class Player(Humanoid):
 
         for weapon in (main_hand_pick, off_hand_pick):
             weapon_gen = Wielded.registry[artifacts[weapon[0]]["class"]]
-            generated = weapon_gen(24, equipment_dict=artifacts[weapon[0]], roll_stats=False)
+            generated = weapon_gen(BASE_SIZE, equipment_dict=artifacts[weapon[0]], roll_stats=False)
             self.equip(generated, weapon[1])
 
 
@@ -3078,18 +3094,19 @@ class SceneHandler:
 class SkirmishScenehandler(SceneHandler):
     theme = 'blkrbt_ninesix.ogg'
 
-    def __init__(self, tier: int, *args, **kwargs):
+    def __init__(self, tier: int, *args, player=None, **kwargs):
 
         pad_monster_classes = list(Character.registry.values())
         pad_monster_weights = [monster_class.skirmish_spawn_rate for monster_class in pad_monster_classes]
 
         # Custom loot offering screens for newly spawning player:
-        self.offer_off_hand = False
-        self.offer_main_hand = False
+        self.offer_off_hand = self.offer_main_hand = player is None
+        player = player or Player(position=PLAYER_SPAWN)  # Base scene handler would equip player automatically
 
         super().__init__(
             tier=tier,
             *args,
+            player=player,
             pad_monster_classes=pad_monster_classes,
             pad_monster_weights=pad_monster_weights,
             **kwargs
@@ -3110,20 +3127,75 @@ class SkirmishScenehandler(SceneHandler):
                 }
             }
 
-        # Pause monster spawning, and add a unpause countdown
+        # If no custom loot drops are needed, pause monster spawning, and add a unpause countdown:
         self.spawn_enemies = False
-        self.scene.particles.append(CountDown(
-                self._start_spawning,
-                {},
-                colors["pause_popup"],
-                position=self.scene.box.center[:],
-                go_text="FIGHT!"
-            ))
+        if not any((self.offer_main_hand, self.offer_off_hand)):
+            self.scene.particles.append(CountDown(
+                    self._start_spawning,
+                    {},
+                    colors["pause_popup"],
+                    position=self.scene.box.center[:],
+                    go_text="FIGHT!",
+                    ignore_pause=False
+                ))
 
     def _start_spawning(self):
         self.spawn_enemies = True
         # Spawn monsters for scene inception:
         self.batch_spawn(self.on_scren_enemies_value_range[0])
+
+    def execute(self):
+        # If no custom loot drops are needed, proceed as normal:
+        if not any((self.offer_main_hand, self.offer_off_hand)):
+            self.spawn_enemies = True
+            return super(SkirmishScenehandler, self).execute()
+
+        # Usual processing:
+        self.scene.iterate()
+        self._process_handover()
+        self.fill_scene_progression()
+
+        # Offer basic selection of artefacts for weapon slots:
+        if self.scene.loot_overlay is None and self.offer_main_hand:
+            self._skirmish_init_equip('main_hand')
+            self.offer_main_hand = False
+        elif self.scene.loot_overlay is None and self.offer_off_hand:
+            self._skirmish_init_equip('off_hand')
+            self.offer_off_hand = False
+
+        return False
+
+    def _skirmish_init_equip(self, slot):
+        weapon_classes = set(filter(
+            lambda cls: Wielded.registry[cls].prefer_slot == slot,
+            Wielded.registry.keys()
+        ))
+        main_hand_picks = random.sample(
+            list(filter(
+                lambda x:
+                artifacts[x]["class"] in weapon_classes and
+                artifacts[x]["tier"] == 0,
+                artifacts
+            )),
+            3
+        )
+
+        loot_package = []
+        for artifact in main_hand_picks:
+            generator = Wielded.registry[artifacts[artifact]["class"]]
+            loot_package.append(generator(BASE_SIZE, equipment_dict=artifacts[artifact], roll_stats=False))
+
+        # Loot label contains a hint if it's first in playthrough:
+        loot_label = random.choice(string["gameplay"]["loot_label_arena"])
+        self.player.seen_loot_drops = True
+
+        self.scene.loot_overlay = LootOverlay(
+            loot_package,
+            self.player,
+            label=loot_label,
+            appear_from=None,
+            sound=False
+        )
 
 
 class MainMenuSceneHandler(SceneHandler):

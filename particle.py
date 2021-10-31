@@ -639,6 +639,9 @@ class CountDown(Particle):
             for text in banner_texts
         ]
 
+        # Play first sound:
+        play_sound('beep1', 1)
+
     def draw(self, pause=False):
         if self.cache and pause and not self.ignore_pause:
             return self.cache
@@ -653,6 +656,9 @@ class CountDown(Particle):
         # Pop first banner in list, if it ran out
         if self.banner_particles[0].lifetime < 0:
             self.banner_particles.pop(0)
+            play_sound('beep1', 1)
+            if not self.banner_particles:
+                play_sound('beep2', 1)
 
         # Draw (new) first banner:
         self.cache = self.banner_particles[0].draw()

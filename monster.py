@@ -973,7 +973,7 @@ class AI:
                                 closest_friend.position
                             )
                             # Move in OPPOSITE direction:
-                            self.strategy_dict["ccw"] = not ccw
+                            self.strategy_dict["ccw"] = ccw
                         except IndexError:  # No friends =(
                             # Default to ccw
                             self.strategy_dict["ccw"] = True

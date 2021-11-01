@@ -419,6 +419,12 @@ class Character:
     class_name = None
     debug = False
 
+    # Class-specific:
+    color = None
+    blood = None
+    all_faces = None
+    flipped_faces = None
+
     def __init__(
             self,
             position,
@@ -482,24 +488,26 @@ class Character:
         # To be set by character subclass or externally
         self.body_coordinates = None
 
-        # Initialize a dictionary of all own faces
-        self.color = color
-        self.blood = blood
-        self.all_faces = dict()
-        self.flipped_faces = dict()
+        # Initialize a dictionary of all own faces and class constants in own class
+        if self.__class__.color is None:
+            self.__class__.color = color
+            self.__class__.blood = blood
 
-        for face in faces:
-            frames = []
-            flipped_frames = []
-            for frame in faces[face][:-1]:
-                surface = ascii_draw(self.size, frame, self.color)
-                frames.append(surface)
-                flipped_frames.append(pygame.transform.flip(surface, True, False))
-            # Last entry in list is time the emotion should be played:
-            frames.append(faces[face][-1])
-            flipped_frames.append(faces[face][-1])
-            self.flipped_faces[face] = frames
-            self.all_faces[face] = flipped_frames
+            self.__class__.all_faces = dict()
+            self.__class__.flipped_faces = dict()
+
+            for face in faces:
+                frames = []
+                flipped_frames = []
+                for frame in faces[face][:-1]:
+                    surface = ascii_draw(self.size, frame, self.color)
+                    frames.append(surface)
+                    flipped_frames.append(pygame.transform.flip(surface, True, False))
+                # Last entry in list is time the emotion should be played:
+                frames.append(faces[face][-1])
+                flipped_frames.append(faces[face][-1])
+                self.flipped_faces[face] = frames
+                self.all_faces[face] = flipped_frames
 
         self.face = self.all_faces['idle']
         # Must be updated by .draw method

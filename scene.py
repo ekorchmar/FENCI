@@ -1,5 +1,7 @@
 # todo:
 #  display combo counter
+#  support for tiled arbitrary sized arenas
+#  tile generation
 # After tech demo
 # todo:
 #  scenario feeds dict with debug info into scene for display_debug
@@ -159,6 +161,10 @@ class Scene:
         if debug:
             if self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
+
+            for character in self.characters:
+                if character.ai is not None and 'ccw' in character.ai.strategy_dict:
+                    self.echo(character, 'ccw' if character.ai.strategy_dict["ccw"] else 'cw', colors["lightning"])
             # play_sound(random.choice(list(SOUND.keys())), 1.0)
             play_sound('landing', 1)
             # print("No debug action set at the moment.")
@@ -383,8 +389,6 @@ class Scene:
         # pygame.event.pump()
 
     def _close_and_repair(self):
-        self.loot_overlay = None
-
         # Find the least damaged equipment to repair
         least_damaged = None
         least_damage = 100
@@ -415,7 +419,9 @@ class Scene:
         else:
             text = string["loot"]["skip"]
 
-        self._loot_info_banner(text)
+        if self.loot_overlay.banner:
+            self._loot_info_banner(text)
+        self.loot_overlay = None
 
     def _from_loot_overlay(self, item, slot):
         if not item:
@@ -430,13 +436,14 @@ class Scene:
             )
         item.reset(self.player)
         self.log_weapons()
-        self.loot_overlay = None
 
         # Show info banner:
-        text = f"{string['loot']['backpack1']} {item.name} {string['loot']['backpack2']}" if slot == "backpack" else \
-            f"{string['loot']['equip']} {item.name}!"
+        if self.loot_overlay.banner:
+            text = f"{string['loot']['backpack1']} {item.name} {string['loot']['backpack2']}" \
+                if slot == "backpack" else f"{string['loot']['equip']} {item.name}!"
 
-        self._loot_info_banner(text)
+            self._loot_info_banner(text)
+        self.loot_overlay = None
 
     def _loot_info_banner(self, text):
         looted_banner = Banner(
@@ -725,7 +732,8 @@ class Scene:
                             (not weapon.dangerous and abs(weapon.angular_speed) < SWING_THRESHOLD * 0.5) or
                             weapon.disabled or
                             not weapon.hitbox() or
-                            weapon in set(already_hit)
+                            weapon in set(already_hit) or
+                            (isinstance(weapon, Pointed) and weapon.kebab)
                     ):
                         continue
                     weapon_cleared = False
@@ -1559,7 +1567,8 @@ class LootOverlay:
             appear_from: v = None,
             animation_time: float = 1.5,
             draw_shortcuts=True,
-            sound=True
+            sound=True,
+            banner=True
     ):
         self.loot_list = loot_list
         self.character = character
@@ -1592,6 +1601,9 @@ class LootOverlay:
         # Play sound:
         if sound:
             play_sound('loot', 1)
+
+        # Remember if banner is needed:
+        self.banner = banner
 
     def redraw_loot(self):
         # Draw loot cards:
@@ -1737,6 +1749,10 @@ class ProgressionBars:
 
         # Contents (Bars and Indicators)
         self.content = content
+
+        # Initiate:
+        default_values = [(0 if isinstance(element, Bar) else False) for element in self.content]
+        self.update(default_values)
 
     def update(self, values: list):
         self.surface.fill(self.base_color)
@@ -2392,7 +2408,9 @@ class Victory(Menu):
             next_level_keywords=None
     ):
 
-        # Play sound:
+        # Stop theme music, play sound:
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
         play_sound('level_clear', 1)
 
         index = 0
@@ -2499,7 +2517,8 @@ class Defeat(Menu):
 
     def __init__(self, scene):
         # Stop theme music, play sound:
-        pygame.mixer.music.stop()
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
         play_sound('level_failed', 1)
 
         # Main menu button:
@@ -3147,13 +3166,17 @@ class SkirmishScenehandler(SceneHandler):
     def execute(self):
         # If no custom loot drops are needed, proceed as normal:
         if not any((self.offer_main_hand, self.offer_off_hand)):
-            self.spawn_enemies = True
+
+            # Spawn enemies if there is no countdown to do so:
+            if not any(countdown for countdown in self.scene.particles if isinstance(countdown, CountDown)):
+                self.spawn_enemies = True
+
             return super(SkirmishScenehandler, self).execute()
 
         # Usual processing:
+        self.fill_scene_progression()
         self.scene.iterate()
         self._process_handover()
-        self.fill_scene_progression()
 
         # Offer basic selection of artefacts for weapon slots:
         if self.scene.loot_overlay is None and self.offer_main_hand:
@@ -3194,7 +3217,8 @@ class SkirmishScenehandler(SceneHandler):
             self.player,
             label=loot_label,
             appear_from=None,
-            sound=False
+            sound=False,
+            banner=False
         )
 
 

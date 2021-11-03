@@ -1,5 +1,4 @@
 # todo:
-#  Bash cooldown for shields
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -1552,7 +1551,14 @@ class Dagger(Short, Bladed):
 
     def deal_damage(self, vector=v(), victim=None, victor=None):
         # Determine if stabbibg or swinging damage is dealt; swinging is always min damage
-        return Pointed.deal_damage(self, vector, victim, victor)
+        stab = Pointed.deal_damage(self, vector, victim, victor)
+        swing = Bladed.deal_damage(self, vector, victim, victor)
+
+        # If swing damage would be higher than stab damage, return minimal possible damage:
+        if swing > stab:
+            return self.damage_range[0]
+
+        return stab
 
     def __init__(self, *args, **kwargs):
         self.roll_window = 0

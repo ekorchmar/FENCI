@@ -157,7 +157,6 @@ NUMBER_CODES = list(enumerate(range(pygame.K_1, pygame.K_9)))
 NUMBER_LABELS = {i: str(i+1) for i in range(9)}
 
 # Pygame display and clock
-pygame.display.set_caption("FENCI")
 SCREEN = None
 CLOCK = pygame.time.Clock()
 
@@ -347,15 +346,34 @@ def exit_game():
     sys.exit()
 
 
+def draw_icon():
+    icon_surface = s((64, 64), pygame.SRCALPHA)
+    icon_surface.fill(colors['background'])
+
+    dagger1 = ascii_draw(18, '-]=≡>', colors["inventory_text"])
+    icon_surface.blit(*rot_center(dagger1, 45, v(32, 32)))
+
+    dagger2 = ascii_draw(18, '⊂{≡=-', colors["inventory_text"])
+    icon_surface.blit(*rot_center(dagger2, 135, v(32, 32)))
+
+    frame_surface(icon_surface, colors["inventory_text"])
+    pygame.display.set_icon(icon_surface)
+
+
+def unfocused():
+    return not (pygame.mouse.get_focused() or pygame.mouse.get_focused())
+
+
 # Drawing tools
 def update_screen():
     global SCREEN
+
+    # Set window icon and name:
+    pygame.display.set_caption("FENCI")
+    draw_icon()
+
     display_flags = pygame.SCALED | pygame.FULLSCREEN if OPTIONS['fullscreen'] else pygame.SCALED
     SCREEN = pygame.display.set_mode(WINDOW_SIZE, flags=display_flags, vsync=0)
-
-
-# Start the screen immediately:
-update_screen()
 
 
 def ascii_draw(font_size: int, ascii_string: str, draw_color):
@@ -544,7 +562,7 @@ def load_sound_profile(profile_number, file_extension='wav'):
 
 
 def play_sound(sound, volume, **kwargs):
-    if OPTIONS["sound"] == 0:
+    if OPTIONS["sound"] == 0 or unfocused():
         return
 
     # Normalize volume:
@@ -589,3 +607,7 @@ def kill_random(scene):
     if scene.player in cohort:
         cohort.remove(scene.player)
     scene.undertake(random.choice(cohort))
+
+
+# Start the screen:
+update_screen()

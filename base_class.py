@@ -1,5 +1,5 @@
 # todo:
-#  Face generation to class method to reduce load times
+#  Bar generation to save input in a dict for copying of bars with same parameters
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -176,28 +176,49 @@ class Bar:
             base_color=colors["bar_base"],
             show_number=False,
             cache=True,
-            style='[█_]'
+            style='[█_]',
+            predetermined: int = None
     ):
         self.max_value = max_value
         self.show_number = show_number
         self.base_color = base_color
         self.width = width
-        # Generate sequence of ASCII loading bars representing different states
-        bar_set = []
-        for i in range(width+1):
-            bar_set.append((
-                [style[0], base_color], [style[1] * i, fill_color], [(width - i) * style[2] + style[3], base_color]
-            ))
-        # Generate sequence of surfaces, cache them
-        self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
+
+        if predetermined is not None:
+            # Generate a single surface displaying given value:
+            i = round(width * predetermined / max_value)
+            bar_string = (
+                [style[0], base_color],
+                [style[1] * i, fill_color],
+                [(width - i) * style[2] + style[3], base_color]
+            )
+            self.surfaces = [ascii_draws(size, bar_string)]
+
+        else:
+            # Generate sequence of ASCII loading bars representing different states
+            bar_set = []
+            for i in range(width+1):
+                bar_set.append((
+                    [style[0], base_color], [style[1] * i, fill_color], [(width - i) * style[2] + style[3], base_color]
+                ))
+            # Generate sequence of surfaces, cache them
+            self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
+
         self.font_size = size
         self.rect = self.surfaces[0].get_rect()
 
+        # Caching:
         self.caching = cache
         self.cache = []
         self.display_timer = 0
 
+        # Return set value:
+        self.predetermined = predetermined
+
     def display(self, value):
+        if self.predetermined:
+            return self.surfaces[0], self.rect
+
         # Only recache every 0.1s:
         if self.caching and self.display_timer <= 0.1 and self.cache:
             self.display_timer += FPS_TICK

@@ -1236,7 +1236,7 @@ class Scene:
         pygame.event.set_grab(OPTIONS["grab_mouse"] and not self.paused and not self.menus)
 
         # Pause game and music on losing focus:
-        if not (pygame.mouse.get_focused() or pygame.display.get_active()):
+        if unfocused():
             if pygame.mixer.music.get_busy():
                 pygame.mixer.music.pause()
 
@@ -1530,7 +1530,8 @@ class Inventory:
                     base_color=color,
                     show_number=False,
                     cache=False,
-                    style=' ♥♡ '
+                    style=' ♥♡ ',
+                    predetermined=content.durability
                 )
                 bar_surf, bar_rect = durability.display(content.durability)
                 bar_left = (self.slot_rects[slot].width - bar_rect.width)//2

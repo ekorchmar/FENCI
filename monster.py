@@ -243,8 +243,7 @@ class Humanoid(Character):
                     colors["bar_base"],
                     self.roll_cooldown,
                     base_color=colors["bar_base"],
-                    show_number=False,
-                    cache=False
+                    show_number=False
                 )
 
             # Prevent weapons from dealing absurd damage:
@@ -948,7 +947,7 @@ class AI:
                 # Distance is at least enemy reach, but not more than own reach
                 # May stay outside own reach if enemy reach is longer
                 # corridor is 0.8a < d < 1.2a
-                desired_distance = max(self.effective_range(), self.enemies[self.target]["reach"])
+                desired_distance = max(self.effective_range(), self.enemies[self.target]["reach"], 1)
                 actual_distance = distances[self.target]
                 if 0.8*actual_distance < desired_distance < 1.2*actual_distance:
                     # Roll for aggression, either prepare to charge or keep circling around target

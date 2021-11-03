@@ -1529,7 +1529,6 @@ class Inventory:
                     fill_color=color,
                     base_color=color,
                     show_number=False,
-                    cache=False,
                     style=' ♥♡ ',
                     predetermined=content.durability
                 )

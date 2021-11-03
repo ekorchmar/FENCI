@@ -167,64 +167,103 @@ class Shaker:
 
 
 class Bar:
-    def __init__(
-            self,
-            size,
-            width,
-            fill_color,
-            max_value,
-            base_color=colors["bar_base"],
-            show_number=False,
-            cache=True,
-            style='[█_]',
-            predetermined: int = None
+    # Every Bar that is created stores input data in cache;
+    # SceneHandlers create dozens of characters with same stats, who can share one instance for same bars
+    instance_cache = dict()
+
+    def __new__(
+        cls,
+        size,
+        width,
+        fill_color,
+        max_value,
+        base_color=colors["bar_base"],
+        show_number=False,
+        style='[█_]',
+        predetermined: int = None
     ):
+        created = size, width, tuple(fill_color), max_value, tuple(base_color), show_number, \
+                    style, predetermined
+        if created not in cls.instance_cache:
+            return super().__new__(cls)
+        return cls.instance_cache[created]
+
+    def __init__(
+        self,
+        size,
+        width,
+        fill_color,
+        max_value,
+        base_color=colors["bar_base"],
+        show_number=False,
+        style='[█_]',
+        predetermined: int = None
+    ):
+        # Create a key with arguments to store in
+        creation_arguments = size, width, tuple(fill_color), max_value, tuple(base_color), \
+                             show_number, style, predetermined
+
+        if creation_arguments not in self.__class__.instance_cache:
+            self._init(*creation_arguments)
+            self.__class__.instance_cache[creation_arguments] = self
+
+    def _init(self, size, width, fill_color, max_value, base_color, show_number, style, predetermined):
         self.max_value = max_value
         self.show_number = show_number
         self.base_color = base_color
         self.width = width
+        self.style = style
+        self.fill_color = fill_color
+        self.size = size
 
-        if predetermined is not None:
-            # Generate a single surface displaying given value:
-            i = round(width * predetermined / max_value)
-            bar_string = (
-                [style[0], base_color],
-                [style[1] * i, fill_color],
-                [(width - i) * style[2] + style[3], base_color]
-            )
-            self.surfaces = [ascii_draws(size, bar_string)]
+        # Return set value:
+        self.predetermined = predetermined
 
-        else:
-            # Generate sequence of ASCII loading bars representing different states
-            bar_set = []
-            for i in range(width+1):
-                bar_set.append((
-                    [style[0], base_color], [style[1] * i, fill_color], [(width - i) * style[2] + style[3], base_color]
-                ))
-            # Generate sequence of surfaces, cache them
-            self.surfaces = [ascii_draws(size, bar_string) for bar_string in bar_set]
+        # Draw surfaces:
+        self._update_surfaces()
 
         self.font_size = size
         self.rect = self.surfaces[0].get_rect()
 
         # Caching:
-        self.caching = cache
-        self.cache = []
-        self.display_timer = 0
+        # self.cache = []
+        # self.last_updated = pygame.time.get_ticks()
 
-        # Return set value:
-        self.predetermined = predetermined
+    def _update_surfaces(self):
+        if self.predetermined is not None:
+            # Generate a single surface displaying given value:
+            i = round(self.width * self.predetermined / self.max_value)
+            bar_string = (
+                [self.style[0], self.base_color],
+                [self.style[1] * i, self.fill_color],
+                [(self.width - i) * self.style[2] + self.style[3], self.base_color]
+            )
+            self.surfaces = [ascii_draws(self.size, bar_string)]
+
+        else:
+            # Generate sequence of ASCII loading bars representing different states
+            bar_set = []
+            for i in range(self.width+1):
+                bar_set.append((
+                    [self.style[0], self.base_color],
+                    [self.style[1] * i, self.fill_color],
+                    [(self.width - i) * self.style[2] + self.style[3], self.base_color]
+                ))
+            # Generate sequence of surfaces, cache them
+            self.surfaces = [ascii_draws(self.size, bar_string) for bar_string in bar_set]
 
     def display(self, value):
         if self.predetermined:
             return self.surfaces[0], self.rect
 
         # Only recache every 0.1s:
-        if self.caching and self.display_timer <= 0.1 and self.cache:
-            self.display_timer += FPS_TICK
-            return self.cache
-        else:
-            self.display_timer = 0
+        # Not needed with persistent surface cache; also interferes with single cache
+        # If I ever need it, there should be a class dict with character-specific timers
+        # access_time = pygame.time.get_ticks()
+        # if self.caching and access_time - self.last_updated < 100 and self.cache:
+        #    return self.cache
+        # else:
+        #    self.last_updated = pygame.time.get_ticks()
 
         # Find closest corresponding image to requested
         if value <= 0:
@@ -242,9 +281,9 @@ class Bar:
         else:  # Don't copy
             surface = self.surfaces[index]
 
-        self.cache = surface, self.rect
+        # self.cache = surface, self.rect
 
-        return self.cache
+        return surface, self.rect
 
 
 class Equipment:
@@ -970,8 +1009,7 @@ class Character:
                 fill_color=colors["effect_timer"],
                 max_value=self.hit_immunity,
                 base_color=colors["bar_base"],
-                show_number=False,
-                cache=False
+                show_number=False
             )
             self.bars['immune_timer'] = hurt_bar
 
@@ -1022,8 +1060,7 @@ class Character:
             self.attacks_color,
             duration,
             base_color=colors["bar_base"],
-            show_number=False,
-            cache=False
+            show_number=False
         )
 
         # Lock equipped weapons:

@@ -1,5 +1,4 @@
 # todo:
-#  Bar generation to save input in a dict for copying of bars with same parameters
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -184,7 +183,7 @@ class Bar:
     ):
         created = size, width, tuple(fill_color), max_value, tuple(base_color), show_number, \
                     style, predetermined
-        if created not in cls.instance_cache:
+        if created not in cls.instance_cache or predetermined:
             return super().__new__(cls)
         return cls.instance_cache[created]
 
@@ -203,7 +202,7 @@ class Bar:
         creation_arguments = size, width, tuple(fill_color), max_value, tuple(base_color), \
                              show_number, style, predetermined
 
-        if creation_arguments not in self.__class__.instance_cache:
+        if creation_arguments not in self.__class__.instance_cache or predetermined:
             self._init(*creation_arguments)
             self.__class__.instance_cache[creation_arguments] = self
 

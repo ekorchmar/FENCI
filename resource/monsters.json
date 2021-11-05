@@ -1,6 +1,6 @@
 {
   "body": {
-    "human": {
+    "Human": {
       "size": 1,
       "agility": 1,
       "max_speed": 7.5,
@@ -12,7 +12,7 @@
       "blood": [204, 0, 0],
       "hand": "m"
     },
-    "goblin": {
+    "Goblin": {
       "size": 0.6,
       "agility": 1.25,
       "max_speed": 6,
@@ -28,7 +28,7 @@
       "blood": [80, 204, 40],
       "hand": "m"
     },
-    "orc": {
+    "Orc": {
       "size": 1.1,
       "agility": 2,
       "max_speed": 4,
@@ -46,27 +46,33 @@
     }
   },
   "soul": {
-    "goblin": {
+    "Goblin": {
       "aggression": 0.8,
       "skill": 0.3,
       "flexibility": 0.7,
       "courage": 0.2
     },
-    "orc": {
+    "Orc": {
       "aggression": 0.5,
       "skill": 0.6,
       "flexibility": 0.3,
       "courage": 0.8
     },
-    "human": {
+    "Human": {
       "aggression": 0.5,
       "skill": 0.5,
       "flexibility": 0.5,
       "courage": 0.5
+    },
+    "Elf": {
+      "aggression": 0.5,
+      "skill": 0.7,
+      "flexibility": 0.8,
+      "courage": 0.4
     }
   },
   "mind": {
-    "human": {
+    "Human": {
         "idle": [
           "( o ‿o)",
           0
@@ -138,7 +144,7 @@
           0
         ]
     },
-    "goblin": {
+    "Goblin": {
         "idle": [
           "(^o >o)",
           0
@@ -199,10 +205,10 @@
           0
         ]
       },
-    "skeleton": {
+    "Skeleton": {
       "idle": "( •̟̟̟•)"
     },
-    "orc": {
+    "Orc": {
         "idle": [
           "( o_o)",
           0

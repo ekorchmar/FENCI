@@ -333,7 +333,7 @@ class Equipment:
     def reset(self, character):
         pass
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
         """
         Skeleton for subclasses. Intended to generate own surface object and update stats according to picked materials
         """
@@ -468,6 +468,43 @@ class Equipment:
         return current_limit
 
 
+class Nothing(Equipment):
+    held_position = v()
+    default_angle = 0
+    hides_hand = False
+    hand_rotation = 0
+
+    def __bool__(self):
+        return False
+
+    def __init__(self):
+        super().__init__()
+        self.last_angle = 0
+        self.activation_offset = v()
+        self.lock_timer = 0
+        self.disabled = False
+        self.dangerous = False
+
+    def aim(self, hilt_placement, aiming_vector, character):
+        self.last_angle = aiming_vector.as_polar()[1]
+
+    def activate(self, character, continuous_input):
+        # todo: punch! stuns and displaces enemy, minimal damage
+        pass
+
+    def lock(self, duration, angle=None, inertia=None):
+        pass
+
+    def reset(self, character):
+        pass
+
+    def description(self):
+        return
+
+    def limit_speed(self):
+        return 1.0
+
+
 class Character:
     registry = dict()
     weapon_slots = []
@@ -483,8 +520,10 @@ class Character:
     # Class-specific:
     color = None
     blood = None
-    all_faces = None
-    flipped_faces = None
+
+    # Face collections are size-specific
+    all_faces = dict()
+    flipped_faces = dict()
 
     def __init__(
             self,
@@ -549,13 +588,16 @@ class Character:
         # To be set by character subclass or externally
         self.body_coordinates = None
 
-        # Initialize a dictionary of all own faces and class constants in own class
+        # Save class colors:
         if self.__class__.color is None:
             self.__class__.color = color
             self.__class__.blood = blood
 
-            self.__class__.all_faces = dict()
-            self.__class__.flipped_faces = dict()
+        # Initialize a dictionary of all own faces and class constants in own class
+        if self.size not in self.__class__.all_faces:
+
+            self.__class__.all_faces[self.size] = dict()
+            self.__class__.flipped_faces[self.size] = dict()
 
             for face in faces:
                 frames = []
@@ -567,10 +609,10 @@ class Character:
                 # Last entry in list is time the emotion should be played:
                 frames.append(faces[face][-1])
                 flipped_frames.append(faces[face][-1])
-                self.flipped_faces[face] = frames
-                self.all_faces[face] = flipped_frames
+                self.flipped_faces[self.size][face] = frames
+                self.all_faces[self.size][face] = flipped_frames
 
-        self.face = self.all_faces['idle']
+        self.face = self.all_faces[self.size]['idle']
         # Must be updated by .draw method
         self.hitbox = []
 
@@ -1179,6 +1221,32 @@ class Character:
         # Preserves string literals for each of classes that are eligible to spawn
         if cls.class_name:
             cls.registry[cls.class_name] = cls
+
+    def equip(self, armament, slot):
+        # Allow to update constants
+        armament.on_equip(self)
+
+        # Equipping Nothing drops slot content
+        if not armament:
+            self.slots[slot], drop = Nothing(), self.slots[slot]
+            return drop
+
+        # Orient weapon
+        armament.last_angle = armament.default_angle if self.facing_right else 180 - armament.default_angle
+
+        # If slot is empty, just equip and drop Nothing
+        if not self.slots[slot]:
+            self.slots[slot] = armament
+            return Nothing()
+
+        # If available, move currently equipped item to backpack
+        elif 'backpack' in self.slots and slot != 'backpack' and not self.slots['backpack']:
+            self.slots[slot], self.slots['backpack'] = armament, self.slots[slot]
+            return Nothing()
+
+        # Otherwise equip over, drop original content
+        self.slots[slot], drop = armament, self.slots[slot]
+        return drop
 
 
 class Particle:

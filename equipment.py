@@ -1,4 +1,5 @@
 # todo:
+#  Add cosmetic crowns
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -19,43 +20,6 @@ from particle import Kicker, MouseHint, Spark, DustCloud
 
 
 # Define equipment classes:
-class Nothing(Equipment):
-    held_position = v()
-    default_angle = 0
-    hides_hand = False
-    hand_rotation = 0
-
-    def __bool__(self):
-        return False
-
-    def __init__(self):
-        super().__init__()
-        self.last_angle = 0
-        self.activation_offset = v()
-        self.lock_timer = 0
-        self.disabled = False
-        self.dangerous = False
-
-    def aim(self, hilt_placement, aiming_vector, character):
-        self.last_angle = aiming_vector.as_polar()[1]
-
-    def activate(self, character, continuous_input):
-        # todo: punch! stuns and displaces enemy, minimal damage
-        pass
-
-    def lock(self, duration, angle=None, inertia=None):
-        pass
-
-    def reset(self, character):
-        pass
-
-    def description(self):
-        return
-
-    def limit_speed(self):
-        return 1.0
-
-
 class Hat(Equipment):
     prefer_slot = 'hat'
 
@@ -140,7 +104,7 @@ class Wielded(Equipment):
         self.bleed = 0
         self.damage_range = 0, 0
         self.color = color
-        self.generate(size, tier_target)
+        self.generate(tier_target)
         self.update_stats()
         self.name = name or self.generate_name()
 
@@ -1012,7 +976,7 @@ class Sword(Bladed, Pointed):
     upside = ["Activate to dash and stab", "Powerful swing and stab attacks"]
     class_name = "Sword"
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
 
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
@@ -1093,7 +1057,7 @@ class Sword(Bladed, Pointed):
         blade_material = self.builder["constructor"]["blade"]["color"]
 
         self.surface = ascii_draws(
-            size,
+            self.font_size,
             (
                 (hilt_str, hilt_material),
                 (blade_str, blade_material)
@@ -1169,7 +1133,7 @@ class Spear(Pointed):
         # Fully charged destroys shields
         self.destroys_shield = False
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
 
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
@@ -1217,10 +1181,10 @@ class Spear(Pointed):
         tip_color = self.builder["constructor"]["head"]["color"]
 
         spear_builder = (shaft_str, shaft_color), (tip_str, tip_color)
-        self.surface = ascii_draws(size, spear_builder)
+        self.surface = ascii_draws(self.font_size, spear_builder)
 
         spear_builder_sk = (shaft_str, shaft_color), (tip_sk, tip_color)
-        self.skewering_surface = ascii_draws(size, spear_builder_sk)
+        self.skewering_surface = ascii_draws(self.font_size, spear_builder_sk)
 
         pole_length = len(shaft_str + tip_str)
         # Hold at 3rd pole character
@@ -1461,7 +1425,7 @@ class Dagger(Short, Bladed):
     ]
     downside = ["Minimal damage on swing attacks"]
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
         self.builder["tier"] = self.builder.get("tier", tier)
@@ -1534,7 +1498,7 @@ class Dagger(Short, Bladed):
         blade_material = self.builder["constructor"]["blade"]["color"]
 
         self.surface = ascii_draws(
-            size,
+            self.font_size,
             (
                 (hilt_str, hilt_material),
                 (blade_str, blade_material)
@@ -1824,7 +1788,7 @@ class Axe(Bladed):
 
         self.wing_tips_v = new_hitbox
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
 
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
@@ -1897,7 +1861,7 @@ class Axe(Bladed):
         head_color = self.builder["constructor"]["head"]["color"]
 
         self.surface = ascii_draw_rows(
-            size, [[row, head_color] for row in head_str] + [[row, handle_color] for row in handle_str]
+            self.font_size, [[row, head_color] for row in head_str] + [[row, handle_color] for row in handle_str]
         )
         self.surface = pygame.transform.rotate(self.surface, -90)
 
@@ -2098,7 +2062,7 @@ class Falchion(Sword):
         self.roll_cooldown = 0
         super(Falchion, self).__init__(*args, **kwargs)
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
 
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
@@ -2172,7 +2136,7 @@ class Falchion(Sword):
         blade_material = self.builder["constructor"]["blade"]["color"]
 
         self.surface = ascii_draws(
-            size,
+            self.font_size,
             (
                 (hilt_str, hilt_material),
                 (blade_str, blade_material)
@@ -2288,7 +2252,7 @@ class Shield(OffHand):
         self.internal_immunity = 0
         self.reactivation_timer = 0
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
 
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
@@ -2357,7 +2321,7 @@ class Shield(OffHand):
 
         shield_builder = (left_str, edge_color), (plate_str, plate_color), (right_str, edge_color)
 
-        self.surface = ascii_draws(size, shield_builder)
+        self.surface = ascii_draws(self.font_size, shield_builder)
 
         self.hilt = self.surface.get_rect().center
 
@@ -2714,7 +2678,7 @@ class Swordbreaker(Dagger, OffHand):
     ]
     prevent_activation = False
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
         self.builder["tier"] = self.builder.get("tier", tier)
@@ -2786,7 +2750,7 @@ class Swordbreaker(Dagger, OffHand):
         blade_material = self.builder["constructor"]["blade"]["color"]
 
         self.surface = ascii_draws(
-            size,
+            self.font_size,
             (
                 (hilt_str, hilt_material),
                 (blade_str, blade_material)
@@ -2886,7 +2850,7 @@ class Katar(Pointed, OffHand):
             _custom_surface=use_surface
         )
 
-    def generate(self, size, tier=None):
+    def generate(self, tier=None):
         # Fill missing parts of self.builder on the go:
         self.builder["constructor"] = self.builder.get("constructor", {})
         self.builder["tier"] = self.builder.get("tier", tier)
@@ -2957,14 +2921,14 @@ class Katar(Pointed, OffHand):
         blade_material = self.builder["constructor"]["blade"]["color"]
 
         self.surface = ascii_draws(
-            size,
+            self.font_size,
             (
                 (handle_str, handle_material),
                 (blade_str, blade_material)
             )
         )
         self.skewering_surface = ascii_draws(
-            size,
+            self.font_size,
             (
                 (handle_str, handle_material),
                 (blade_str[:-1] + ' ', blade_material)

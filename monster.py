@@ -73,7 +73,7 @@ class Humanoid(Character):
 
         self.state = random.choice(['blink', 'blink', 'idle_rare'])
         if self.state == 'idle_rare':
-            self.state_timer = self.all_faces[self.state][-1]
+            self.state_timer = self.all_faces[self.size][self.state][-1]
         else:
             self.state_timer = 0.1
 
@@ -86,8 +86,8 @@ class Humanoid(Character):
         # Modify placement by adding placement coordinates and relative offset from self.body_coordinates
         # 1. Draw face
 
-        # Pick facial expression
-        face_row = self.all_faces.get(self.visual_state, self.all_faces['idle'])
+        # Pick facial expression (defaults to idle)
+        face_row = self.all_faces[self.size].get(self.visual_state, self.all_faces[self.size]['idle'])
         if face_row[-1] > 0:
             time_per_frame = face_row[-1] / (len(face_row) - 1)  # total time / faces number
             index = int(self.visual_timer / time_per_frame)
@@ -276,32 +276,6 @@ class Humanoid(Character):
                 for dodged in passing:
                     if dodged not in self.rolled_through:
                         self.rolled_through.append(dodged)
-
-    def equip(self, armament, slot):
-        # Allow to update constants
-        armament.on_equip(self)
-
-        # Equipping Nothing drops slot content
-        if not armament:
-            self.slots[slot], drop = Nothing(), self.slots[slot]
-            return drop
-
-        # Orient weapon
-        armament.last_angle = armament.default_angle if self.facing_right else 180 - armament.default_angle
-
-        # If slot is empty, just equip and drop Nothing
-        if not self.slots[slot]:
-            self.slots[slot] = armament
-            return Nothing()
-
-        # If available, move currently equipped item to backpack
-        elif slot != 'backpack' and not self.slots['backpack']:
-            self.slots[slot], self.slots['backpack'] = armament, self.slots[slot]
-            return Nothing()
-
-        # Otherwise equip over, drop original content
-        self.slots[slot], drop = armament, self.slots[slot]
-        return drop
 
 
 class AI:
@@ -1316,9 +1290,9 @@ class Goblin(Humanoid):
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
-        body_stats = character_stats["body"]["goblin"].copy()
-        ai_stats = character_stats["soul"]["goblin"].copy()
-        portraits = character_stats["mind"]["goblin"].copy()
+        body_stats = character_stats["body"]["Goblin"].copy()
+        ai_stats = character_stats["soul"]["Goblin"].copy()
+        portraits = character_stats["mind"]["Goblin"].copy()
 
         body_stats["health"] += 20 * (tier - 1)
         body_stats["max_speed"] += tier / 2
@@ -1522,9 +1496,9 @@ class Human(Humanoid):
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
-        body_stats = character_stats["body"]["human"].copy()
-        ai_stats = character_stats["soul"]["human"].copy()
-        portraits = character_stats["mind"]["human"].copy()
+        body_stats = character_stats["body"]["Human"].copy()
+        ai_stats = character_stats["soul"]["Human"].copy()
+        portraits = character_stats["mind"]["Human"].copy()
 
         body_stats["health"] += 20 * (tier - 1)
         body_stats["max_speed"] += tier / 2
@@ -1554,7 +1528,7 @@ class Human(Humanoid):
                     'painted' in shield.builder['constructor']['plate']['tags']
             ):
                 shield.builder['constructor']['plate']['color'] = team_color
-                shield.generate(size=int(BASE_SIZE * body_stats['size']))
+                shield.generate()
                 shield.update_stats()
 
         # Add AI:
@@ -1568,9 +1542,9 @@ class Orc(Humanoid):
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
-        body_stats = character_stats["body"]["orc"].copy()
-        ai_stats = character_stats["soul"]["orc"].copy()
-        portraits = character_stats["mind"]["orc"].copy()
+        body_stats = character_stats["body"]["Orc"].copy()
+        ai_stats = character_stats["soul"]["Orc"].copy()
+        portraits = character_stats["mind"]["Orc"].copy()
 
         body_stats["health"] += 40 * (tier - 1)
         body_stats["max_speed"] += tier / 3

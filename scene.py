@@ -17,7 +17,7 @@
 
 from particle import *
 from artifact import *
-from monster import *
+from boss import *
 
 # Display FPS counters(initial state):
 fps_querried_time = 1000
@@ -162,6 +162,8 @@ class Scene:
         if debug:
             if self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
+                self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
+                               collision_group=self.player.collision_group)
 
             # play_sound(random.choice(list(SOUND.keys())), 1.0)
             # play_sound('landing', 1)
@@ -1337,8 +1339,6 @@ class Scene:
         if character not in self.dead_characters:
             raise KeyError("Can't find this name in my graveyard")
 
-        play_sound('respawn', 1)
-        self.shaker.add_shake(0.5)
         character.reset()
         character.position = position
 
@@ -1457,6 +1457,38 @@ class Scene:
         args = args or []
         kwargs = kwargs or dict()
         self.new_sh_hook = scene_handler(*args, **kwargs)
+
+    def explosion(self, epicenter, max_distance, max_push=2, collision_group=None):
+        play_sound('respawn', 1)
+        base_pushback = POKE_THRESHOLD*max_push
+        self.shaker.add_shake(1)
+
+        # Push enemies away:
+        for enemy in filter(lambda x: x.collision_group != collision_group, self.characters):
+            if not enemy.position:
+                continue
+
+            direction = v(enemy.position) - v(epicenter) or v(-1, 0)
+
+            # Don't affect enemies too far away
+            if direction.length_squared() > max_distance * max_distance:
+                continue
+
+            # Modify pushback according to distance to explosion position (squared)
+            direction.scale_to_length(base_pushback * (1-direction.length_squared() / (max_distance * max_distance)))
+            enemy.push(direction, 1.2)
+
+        # Spawn sparks:
+        for _ in range(random.randint(7, 12)):
+            spark_v = v()
+            spark_v.from_polar((3 * base_pushback, random.uniform(-180, 180)))
+            spark = Spark(
+                position=epicenter[:],
+                weapon=None,
+                vector=spark_v,
+                attack_color=colors["lightning"]
+            )
+            self.particles.append(spark)
 
 
 # Supplemental drawing elements
@@ -2626,7 +2658,7 @@ class Difficulty(Menu):
 class Player(Humanoid):
     hit_immunity = 1.2
 
-    def __init__(self, position, species='human'):
+    def __init__(self, position, species='Human'):
         player_body = character_stats["body"][species].copy()
         player_body["agility"] *= 2
 
@@ -2745,8 +2777,8 @@ class SceneHandler:
         while enemy_cost < monster_total_cost:
             monster_instance = random.choices(pad_monster_classes, pad_monster_weights)[0]
             enemy_cost += monster_instance.difficulty
-            # Insert in random spots EXCEPT for last: may contain Bosses
-            insert_idx = random.randint(0, len(self.monsters) - 1) if self.monsters else 0
+            # Insert in random spots EXCEPT for first: may contain Bosses
+            insert_idx = random.randint(1, len(self.monsters)) if self.monsters else 0
             self.monsters.insert(
                 insert_idx,
                 monster_instance(position=None, tier=self.tier, team_color=enemy_color)
@@ -3045,27 +3077,14 @@ class SceneHandler:
 
             self.scene.particles.append(self.respawn_banner)
 
-        elif self.respawn_banner.lifetime <= 0:
-            if respawn_bang:
-                # Push enemies away:
-                for enemy in filter(lambda x: x.collision_group != self.player.collision_group, self.scene.characters):
-                    direction = v(enemy.position) - v(PLAYER_SPAWN)
-                    direction.scale_to_length(SWING_THRESHOLD)
-                    enemy.push(direction, 1.2)
-
-                # Spawn sparks:
-                for _ in range(random.randint(7, 12)):
-                    spark_v = v()
-                    spark_v.from_polar((1.5 * SWING_THRESHOLD, random.uniform(-180, 180)))
-                    spark = Spark(
-                        position=PLAYER_SPAWN[:],
-                        weapon=None,
-                        vector=spark_v,
-                        attack_color=colors["lightning"]
-                    )
-                    self.scene.particles.append(spark)
-
+        elif self.respawn_banner.lifetime <= 0 and self.player not in self.scene.characters:
             self.scene.respawn(self.player, PLAYER_SPAWN)
+            if respawn_bang:
+                self.scene.explosion(
+                    self.player.position,
+                    max_distance=13*BASE_SIZE,
+                    collision_group=self.player.collision_group
+                )
             self.respawn_banner = None
 
     def hand_off_to(self, scene_handler, give_player=True):
@@ -3122,7 +3141,10 @@ class SkirmishScenehandler(SceneHandler):
 
     def __init__(self, tier: int, *args, player=None, **kwargs):
 
-        pad_monster_classes = list(Character.registry.values())
+        pad_monster_classes = list(filter(
+            lambda cls: not cls.debug and not issubclass(cls, Boss),
+            Character.registry.values()
+        ))
         pad_monster_weights = [monster_class.skirmish_spawn_rate for monster_class in pad_monster_classes]
 
         # Custom loot offering screens for newly spawning player:
@@ -3136,6 +3158,16 @@ class SkirmishScenehandler(SceneHandler):
             pad_monster_classes=pad_monster_classes,
             pad_monster_weights=pad_monster_weights,
             **kwargs
+        )
+
+        # Introduce boss monster:
+        self.monsters.insert(
+            0,
+            Elite(
+                position=None,
+                tier=tier,
+                base_creature=random.choice(pad_monster_classes)
+            )
         )
 
         # Make sure Victory Screen has button to go to the next difficulty level
@@ -3236,7 +3268,11 @@ class MainMenuSceneHandler(SceneHandler):
 
     def __init__(self):
 
-        self.challenger_classes = [gladiator for gladiator in Character.registry.values() if not gladiator.debug]
+        self.challenger_classes: list = [
+            gladiator for
+            gladiator in Character.registry.values()
+            if not (gladiator.debug or issubclass(gladiator, Boss))
+        ]
         self.spawned_collision_group = 1
         self.spawn_timer = 0
 

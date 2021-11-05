@@ -1,5 +1,8 @@
 # todo:
+#  Main menu after lvl4 does not need a confirmation
 #  Credits in Main Menu and after beating Lvl4 Skirmish
+#  Saving and loading player state
+#  Hall of fame for beating lvl4 arena
 # After tech demo
 # todo:
 #  make ALL string constants come from language json

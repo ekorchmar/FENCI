@@ -183,7 +183,7 @@ class Bar:
     ):
         created = size, width, tuple(fill_color), max_value, tuple(base_color), show_number, \
                     style, predetermined
-        if created not in cls.instance_cache or predetermined:
+        if created not in cls.instance_cache or predetermined is not None:
             return super().__new__(cls)
         return cls.instance_cache[created]
 
@@ -202,9 +202,11 @@ class Bar:
         creation_arguments = size, width, tuple(fill_color), max_value, tuple(base_color), \
                              show_number, style, predetermined
 
-        if creation_arguments not in self.__class__.instance_cache or predetermined:
+        if creation_arguments not in self.__class__.instance_cache:
             self._init(*creation_arguments)
             self.__class__.instance_cache[creation_arguments] = self
+        elif predetermined is not None:
+            self._init(*creation_arguments)
 
     def _init(self, size, width, fill_color, max_value, base_color, show_number, style, predetermined):
         self.max_value = max_value
@@ -996,7 +998,7 @@ class Character:
 
         if vector != v() and self.anchor_weapon is None:
             self.push(vector, duration, state='hurt')
-        else:
+        elif damage > 0:
             self.set_state('hurt', duration)
 
         if damage > 0:
@@ -1300,7 +1302,8 @@ class LootCard(Card):
         else:
             durability_color = colors["inventory_text"]
 
-        durability_string = f'{"♥"*equipment.durability}{"♡"*(equipment.max_durability-equipment.durability)}'
+        durability_string = f'{"♥"*equipment.durability}{"♡"*(equipment.max_durability-equipment.durability)}' if \
+            equipment.durability > 0 else f"{'✖'*equipment.max_durability}"
         durability_surface = ascii_draw(BASE_SIZE, durability_string, durability_color)
         durability_rect = durability_surface.get_rect(midtop=(uncut_surface.get_width()//2, next_element_top))
 

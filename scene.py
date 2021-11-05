@@ -1,4 +1,5 @@
 # todo:
+#  Fix teammate collision damage
 #  display combo counter
 #  support for tiled arbitrary sized arenas
 #  tile generation
@@ -162,11 +163,8 @@ class Scene:
             if self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
 
-            for character in self.characters:
-                if character.ai is not None and 'ccw' in character.ai.strategy_dict:
-                    self.echo(character, 'ccw' if character.ai.strategy_dict["ccw"] else 'cw', colors["lightning"])
             # play_sound(random.choice(list(SOUND.keys())), 1.0)
-            play_sound('landing', 1)
+            # play_sound('landing', 1)
             # print("No debug action set at the moment.")
             # morph_equipment(self.player)
             # random_frenzy(self, 'charge')
@@ -421,6 +419,9 @@ class Scene:
 
         if self.loot_overlay.banner:
             self._loot_info_banner(text)
+
+        # Close loot overlay
+        play_sound('button', 1)
         self.loot_overlay = None
 
     def _from_loot_overlay(self, item, slot):
@@ -1518,7 +1519,7 @@ class Inventory:
             portrait = content.portrait(rect=self.slot_rects[slot])
             surface.blit(portrait, self.slot_rects[slot])
 
-            # 2. Form a durability bar (backpacked equipment can not be damaged)
+            # 2. Form a durability bar (backpacked equipment can not be damaged, so no bar displayed)
             if not slot == 'backpack':
                 color = colors["inventory_durability"] if content.durability > 1 else colors["inventory_broken"]
 
@@ -1529,7 +1530,7 @@ class Inventory:
                     fill_color=color,
                     base_color=color,
                     show_number=False,
-                    style=' ♥♡ ',
+                    style=' ♥♡ ' if content.durability > 0 else ' ✖✖ ',
                     predetermined=content.durability
                 )
                 bar_surf, bar_rect = durability.display(content.durability)
@@ -1692,8 +1693,10 @@ class LootOverlay:
         for loot in self.loot_dict:
             if self.loot_dict[loot].collidepoint(position):
                 if mouse_state[0]:
+                    play_sound('button', 1)
                     return loot, loot.prefer_slot
                 elif mouse_state[2]:
+                    play_sound('button', 1)
                     return loot, 'backpack'
 
         return None, None

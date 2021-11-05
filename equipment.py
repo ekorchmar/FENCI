@@ -1120,10 +1120,10 @@ class Sword(Bladed, Pointed):
         # reduced for blade weight, increased for hilt tier
         # SQRT to bring closer to 1.0
         self.agility_modifier = math.sqrt((10.0 + hilt_material.tier) / (blade_len * blade_material.weight)) * .7
-        # Increased for sword total weight, reduced for blade tier and hilt weight (1.3-1.6)
+        # Increased for sword total weight, reduced for hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = 0.8 * math.sqrt(
-            0.3 * self.weight / ((2 + blade_material.tier) * math.sqrt(hilt_material.weight))
+        self.stamina_drain = 0.3 * math.sqrt(
+            self.weight / (math.sqrt(hilt_material.weight))
         )
 
         # Calculate damage range depending on weight, size and tier:
@@ -1154,6 +1154,7 @@ class Spear(Pointed):
 
     _max_fallback = 1.0
     _fallback_distance = 0.4
+    _detach_point = 0.5
 
     def __init__(self, *args, **kwargs):
 
@@ -1242,14 +1243,13 @@ class Spear(Pointed):
 
         # reduced for total weight, increased for shaft tier
         self.agility_modifier = math.sqrt(1 + 0.1 * shaft_material.tier) * (10 / shaft_len)
-        # Increased for spear total weight and length, reduced for shaft tier
-        self.stamina_drain = self.weight * 1.75 * 0.05 * math.sqrt(1 + 0.1 * shaft_len) * 0.7 /\
-            math.sqrt(1 + 0.1 * shaft_material.tier)
+        # Increased for spear total weight and length
+        self.stamina_drain = self.weight * 0.06 * math.sqrt(1 + 0.1 * shaft_len)
 
         # Calculate damage range depending on weight and tier; longer range reduces damage,
         # Max damage is further increased by weight:
-        min_damage = int((60 + 0.5 * self.weight) * 1.08 ** (tip_material.tier - 1))
-        max_damage = int(math.sqrt(self.weight / 9.5) * int(min_damage * 1.3 / math.sqrt(shaft_len / 11)))
+        min_damage = int((60 + 0.7 * self.weight) * 1.08 ** (tip_material.tier - 1))
+        max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.3 / math.sqrt(shaft_len / 11)))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
 
@@ -1342,8 +1342,8 @@ class Spear(Pointed):
             # Affect owner's weapon bar value:
             character.__dict__[self.prefer_slot] = self.skewer_duration
 
-            # If tip reached SWING_THRESHOLD3/4, detach target
-            if abs(self.angular_speed) > SWING_THRESHOLD*0.75:
+            # If tip reached SWING_THRESHOLD*0.5, detach target
+            if abs(self.angular_speed) > SWING_THRESHOLD*self._detach_point:
                 # Play sound
                 play_sound('drop', 1)
 
@@ -1444,7 +1444,7 @@ class Short(Pointed):
         self.agility_modifier = math.sqrt((10.0 + hilt_material.tier) / (2 * (1 + blade_material.weight)) * 0.6)
         # Increased for dagger total weight, reduced for blade tier and hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = 0.5*math.sqrt(self.weight / ((2 + blade_material.tier) * math.sqrt(hilt_material.weight)))
+        self.stamina_drain = 0.34*math.sqrt(self.weight / math.sqrt(hilt_material.weight))
 
         # Calculate damage range depending on weight and tier:
         min_damage = int((60 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
@@ -1936,7 +1936,7 @@ class Axe(Bladed):
         self.agility_modifier = math.sqrt((8.0 + handle_material.tier) / (3 * head_material.weight)) * .65
         # Increased for axe total weight, reduced for head tier (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = (0.3 * self.weight / (2 + head_material.tier)) ** 0.25
+        self.stamina_drain = (0.08 * self.weight) ** 0.25
 
         # Calculate damage range depending on weight, size and tier:
         # High tier axes scale better, weight is very important
@@ -2194,7 +2194,7 @@ class Falchion(Sword):
         self.damage_range = int(self.damage_range[0] * 0.85 / 1.15), int(self.damage_range[1])
 
         # Reduce drain
-        self.stamina_drain = self.stamina_drain * 0.75 / 0.8
+        self.stamina_drain = self.stamina_drain * 7.5 / 8
 
         # Roll cooldown depends reduced by hilt tier and increased by blade material weight
         self.roll_cooldown = math.sqrt(
@@ -2373,15 +2373,15 @@ class Shield(OffHand):
 
         # Determines dash distance, depends on frame tier:
         self.agility_modifier = 0.2 + 0.2 * frame_material.tier
-        # Determines how much damage is converted into stamina loss; reduced by weight and plate tier
-        self.stamina_drain = 1 + ((1 - 0.1 * self.weight) / math.sqrt(1 + 0.1 * plate_material.tier))
+        # Determines how much damage is converted into stamina loss; reduced by plate weight
+        self.stamina_drain = 1 + ((1 - 0.1 * self.weight) / math.sqrt(1.2))
         # Increased by weight, reduced by tier
         self.equip_time = 0.1 * self.weight / math.sqrt(1 + 0.1 * self.tier)
 
         if self.roll_stats:
             self.equip_time = triangle_roll(self.equip_time, 0.07)
         # Damage is constant, modified by weight and tier
-        damage = round(self.weight**2 * math.sqrt(1+0.1*self.tier))
+        damage = round(self.weight**2 * (1+0.1*self.tier) / 1.5 + 5*self.tier)
         self.damage_range = damage, damage
         self.redraw_loot()
 
@@ -2990,7 +2990,7 @@ class Katar(Pointed, OffHand):
         self.agility_modifier = math.sqrt((10.0 + guard.tier) / (1.6 * (1 + blade.weight)))
         # Increased for dagger total weight, reduced for blade tier and hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = self.weight / ((2 + blade.tier) * math.sqrt(guard.weight+blade.weight))
+        self.stamina_drain = self.weight / (4 * math.sqrt(guard.weight+blade.weight))
 
         # Calculate damage range depending on weight and tier:
         damage = int((22 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))

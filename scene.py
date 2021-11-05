@@ -1682,7 +1682,10 @@ class LootOverlay:
         # If animation is not finished, instantly complete it, and return no click
         if any(mouse_state) and self.lifetime < self.animation_time:
             self.lifetime = self.animation_time
-            return None, None
+
+            # Return only if we had animation in the first place:
+            if self.appear_from is not None:
+                return None, None
 
         if not any(mouse_state):
             # Return loot, None slot
@@ -1705,8 +1708,9 @@ class LootOverlay:
         # If animation is not finished, instantly complete it, and return no click
         if self.lifetime < self.animation_time:
             self.lifetime = self.animation_time
-            return None, None
-
+            # Return only if we had animation in the first place:
+            if self.appear_from is not None:
+                return None, None
         try:
             loot = self.loot_list[index]
             return loot, loot.prefer_slot

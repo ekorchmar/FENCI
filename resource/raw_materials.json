@@ -91,6 +91,16 @@
             "max": [199, 85, 85]
         },
         "tier": 3,
+        "weight": 1,
+        "occurence": 1
+    },
+    "imperium alloy": {
+        "physics": "metal",
+        "hsva_values": {
+            "min": [30, 61, 50],
+            "max": [51, 90, 57]
+        },
+        "tier": 3,
         "weight": 1
     },
     "mythril": {

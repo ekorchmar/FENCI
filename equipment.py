@@ -1246,10 +1246,10 @@ class Spear(Pointed):
         # Increased for spear total weight and length
         self.stamina_drain = self.weight * 0.06 * math.sqrt(1 + 0.1 * shaft_len)
 
-        # Calculate damage range depending on weight and tier; longer range reduces damage,
+        # Calculate damage range depending on weight and tier; longer range causes more damage,
         # Max damage is further increased by weight:
         min_damage = int((60 + 0.7 * self.weight) * 1.08 ** (tip_material.tier - 1))
-        max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.3 / math.sqrt(shaft_len / 11)))
+        max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.3 * math.sqrt(shaft_len / 8)))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
 
@@ -2410,6 +2410,7 @@ class Shield(OffHand):
             character.stamina *= 0.5
 
             self.held_counter = self.equip_time
+            self.in_use = True
             character.shielded = self
 
             bash_intensity = 1.5*character.speed.length()*(1+self.agility_modifier)

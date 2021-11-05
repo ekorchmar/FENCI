@@ -305,6 +305,8 @@ class Humanoid(Character):
 
 
 class AI:
+    _base_aggression = 2
+
     def __init__(
             self,
             character,
@@ -621,7 +623,7 @@ class AI:
             ]):
                 count_allies += 1
 
-        # Test if we have a subplan:
+        # Test if we have a next plan:
         if "next" in self.strategy_dict:
             self.set_strategy(*self.strategy_dict["next"])
             return
@@ -653,7 +655,7 @@ class AI:
             else:
                 violence = False
                 agression_chance = self.aggression * self.morale * self.character.stamina / self.character.max_stamina
-                for _ in range(count_allies + 1):
+                for _ in range(self._base_aggression + count_allies + 1):
                     violence = random.random() < agression_chance
                     if violence:
                         break
@@ -1291,13 +1293,13 @@ class AI:
             if self.target and self.target.size < self.character.size and self.morale > (1-self.courage):
                 return
 
-            if roll_courage < roll_health:
+            if roll_courage < roll_health and len(self.friends) < 2:
                 self.set_strategy("flee", 5 / self.courage)
                 self.character.set_state("scared", 5 / self.courage)
 
-        # Else, characters with Pointed weapons are prompted to charge after a flexibility check:
+        # Else, characters are prompted to charge after a flexibility check:
         else:
-            if roll_courage > roll_health and self.flexibility > random.random() and isinstance(self.weapon, Pointed):
+            if roll_courage > roll_health and self.flexibility > random.random():
                 self.set_strategy("charge", 3 - random.uniform(0, 2 * self.flexibility))
 
     def use_shield(self):

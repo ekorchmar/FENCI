@@ -50,12 +50,6 @@ class Humanoid(Character):
         self.hand = pygame.transform.rotate(ascii_draw(self.size, hand, self.color), -180)
         self.hand_rect = self.hand.get_rect()
 
-        # Ability to roll
-        self.max_roll = 0
-        self.rolling = 0
-        self.rolled_through = []
-        self.roll_cooldown = 0
-
         # Place to store values for weapon-specific bars
         self.main_hand = None
         self.off_hand = None
@@ -191,29 +185,6 @@ class Humanoid(Character):
 
         # Inform the scene:
         scene.log_weapons()
-
-    def roll(self, vector, roll_cooldown=0, duration=0.5):
-        # Play roll sound:
-        play_sound('roll', 0.3*self.size/BASE_SIZE)
-
-        # Set constants:
-        self.rolled_through = []
-        self.anchor_timer = 0
-        self.phasing = True
-        self.max_roll = self.rolling = duration
-        self.roll_cooldown = roll_cooldown
-
-        # Push self in direction
-        self.speed = v()
-        self.push(vector, duration, 'active')
-
-        # Lock weapons in same position
-        # Animating them would *look* cooler, but would also made the feel much clunkier
-        for slot in self.weapon_slots:
-            weapon = self.slots[slot]
-            if weapon:
-                weapon.disabled = True
-                weapon.lock(duration+0.2, angle=weapon.last_angle)
 
     def aim(self, target=None):
         super(Humanoid, self).aim(target)

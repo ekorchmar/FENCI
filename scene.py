@@ -1,6 +1,6 @@
 # todo:
 #  Fix teammate collision damage
-#  respect boss theme
+#  Add shake+talking animatiion to echo
 #  display combo counter
 #  support for tiled arbitrary sized arenas
 #  tile generation
@@ -82,6 +82,8 @@ class Scene:
         self.loot_overlay = None
         self.draw_helper = False
         self.draw_group_append = []
+        self.boss_bar = None
+        self.boss_bar_center = None
 
         # Support drawing buttons and menus:
         self.menus = []
@@ -535,6 +537,13 @@ class Scene:
             for ui in (self.player.inventory, self.progression):
                 drawn = ui.draw()
                 draw_group.append((drawn[0], v(drawn[1][:2]) + self.shake_v) if self.shake_v else drawn)
+
+        # Draw Boss bar:
+        if self.boss_bar is not None:
+            boss = [char for char in self.characters if isinstance(char, Boss)][0]
+            bar, rect = self.boss_bar.display(boss.hp)
+            rect.center = self.boss_bar_center
+            draw_group.append((bar, rect))
 
         # Draw pause surfaces
         if self.pause_popups:
@@ -1022,7 +1031,7 @@ class Scene:
                 elif (
                         (target.is_flying_meat() or weapon.is_flying_meat()) and
                         target.collision_group == weapon.collision_group and
-                        (target.immune_timer <= 0) and (weapon.immune_timer <= 0)
+                        (target.immune_timer <= 0 or weapon.immune_timer <= 0)
                 ):
                     # Test if collision speed above PT/2
                     relative_v = weapon.speed - target.speed
@@ -1046,7 +1055,7 @@ class Scene:
                         play_sound('collision', 0.01 * impact_damage)
 
                         # Cap impact damage at 15% of target health:
-                        impact_damage = min(impact_damage, target.pct_cap*target.max_hp)
+                        impact_damage = min(impact_damage, target.pct_cap * target.max_hp)
 
                         survived, damage = target.hurt(
                             damage=impact_damage,
@@ -1214,6 +1223,11 @@ class Scene:
         self.log_weapons()
         self.alert_ai(character)
 
+        # If target was a Boss, remove hp bar and stop music:
+        if isinstance(character, Boss):
+            self.boss_bar = None
+            end_theme()
+
     def iterate(self):
         # May happen when scene is handed over:
         # if player is specified, and not in dead characters, make sure it is in characters
@@ -1260,6 +1274,14 @@ class Scene:
                 pygame.mixer.music.unpause()
 
     def spawn(self, monster, position_v=None):
+
+        # If monster is Boss with a music theme, play it's theme:
+        if OPTIONS["music"] and isinstance(monster, Boss) and monster.theme is not None:
+            play_theme(os.path.join('music', monster.theme))
+
+        # If monster is Boss, spawn an HP bar
+        if isinstance(monster, Boss):
+            self._add_boss_bar(monster)
 
         # High agility and flexibility monsters may roll in instead of jumping
         roll_in = monster.agility > 1.2 and random.random() < max(monster.ai.flexibility, 0.5)
@@ -1494,14 +1516,7 @@ class Scene:
             )
             self.particles.append(spark)
 
-    def monster_summon(self, summoner: Character, monsters: list, bang=True):
-        if bang:
-            self.explosion(
-                summoner.position,
-                max_distance=20 * BASE_SIZE,
-                max_push=1,
-                collision_group=summoner.collision_group
-            )
+    def monster_summon(self, summoner: Character, monsters: list):
 
         for monster in monsters:
             # Set minions difficulty to 0
@@ -1509,6 +1524,30 @@ class Scene:
             monster.collision_group = summoner.collision_group
 
             self.spawn(monster)
+
+    def _add_boss_bar(self, boss: Boss, font_size=BASE_SIZE, offset=BASE_SIZE):
+        # Calculate character size:
+        test_surface = ascii_draw(font_size, '█', (255, 255, 255))
+
+        # Calculate available rect, place it on top of the scene:
+        boss_bar_rect = r(
+            offset,
+            offset,
+            self.box.width - offset*2,
+            test_surface.get_height()
+        ).move(*self.box.topleft)
+
+        self.boss_bar = Bar(
+            size=font_size,
+            width=boss_bar_rect.width // test_surface.get_width(),
+            fill_color=c(*colors['enemy']['hp_color'], 100),
+            max_value=boss.max_hp,
+            show_number=True,
+            style=" █_ "
+        )
+
+        # Save bar center:
+        self.boss_bar_center = v(boss_bar_rect.center)
 
 
 # Supplemental drawing elements
@@ -2183,12 +2222,12 @@ class Menu:
         self.fading = True
 
 
-class OptionsMenu(Menu):
+class Options(Menu):
     def fade(self):
         # Write options dict to json file
         with open(os.path.join('options', 'options.json'), 'w') as options_json:
             json.dump(OPTIONS, options_json, sort_keys=False, indent=2)
-        super(OptionsMenu, self).fade()
+        super(Options, self).fade()
 
     def toggle(self, key):
         # Toggle an option and cause redrawing all buttons
@@ -2250,7 +2289,7 @@ class OptionsMenu(Menu):
         return buttons_list
 
     def __init__(self):
-        super(OptionsMenu, self).__init__(
+        super(Options, self).__init__(
             self.generate_buttons(),
             reposition_buttons=(4, 2),
             background=True,
@@ -2321,7 +2360,7 @@ class PauseEnsemble(Menu):
             text=[string['menu']['options']],
             rect=options_rect,
             action=scene.generate_menu_popup,
-            action_keywords={"menu_class": OptionsMenu},
+            action_keywords={"menu_class": Options},
             kb_index=1
         )
 
@@ -2413,7 +2452,7 @@ class MainMenu(Menu):
             text=[string['menu']['options']],
             rect=DEFAULT_BUTTON_RECT,
             action=self.scene.generate_menu_popup,
-            action_keywords={"menu_class": OptionsMenu},
+            action_keywords={"menu_class": Options},
             kb_index=2
         )
 
@@ -3154,13 +3193,18 @@ class SceneHandler:
                 SceneHandler.active.play_theme()
 
     def play_theme(self):
-        play_theme(os.path.join('music', self.theme))
+        theme = self.theme
+        # If there is a Boss, pick it's theme instead
+        for monster in self.scene.characters:
+            if isinstance(monster, Boss) and monster.theme is not None:
+                theme = monster.theme
+        play_theme(os.path.join('music', theme))
 
 
 class SkirmishScenehandler(SceneHandler):
     theme = 'blkrbt_ninesix.ogg'
 
-    def __init__(self, tier: int, *args, player=None, **kwargs):
+    def __init__(self, tier: int, *args, player=None, on_scren_enemies_value=(7, 12), **kwargs):
 
         pad_monster_classes = list(filter(
             lambda cls: not cls.debug and not issubclass(cls, Boss),
@@ -3176,7 +3220,8 @@ class SkirmishScenehandler(SceneHandler):
         boss = Elite(
                 position=None,
                 tier=tier,
-                base_creature=random.choice(pad_monster_classes)
+                base_creature=random.choice(pad_monster_classes),
+                pack_difficulty=on_scren_enemies_value[1]
             )
 
         super().__init__(
@@ -3186,6 +3231,7 @@ class SkirmishScenehandler(SceneHandler):
             monsters=[boss],
             pad_monster_classes=pad_monster_classes,
             pad_monster_weights=pad_monster_weights,
+            on_scren_enemies_value=on_scren_enemies_value,
             **kwargs
         )
 

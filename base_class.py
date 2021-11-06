@@ -515,7 +515,7 @@ class Character:
 
     # Logic:
     pct_cap = 0.15
-    dps_pct_cap = 1
+    _dps_pct_cap = 1
     class_name = None
     debug = False
     drops_shields = True
@@ -545,7 +545,8 @@ class Character:
             hp_color,
             sp_color=colors["sp_color"],
             ai=None,
-            name=None
+            name=None,
+            **kwargs
     ):
 
         # Basics:
@@ -580,8 +581,14 @@ class Character:
         self.ramming = False
         self.phasing = False
 
-        # acceleration depends on FPS
+        # Acceleration depends on FPS:
         self.acceleration = 0.17 * self.agility * BASE_SIZE * FPS_TICK
+
+        # Ability to roll:
+        self.max_roll = 0
+        self.rolling = 0
+        self.rolled_through = []
+        self.roll_cooldown = 0
 
         # Anchoring:
         self.anchor_point = None
@@ -959,7 +966,7 @@ class Character:
 
     def push(self, vector, time, state='flying', **kwargs):
         # Interrupt any active channels:
-        if self.channeling:
+        if self.channeling and self.anchor_timer <= 0:
             self.channeling = {}
             self.channeling_timer = 0
             self.bars.pop("channeling_timer", 0)
@@ -1156,7 +1163,7 @@ class Character:
 
     def bleed(self, intensity, duration):
         self.bleeding_intensity = max(self.bleeding_intensity, intensity)
-        self.bleeding_intensity = min(self.bleeding_intensity, self.dps_pct_cap)
+        self.bleeding_intensity = min(self.bleeding_intensity, self._dps_pct_cap)
         self.bleeding_timer += duration
         self.bars["bleeding_timer"] = Bar(
             BASE_SIZE // 3,
@@ -1216,6 +1223,29 @@ class Character:
                 self.disabled_timer += FPS_TICK
         else:
             self.disabled_timer = 0
+
+    def roll(self, vector, roll_cooldown=0, duration=0.5):
+        # Play roll sound:
+        play_sound('roll', 0.3*self.size/BASE_SIZE)
+
+        # Set constants:
+        self.rolled_through = []
+        self.anchor_timer = 0
+        self.phasing = True
+        self.max_roll = self.rolling = duration
+        self.roll_cooldown = roll_cooldown
+
+        # Push self in direction
+        self.speed = v()
+        self.push(vector, duration, 'active')
+
+        # Lock weapons in same position
+        # Animating them would *look* cooler, but would also made the feel much clunkier
+        for slot in self.weapon_slots:
+            weapon = self.slots[slot]
+            if weapon:
+                weapon.disabled = True
+                weapon.lock(duration+0.2, angle=weapon.last_angle)
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
@@ -1329,12 +1359,13 @@ class LootCard(Card):
         # 1. Weapon portrait
         portrait = r(0, 0, MAX_LOOT_CARD_SPACE.width, MAX_LOOT_CARD_SPACE.width // 2)
 
+        # If weapon fits, draw normally:
         if equipment.surface.get_width() < portrait.width and equipment.surface.get_height() < portrait.height:
             uncut_surface.blit(equipment.surface, equipment.surface.get_rect(center=portrait.center))
         else:
             # Rotate weapon surface so that it is aligned with diagonal
             rotated_surface = pygame.transform.rotate(equipment.surface, 30)
-            uncut_surface.blit(rotated_surface, rotated_surface.get_rect(center=portrait.center))
+            uncut_surface.blit(rotated_surface, rotated_surface.get_rect(topleft=portrait.topleft))
 
         next_element_top = portrait.height
 

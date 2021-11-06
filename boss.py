@@ -1,8 +1,5 @@
 # todo:
-#  Boss HP bar is drawn over entire scene
-#  Scenes switch to boss themes
-#  EliteAI: can summon additional enemies
-#  EliteAI: disable fleeing
+#  Custom summoning callouts for each elite base class
 # After tech demo:
 # todo:
 #  Troll boss with custom AI
@@ -11,22 +8,34 @@
 from monster import *
 
 
-class Boss(Character):
+class Boss(Humanoid):
     difficulty = 0
     skirmish_spawn_rate = 0
-    _theme = 'blkrbt_stairs.ogg'
+    theme = 'blkrbt_stairs.ogg'
     pct_cap = .02
-    dps_pct_cap = 0.005
+    _dps_pct_cap = 0.005
     drops_shields = False
 
-    # Don't get disabled
+    # Don't get disabled:
     def set_state(self, state, duration):
-        super(Boss, self).set_state('active' if state in DISABLED else state, duration)
+        super(Boss, self).set_state('active' if state in DISABLED and not state == 'hurt' else state, duration)
+
+    # Don't get interrupted:
+    def channel(self, duration, task, arguments=None):
+        self.anchor(duration, self.position)
+        self.immune_timer = self.immune_timer_wall = duration
+        super(Boss, self).channel(duration, task, arguments)
+
+    # Remove bars; Scene should spawn giant HP bar:
+    def __init__(self, *args, **kwargs):
+        super(Boss, self).__init__(*args, **kwargs)
+        self.bars.clear()
 
 
 class Elite(Boss):
     class_name = 'Elite'
     _size_modifier = 1.2
+    _breakpoints = 3  # Reducing health below breakpoint causes the Boss to spawn reinforcements
 
     def __init__(self, position, tier: int, base_creature: type, pack_difficulty: int = 5, team_color=None):
         # Create a bigger version of base creature:
@@ -47,8 +56,14 @@ class Elite(Boss):
             name=f"Elite {base_creature.__name__.capitalize()} Lv.{tier:.0f}"
         )
 
-        # Create a base creature to 'steal' it's equipment
+        # Create a base creature to 'steal' it's equipment and properties
         donor: Character = base_creature(position=None, tier=tier, team_color=team_color)
+
+        # Get slots and coordinates
+        self.slots = donor.slots
+        self.body_coordinates = donor.body_coordinates.copy()
+        scale_body(self.body_coordinates, self._size_modifier)
+
         for slot in donor.slots:
             equipment = donor.slots[slot]
             if equipment:
@@ -72,10 +87,25 @@ class Elite(Boss):
             team_color=team_color
         )
 
+        # Breakpoint treshold:
+        self.breakpoint_treshold = self.max_hp / self._breakpoints
+
+    def hurt(self, *args, **kwargs) -> (bool, int):
+        before_breakpoints = self.hp // self.breakpoint_treshold
+        output = super(Elite, self).hurt(*args, **kwargs)
+
+        # Summon reinforcements if damage took self under a breakpoint:
+        if output[0] and before_breakpoints > self.hp // self.breakpoint_treshold:
+            self.ai.start_summon()
+
+        return output
+
 
 class EliteAI(AI):
     _reinforcement_cache_size = 15
     _summon_channel = 2
+    _random_summon_chance = 0.5
+    _random_summon_cooldown = 10000
 
     def __init__(self, character, summon, pack_difficulty, tier, team_color, weapon_slot='main_hand'):
         super(EliteAI, self).__init__(
@@ -100,14 +130,29 @@ class EliteAI(AI):
             'team_color': team_color
         }
 
+        # Cooldown to spawn allies randomly:
+        self.spawn_time = pygame.time.get_ticks()
+
         for _ in range(self._reinforcement_cache_size):
             minion = self.minion(**self.spawn_options)
             self.reinforcements.append(minion)
 
-    # todo: add summoning sequence to exec and analyze
+    def analyze(self, scene, initial=False):
+        self._assess(scene)
+
+        # If there are no friends, 50% to summon a new batch:
+        if (
+                not initial and
+                not self.friends and
+                random.random() > self._random_summon_chance and
+                pygame.time.get_ticks() - self.spawn_time > self._random_summon_cooldown
+        ):
+            self.start_summon()
+            return
+
+        self._decide(initial)
 
     def _summon(self):
-        self.push_away()
         # Form list of summonable monsters:
         minions = list()
         difficulty = 0
@@ -128,6 +173,7 @@ class EliteAI(AI):
         )
 
     def start_summon(self, phrase="To me!"):
+        self.spawn_time = pygame.time.get_ticks()
         self.push_away()
         self.scene.echo(self.character, phrase, self.character.attacks_color)
         self.character.channel(self._summon_channel, self._summon)
@@ -139,3 +185,8 @@ class EliteAI(AI):
             max_push=1,
             collision_group=self.character.collision_group
         )
+
+    # Bosses don't react to FOF events
+    @staticmethod
+    def fight_or_flight(victim, **kwargs):
+        return

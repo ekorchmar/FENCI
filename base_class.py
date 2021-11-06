@@ -512,10 +512,13 @@ class Character:
     hit_immunity = 0.6
     difficulty = 0
     has_blood = True
+
+    # Logic:
     pct_cap = 0.15
     dps_pct_cap = 1
     class_name = None
     debug = False
+    drops_shields = True
 
     # Class-specific:
     color = None
@@ -1079,7 +1082,7 @@ class Character:
         if not dormant and self.ai:
             self.ai.analyze(self.ai.scene)
 
-    def channel(self, duration, task, arguments):
+    def channel(self, duration, task, arguments=None):
         """disables character for duration, causing a task to be performed at the end of channeling"""
         # Test if character is disabled or if already channelling:
         if self.channeling or self.state in DISABLED:
@@ -1094,7 +1097,7 @@ class Character:
 
         self.channeling_timer = duration
         self.channeling["task"] = task
-        self.channeling["arguments"] = arguments
+        self.channeling["arguments"] = arguments or dict()
 
         # Spawn a countdown bar:
         self.bars["channeling_timer"] = Bar(

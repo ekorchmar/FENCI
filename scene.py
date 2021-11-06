@@ -1,5 +1,6 @@
 # todo:
 #  Fix teammate collision damage
+#  respect boss theme
 #  display combo counter
 #  support for tiled arbitrary sized arenas
 #  tile generation
@@ -162,8 +163,11 @@ class Scene:
         if debug:
             if self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
-                self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
-                               collision_group=self.player.collision_group)
+            #    self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
+            #                   collision_group=self.player.collision_group)
+
+            for boss in filter(lambda x: isinstance(x, Boss), self.characters):
+                boss.ai.start_summon()
 
             # play_sound(random.choice(list(SOUND.keys())), 1.0)
             # play_sound('landing', 1)
@@ -1490,6 +1494,22 @@ class Scene:
             )
             self.particles.append(spark)
 
+    def monster_summon(self, summoner: Character, monsters: list, bang=True):
+        if bang:
+            self.explosion(
+                summoner.position,
+                max_distance=20 * BASE_SIZE,
+                max_push=1,
+                collision_group=summoner.collision_group
+            )
+
+        for monster in monsters:
+            # Set minions difficulty to 0
+            monster.difficulty = 0
+            monster.collision_group = summoner.collision_group
+
+            self.spawn(monster)
+
 
 # Supplemental drawing elements
 class Inventory:
@@ -2656,6 +2676,7 @@ class Difficulty(Menu):
 
 # Player character class
 class Player(Humanoid):
+    drops_shields = False
     hit_immunity = 1.2
 
     def __init__(self, position, species='Human'):
@@ -3151,23 +3172,21 @@ class SkirmishScenehandler(SceneHandler):
         self.offer_off_hand = self.offer_main_hand = player is None
         player = player or Player(position=PLAYER_SPAWN)  # Base scene handler would equip player automatically
 
-        super().__init__(
-            tier=tier,
-            *args,
-            player=player,
-            pad_monster_classes=pad_monster_classes,
-            pad_monster_weights=pad_monster_weights,
-            **kwargs
-        )
-
         # Introduce boss monster:
-        self.monsters.insert(
-            0,
-            Elite(
+        boss = Elite(
                 position=None,
                 tier=tier,
                 base_creature=random.choice(pad_monster_classes)
             )
+
+        super().__init__(
+            tier=tier,
+            *args,
+            player=player,
+            monsters=[boss],
+            pad_monster_classes=pad_monster_classes,
+            pad_monster_weights=pad_monster_weights,
+            **kwargs
         )
 
         # Make sure Victory Screen has button to go to the next difficulty level

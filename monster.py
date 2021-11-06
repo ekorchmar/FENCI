@@ -317,6 +317,7 @@ class AI:
         self.fof_time = 0
 
         # Change dynamically
+        self.perceived_health = 0
         self.morale = 1.0
         self.speed_limit = 1.0
 
@@ -479,58 +480,15 @@ class AI:
         # We'll call this "Rhino factor". It has 12 seconds of duration, but likely to be overriden early by
         # either hitting or getting hit.
 
+        self._assess(scene)
         # Default AI has 5% chance to fall to Rhino factor
         if self.target and 0.1 * self.aggression * self.courage > random.uniform(0, self.flexibility):
             self.set_strategy("charge", 12)
             self.strategy_dict["FULL RHINO"] = True
 
-        # General situation awareness:
-        self.scene = scene
-        self.enemies = {}
-        self.friends = {}
-        own_health = min(self.character.hp / self.character.max_hp, self.character.stamina / self.character.max_stamina)
+        self._decide(initial)
 
-        # Drop dead targets:
-        if self.target and self.target.hp <= 0:
-            self.target = None
-
-        # Count enemies, assess their health and assume their weapon reach:
-        enemies_list = list(
-            filter(lambda x: x.collision_group != self.character.collision_group, self.scene.characters)
-        )
-        # Put target first so that distance to it is assessed first
-        enemies_list.sort(key=lambda x: x is not self.target)
-        for enemy in enemies_list:
-            # Ignore enemies with no hitbox:
-            if not enemy.hitbox:
-                continue
-
-            weapon_slot = enemy.weapon_slots[0]
-            enemy_weapon = enemy.slots[weapon_slot]
-
-            if not enemy_weapon:
-                reach = 0
-            elif isinstance(enemy_weapon, (Spear, Sword, Dagger)):
-                reach = enemy_weapon.length * 1.2 + v(enemy.body_coordinates[weapon_slot]).length()
-            else:
-                reach = enemy_weapon.length + v(enemy.body_coordinates[weapon_slot]).length()
-
-            health = min(enemy.hp / enemy.max_hp, enemy.stamina / enemy.max_stamina)
-
-            distance = (enemy.position - self.character.position - self.character.body_coordinates[self.slot]).length()
-
-            self.enemies[enemy] = {
-                "distance": distance,
-                "reach": reach,
-                "health": max(health, 0.01),
-                "shield": enemy.shielded,
-                "weapon": enemy_weapon
-            }
-
-            # Identify closest target
-            if (self.target is None or distance < self.enemies[self.target]["distance"]) and enemy.hp > 0:
-                self.target = enemy
-
+    def _decide(self, initial):
         # No enemies? We wait.
         if not self.enemies:
             self.set_strategy('wait', 3 - random.uniform(0, 2 * self.flexibility))
@@ -621,7 +579,7 @@ class AI:
                 violence = False
 
             # Test if target "looks" healthier than we are, possibly chicken out
-            elif own_health / self.enemies[self.target]["health"] < random.uniform(0, self.courage):
+            elif self.perceived_health / self.enemies[self.target]["health"] < random.uniform(0, self.courage):
                 violence = False
 
             # Decide if we enter aggressive state, based on game state. If decision is negative, repeat
@@ -673,7 +631,7 @@ class AI:
                 violence = True
 
             # Test if target "looks" healthier than we are, possibly chicken out
-            elif own_health / self.enemies[self.target]["health"] < random.uniform(0, self.courage):
+            elif self.perceived_health / self.enemies[self.target]["health"] < random.uniform(0, self.courage):
                 violence = False
 
             # Decide if we enter aggressive state, based on game state. If decision is negative, repeat
@@ -694,6 +652,57 @@ class AI:
             # Failing all that, return to safe range:
             self.set_strategy("confront", 5 - random.uniform(0, 2 * self.flexibility))
             return
+
+    def _assess(self, scene):
+        # General situation awareness:
+        self.scene = scene
+        self.enemies = {}
+        self.friends = {}
+        self.perceived_health = min(
+            self.character.hp / self.character.max_hp,
+            self.character.stamina / self.character.max_stamina
+        )
+
+        # Drop dead targets:
+        if self.target and self.target.hp <= 0:
+            self.target = None
+
+        # Count enemies, assess their health and assume their weapon reach:
+        enemies_list = list(
+            filter(lambda x: x.collision_group != self.character.collision_group, self.scene.characters)
+        )
+        # Put target first so that distance to it is assessed first
+        enemies_list.sort(key=lambda x: x is not self.target)
+        for enemy in enemies_list:
+            # Ignore enemies with no hitbox:
+            if not enemy.hitbox:
+                continue
+
+            weapon_slot = enemy.weapon_slots[0]
+            enemy_weapon = enemy.slots[weapon_slot]
+
+            if not enemy_weapon:
+                reach = 0
+            elif isinstance(enemy_weapon, (Spear, Sword, Dagger)):
+                reach = enemy_weapon.length * 1.2 + v(enemy.body_coordinates[weapon_slot]).length()
+            else:
+                reach = enemy_weapon.length + v(enemy.body_coordinates[weapon_slot]).length()
+
+            health = min(enemy.hp / enemy.max_hp, enemy.stamina / enemy.max_stamina)
+
+            distance = (enemy.position - self.character.position - self.character.body_coordinates[self.slot]).length()
+
+            self.enemies[enemy] = {
+                "distance": distance,
+                "reach": reach,
+                "health": max(health, 0.01),
+                "shield": enemy.shielded,
+                "weapon": enemy_weapon
+            }
+
+            # Identify closest target
+            if (self.target is None or distance < self.enemies[self.target]["distance"]) and enemy.hp > 0:
+                self.target = enemy
 
     def execute(self):
         """Modify own behavior depending on state; returns movement direction vector and aiming target"""
@@ -1227,7 +1236,10 @@ class AI:
         self.fof_time = 0
 
         base_courage = self.courage * self.morale
-        own_health = min(self.character.hp / self.character.max_hp, self.character.stamina / self.character.max_stamina)
+        self.perceived_health = min(
+            self.character.hp / self.character.max_hp,
+            self.character.stamina / self.character.max_stamina
+        )
 
         if isinstance(victim, Character):
             # Less courage if we are hit
@@ -1258,7 +1270,7 @@ class AI:
             raise ValueError(f"{self} can't react to {victim} getting hit!")
 
         roll_courage = random.uniform(0, base_courage)
-        roll_health = random.uniform(0, own_health)
+        roll_health = random.uniform(0, self.perceived_health)
 
         # If own collision group matches victim, test resolve for fleeing
         if self.character.collision_group == victim_collision:

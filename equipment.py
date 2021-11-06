@@ -2519,7 +2519,7 @@ class Shield(OffHand):
                 self.activation_offset += weapon.tip_delta
 
             # Spawn a kicker and queue destruction if held by AI:
-            self.queue_destroy = character.ai is not None
+            self.queue_destroy = character.drops_shields
             self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
             if self.queue_destroy:
                 character.bars.pop(self.prefer_slot)
@@ -2546,7 +2546,7 @@ class Shield(OffHand):
             offender.stamina *= 0.5
 
         # If block is performed by AI, there is a chance to drop shield
-        if offender and character.ai:
+        if offender and character.drops_shields:
 
             chance = max(
                 (damage - weapon.damage_range[0])/weapon.damage_range[1] * weapon.weight/self.weight,

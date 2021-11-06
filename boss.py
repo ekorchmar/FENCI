@@ -11,12 +11,13 @@
 from monster import *
 
 
-class Boss(Humanoid):
+class Boss(Character):
     difficulty = 0
     skirmish_spawn_rate = 0
     _theme = 'blkrbt_stairs.ogg'
     pct_cap = .02
     dps_pct_cap = 0.005
+    drops_shields = False
 
     # Don't get disabled
     def set_state(self, state, duration):
@@ -26,7 +27,6 @@ class Boss(Humanoid):
 class Elite(Boss):
     class_name = 'Elite'
     _size_modifier = 1.2
-    _reinforcement_cache_size = 15
 
     def __init__(self, position, tier: int, base_creature: type, pack_difficulty: int = 5, team_color=None):
         # Create a bigger version of base creature:
@@ -64,19 +64,20 @@ class Elite(Boss):
         # todo: equip crown
 
         # Add AI:
-        self.ai = EliteAI(self)
-
-        # Create backlog of summonable reinforcements (loop through them!)
-        self.pack_difficulty = pack_difficulty
-        self.reinforcements = list()
-        for _ in range(self._reinforcement_cache_size):
-            minion = base_creature(position=None, tier=tier, team_color=team_color)
-            minion.difficulty = 0  # Don't mess with scene progression
-            self.reinforcements.append(minion)
+        self.ai = EliteAI(
+            self,
+            summon=base_creature,
+            pack_difficulty=pack_difficulty,
+            tier=tier,
+            team_color=team_color
+        )
 
 
 class EliteAI(AI):
-    def __init__(self, character, weapon_slot='main_hand'):
+    _reinforcement_cache_size = 15
+    _summon_channel = 2
+
+    def __init__(self, character, summon, pack_difficulty, tier, team_color, weapon_slot='main_hand'):
         super(EliteAI, self).__init__(
             character=character,
             weapon_slot=weapon_slot,
@@ -86,4 +87,55 @@ class EliteAI(AI):
             courage=1
         )
 
-    # todo: add summoning sequence to exec
+        # Create backlog of summonable reinforcements (loop through them!)
+        self.pack_difficulty = pack_difficulty
+        self.reinforcements = list()
+        self.summon_index = 0
+
+        # Save option to create new ones on the go:
+        self.minion = summon
+        self.spawn_options = {
+            'position': None,
+            'tier': tier,
+            'team_color': team_color
+        }
+
+        for _ in range(self._reinforcement_cache_size):
+            minion = self.minion(**self.spawn_options)
+            self.reinforcements.append(minion)
+
+    # todo: add summoning sequence to exec and analyze
+
+    def _summon(self):
+        self.push_away()
+        # Form list of summonable monsters:
+        minions = list()
+        difficulty = 0
+        while difficulty < self.pack_difficulty:
+            # Use cached minions, if cache is exhausted, generate new ones.
+            if self.summon_index < self._reinforcement_cache_size:
+                minion = self.reinforcements[self.summon_index]
+                self.summon_index += 1
+            else:
+                minion = self.minion(**self.spawn_options)
+
+            minions.append(minion)
+            difficulty += minion.difficulty
+
+        self.scene.monster_summon(
+            summoner=self.character,
+            monsters=minions
+        )
+
+    def start_summon(self, phrase="To me!"):
+        self.push_away()
+        self.scene.echo(self.character, phrase, self.character.attacks_color)
+        self.character.channel(self._summon_channel, self._summon)
+
+    def push_away(self):
+        self.scene.explosion(
+            self.character.position,
+            max_distance=self.character.hitbox[0].width * 2,
+            max_push=1,
+            collision_group=self.character.collision_group
+        )

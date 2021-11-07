@@ -18,7 +18,7 @@ class Boss(Humanoid):
 
     # Don't get disabled:
     def set_state(self, state, duration):
-        super(Boss, self).set_state('active' if state in DISABLED and not state == 'hurt' else state, duration)
+        super(Boss, self).set_state('active' if state in DISABLED else state, duration)
 
     # Don't get interrupted:
     def channel(self, duration, task, arguments=None):
@@ -153,6 +153,8 @@ class EliteAI(AI):
         self._decide(initial)
 
     def _summon(self):
+        print('summoning!')
+        self.spawn_time = pygame.time.get_ticks()
         # Form list of summonable monsters:
         minions = list()
         difficulty = 0
@@ -175,8 +177,8 @@ class EliteAI(AI):
     def start_summon(self, phrase="To me!"):
         self.spawn_time = pygame.time.get_ticks()
         self.push_away()
-        self.scene.echo(self.character, phrase, self.character.attacks_color)
         self.character.channel(self._summon_channel, self._summon)
+        self.scene.echo(self.character, phrase, self.character.attacks_color)
 
     def push_away(self):
         self.scene.explosion(

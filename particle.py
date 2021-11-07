@@ -496,8 +496,9 @@ class SpeechBubble(Particle):
         color,
         character,
         text,
+        box,
         lifetime: float = REMAINS_SCREENTIME * 0.5,
-        size: int = BASE_SIZE // 2
+        size: int = BASE_SIZE * 2 // 3
     ):
         decorated_rows = [[row, color] for row in frame_text([text]).splitlines()]
         self.surface = ascii_draw_rows(size, decorated_rows)
@@ -505,6 +506,11 @@ class SpeechBubble(Particle):
         self.character = character
         self.position = relative_position
         self.cache = None
+        self.box = box
+
+        # Add initial shake
+        self.shaker = Shaker()
+        self.shaker.add_shake(character.size/BASE_SIZE)
 
     def draw(self, pause=False):
         if self.cache and pause:
@@ -512,12 +518,12 @@ class SpeechBubble(Particle):
 
         self.lifetime -= FPS_TICK
 
-        # Start transparent, full color before strike, than transparent again
+        # Start transparent, full color, than transparent again
         transparency = lerp((200, 255), math.sin(math.pi * self.lifetime/self.max_lifetime))
         surface = self.surface.copy()
         surface.set_alpha(transparency)
-        placement = self.character.position + self.position
-        rect = surface.get_rect(center=placement)
+        placement = self.character.position + self.position + self.shaker.get_current_v()
+        rect = surface.get_rect(center=placement).clamp(self.box)
 
         self.cache = surface, rect
         return surface, rect

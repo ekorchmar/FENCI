@@ -1456,15 +1456,17 @@ class Scene:
         self.log_weapons()
 
     def echo(self, character, text, color):
-        offset = v(3 * BASE_SIZE, -4 * BASE_SIZE) if character.position.x < self.box.center[0] \
-            else v(3 * BASE_SIZE, 4 * BASE_SIZE)
+        character.set_state('talk', 2)
+        offset = v(4 * BASE_SIZE, 3 * BASE_SIZE) if character.position.x < self.box.center[0] \
+            else v(-4 * BASE_SIZE, 3 * BASE_SIZE)
 
         self.particles.append(
             SpeechBubble(
                 offset,
                 c(color),
                 character,
-                text
+                text,
+                self.box
             )
         )
 

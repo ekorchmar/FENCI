@@ -83,12 +83,15 @@ class Humanoid(Character):
         # Pick facial expression (defaults to idle)
         face_row = self.all_faces[self.size].get(self.visual_state, self.all_faces[self.size]['idle'])
         if face_row[-1] > 0:
-            time_per_frame = face_row[-1] / (len(face_row) - 1)  # total time / faces number
+            # Find in which phase of anumation are we
+            faces, duration = face_row[:-1], face_row[-1]
+            time_per_frame = duration / len(faces)  # total time / faces number
             index = int(self.visual_timer / time_per_frame)
+            face_pick = faces[index % len(faces)]
+            print(index % len(faces))
         else:
-            index = 0
+            face_pick = face_row[0]
 
-        face_pick = face_row[index]
         modified_center = v(self.position) + v(self.body_coordinates['face'])
 
         if self.max_roll != 0:

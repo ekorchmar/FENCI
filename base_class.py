@@ -966,7 +966,11 @@ class Character:
 
     def push(self, vector, time, state='flying', **kwargs):
         # Interrupt any active channels:
-        if self.channeling and self.anchor_timer <= 0:
+        if (
+            self.channeling and
+            self.anchor_timer <= 0 and
+            (state in DISABLED or not self.drops_shields)
+        ):
             self.channeling = {}
             self.channeling_timer = 0
             self.bars.pop("channeling_timer", 0)

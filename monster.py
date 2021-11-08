@@ -474,39 +474,6 @@ class AI:
             self.enemies[self.target]["reach"]
         ) * 1.2
 
-        # Count friends and assess their state:
-        for friend in filter(
-                lambda x: x != self.character and x.collision_group == self.character.collision_group,
-                self.scene.characters
-        ):
-            weapon_slot = friend.weapon_slots[0]
-            weapon = friend.slots[weapon_slot]
-            if isinstance(weapon, Pointed):
-                reach = weapon.length * 1.5 + v(friend.body_coordinates[weapon_slot]).length()
-            else:
-                reach = weapon.length + v(friend.body_coordinates[weapon_slot]).length()
-
-            health = max(
-                min(friend.hp / friend.max_hp, friend.stamina / friend.max_stamina),
-                0.01
-            )
-
-            if friend.ai is not None:
-                ai_state = friend.ai.strategy
-            else:
-                ai_state = 'unknown'
-
-            distance = (friend.position - self.character.position).length()
-
-            self.friends[friend] = {
-                "distance": distance,
-                "reach": reach,
-                "health": max(health, 0.01),
-                "strategy": ai_state
-            }
-
-        # Pick strategy depending on above factors:
-
         if initial:
             # If we just enter the scene, override strategy assessment
             self.set_strategy("wait", 6 - random.uniform(0, 2 * self.flexibility))
@@ -677,6 +644,37 @@ class AI:
             # Identify closest target
             if (self.target is None or distance < self.enemies[self.target]["distance"]) and enemy.hp > 0:
                 self.target = enemy
+
+        # Count friends and assess their state:
+        for friend in filter(
+                lambda x: x != self.character and x.collision_group == self.character.collision_group,
+                self.scene.characters
+        ):
+            weapon_slot = friend.weapon_slots[0]
+            weapon = friend.slots[weapon_slot]
+            if isinstance(weapon, Pointed):
+                reach = weapon.length * 1.5 + v(friend.body_coordinates[weapon_slot]).length()
+            else:
+                reach = weapon.length + v(friend.body_coordinates[weapon_slot]).length()
+
+            health = max(
+                min(friend.hp / friend.max_hp, friend.stamina / friend.max_stamina),
+                0.01
+            )
+
+            if friend.ai is not None:
+                ai_state = friend.ai.strategy
+            else:
+                ai_state = 'unknown'
+
+            distance = (friend.position - self.character.position).length()
+
+            self.friends[friend] = {
+                "distance": distance,
+                "reach": reach,
+                "health": max(health, 0.01),
+                "strategy": ai_state
+            }
 
     def execute(self):
         """Modify own behavior depending on state; returns movement direction vector and aiming target"""

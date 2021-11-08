@@ -1,5 +1,4 @@
 # todo:
-#  Main menu after lvl4 does not need a confirmation
 #  Credits in Main Menu and after beating Lvl4 Skirmish
 #  Saving and loading player state
 #  Hall of fame for beating lvl4 arena
@@ -35,7 +34,8 @@ if __name__ == "__main__":
 
     # Scene Handler to start:
     # SceneHandler.active = SkirmishScenehandler(1)
-    # SceneHandler.active = SceneHandler(1, [Orc], monster_total_cost=50, loot_drops=0, on_scren_enemies_value=(1, 1))
+    # SceneHandler.active = SceneHandler(1, [Orc],
+    #   monsters=[Elite(None, 2, Orc, 10)], monster_total_cost=0, loot_drops=0)
     SceneHandler.active = MainMenuSceneHandler()
 
     # Custom equipment (will not work in Main Menu)

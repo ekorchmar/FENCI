@@ -11,7 +11,7 @@ from monster import *
 class Boss(Humanoid):
     difficulty = 0
     skirmish_spawn_rate = 0
-    theme = 'blkrbt_stairs.ogg'
+    theme = 'blkrbt_ninesix.ogg'
     pct_cap = .02
     _dps_pct_cap = 0.005
     drops_shields = False
@@ -122,7 +122,7 @@ class EliteAI(AI):
         self.reinforcements = list()
         self.summon_index = 0
 
-        # Save option to create new ones on the go:
+        # Save options to create new ones on the go:
         self.minion = summon
         self.spawn_options = {
             'position': None,

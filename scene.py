@@ -1,6 +1,4 @@
 # todo:
-#  Fix teammate collision damage
-#  Add shake+talking animatiion to echo
 #  display combo counter
 #  support for tiled arbitrary sized arenas
 #  tile generation
@@ -426,7 +424,7 @@ class Scene:
             text = string["loot"]["skip"]
 
         if self.loot_overlay.banner:
-            self._loot_info_banner(text)
+            self.report(text, colors["inventory_better"])
 
         # Close loot overlay
         play_sound('button', 1)
@@ -451,19 +449,8 @@ class Scene:
             text = f"{string['loot']['backpack1']} {item.name} {string['loot']['backpack2']}" \
                 if slot == "backpack" else f"{string['loot']['equip']} {item.name}!"
 
-            self._loot_info_banner(text)
+            self.report(text, colors["inventory_better"])
         self.loot_overlay = None
-
-    def _loot_info_banner(self, text):
-        looted_banner = Banner(
-            text=text,
-            size=BASE_SIZE * 2,
-            position=self.box.center[:],
-            color=c(colors["inventory_better"]),
-            max_width=self.box.width,
-            lifetime=3
-        )
-        self.particles.append(looted_banner)
 
     def draw(self):
         draw_group = []
@@ -1551,6 +1538,21 @@ class Scene:
         # Save bar center:
         self.boss_bar_center = v(boss_bar_rect.center)
 
+    def report(self, report, color):
+        # Spawn report banner
+        report_position = WINDOW_SIZE[0] // 2, self.box.bottom - BASE_SIZE
+        report_banner = Banner(
+            report,
+            BASE_SIZE,
+            report_position,
+            color,
+            lifetime=7,
+            animation_duration=3.5,
+            animation='slide',
+            max_width=WINDOW_SIZE[0] * 2
+        )
+        self.particles.append(report_banner)
+
 
 # Supplemental drawing elements
 class Inventory:
@@ -2529,11 +2531,10 @@ class Victory(Menu):
             next_level_button = None
 
         # Main menu button:
-        menu_button = Button(
-            text=[string['menu']['main']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=scene.generate_menu_popup,
-            action_keywords={
+        # If there is no 'Next level' action saved, return to main menu does not require confirmation
+        main_menu_action = {
+            'action': scene.generate_menu_popup,
+            'action_keywords': {
                 "menu_class": RUSureMenu,
                 "keywords": {
                     "title": string["menu"]["confirm_menu"],
@@ -2541,8 +2542,17 @@ class Victory(Menu):
                     "action": scene.request_new_handler,
                     "action_parameters": [MainMenuSceneHandler]
                 }
-            },
-            kb_index=index
+            }
+        } if next_level_action is None else {
+            'action': scene.request_new_handler,
+            "action_parameters": [MainMenuSceneHandler]
+        }
+
+        menu_button = Button(
+            text=[string['menu']['main']],
+            rect=DEFAULT_BUTTON_RECT,
+            kb_index=index,
+            **main_menu_action
         )
         index += 1
 
@@ -3108,18 +3118,7 @@ class SceneHandler:
         elif self.respawn_banner is None:
             self.player_survived, report = self.player.penalize()
             # Spawn report banner
-            report_position = WINDOW_SIZE[0] // 2, self.scene.box.bottom - BASE_SIZE
-            report_banner = Banner(
-                report,
-                BASE_SIZE,
-                report_position,
-                colors["inventory_worse"],
-                lifetime=7,
-                animation_duration=3.5,
-                animation='slide',
-                max_width=WINDOW_SIZE[0]*2
-            )
-            self.scene.particles.append(report_banner)
+            self.scene.report(report, colors["inventory_worse"])
 
             if not self.player_survived:
                 self.scene.menus.append(Defeat(self.scene))
@@ -3204,7 +3203,7 @@ class SceneHandler:
 
 
 class SkirmishScenehandler(SceneHandler):
-    theme = 'blkrbt_ninesix.ogg'
+    theme = 'blkrbt_stairs.ogg'
 
     def __init__(self, tier: int, *args, player=None, on_scren_enemies_value=(7, 12), **kwargs):
 

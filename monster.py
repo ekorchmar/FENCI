@@ -1,5 +1,4 @@
 # todo:
-#  ?? Split AI.execute into submethods to allow for custom AI
 # After tech demo
 # todo:
 #  ?? Skeleton class, same as human but with less health and difficulty
@@ -14,9 +13,8 @@
 # todo: celebration state if away from enemy and flexibility >> skill or all enemies dead
 # todo: randomly exchange wait <=> to wander: move to a new position, not too close to arena edge
 
-from base_class import *
 from particle import AttackWarning
-from equipment import Axe, Shield, Dagger, Spear, Sword, Bladed, Pointed, Falchion, Nothing
+from equipment import *
 from typing import Any
 
 
@@ -27,7 +25,7 @@ class Humanoid(Character):
         "face": [0, 0],
         "main_hand": [-40, 25],
         "off_hand": [50, 25],
-        "hat": [5, -10],
+        "hat": [15, -30],
         "bars": [0, -45]
     }
 
@@ -88,7 +86,6 @@ class Humanoid(Character):
             time_per_frame = duration / len(faces)  # total time / faces number
             index = int(self.visual_timer / time_per_frame)
             face_pick = faces[index % len(faces)]
-            print(index % len(faces))
         else:
             face_pick = face_row[0]
 
@@ -109,8 +106,8 @@ class Humanoid(Character):
 
             face_pick = pygame.transform.rotozoom(face_pick, 360*progress*direction, new_size)
 
-        if not freeze:
-            modified_center[1] += -self.size * math.sin(self.life_timer * 2) * 0.15
+        oscillation_y = 0 if freeze else -self.size * math.sin(self.life_timer * 2) * 0.15
+        modified_center.y += oscillation_y
         face_rect = face_pick.get_rect(center=modified_center)
 
         if self.immune_timer > 0:
@@ -123,9 +120,11 @@ class Humanoid(Character):
 
         # 2. Draw hat, if available
         if self.slots["hat"]:
-            # todo: flip according to self.facing_right
             hat_center = self.position + v(self.body_coordinates['hat'])
-            return_list.append(self.slots["hat"].draw(hat_center))
+            hat_center.y += oscillation_y
+            output = self.slots["hat"].draw(self, hat_center)
+            return_list.append(output)
+            self.drawn_equipment[self.slots["hat"]] = output[1]
 
         # 3. Draw equipped aimed off-hand and main weapons
         for weapon in self.weapon_slots:
@@ -144,7 +143,7 @@ class Humanoid(Character):
                     return_list.append(self._draw_hand(weapon))
                     continue
 
-                output = self.slots[weapon].draw(self)
+                output = self.slots[weapon].draw(self, )
                 if output:
                     # Remember where weapon is drawn for UI purposes
                     self.drawn_equipment[self.slots[weapon]] = output[1]

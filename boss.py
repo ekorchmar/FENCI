@@ -64,7 +64,7 @@ class Elite(Boss):
         self.body_coordinates = donor.body_coordinates.copy()
         scale_body(self.body_coordinates, self._size_modifier)
 
-        for slot in donor.slots:
+        for slot in filter(lambda x: x != 'hat', donor.slots):
             equipment = donor.slots[slot]
             if equipment:
                 # Update equipment portrait and stats to match own size
@@ -76,7 +76,9 @@ class Elite(Boss):
                 # Equip it
                 self.equip(equipment, slot)
 
-        # todo: equip crown
+        # Equip crown
+        crown = EliteCrown(BASE_SIZE * body_stats["size"], tier)
+        self.equip(crown, 'hat')
 
         # Add AI:
         self.ai = EliteAI(
@@ -153,7 +155,6 @@ class EliteAI(AI):
         self._decide(initial)
 
     def _summon(self):
-        print('summoning!')
         self.spawn_time = pygame.time.get_ticks()
         # Form list of summonable monsters:
         minions = list()

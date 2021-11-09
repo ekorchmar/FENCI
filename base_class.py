@@ -366,10 +366,6 @@ class Equipment:
     def drop(character):
         return []
 
-    @staticmethod
-    def draw(character):
-        return None
-
     def reduce_damage(self, penalty):
         pass
 
@@ -405,8 +401,8 @@ class Equipment:
         for card in self.loot_cards:
             self.loot_cards[card] = LootCard(self, compare_to=card)
 
-    def show_stats(self):
-        return {}
+    def show_stats(self, compare_to=None):
+        return dict()
 
     def description(self):
         # Form list of parts and their material
@@ -1268,8 +1264,11 @@ class Character:
             self.slots[slot], drop = Nothing(), self.slots[slot]
             return drop
 
-        # Orient weapon
-        armament.last_angle = armament.default_angle if self.facing_right else 180 - armament.default_angle
+        # Orient weapon, if possible
+        try:
+            armament.last_angle = armament.default_angle if self.facing_right else 180 - armament.default_angle
+        except AttributeError:
+            pass
 
         # If slot is empty, just equip and drop Nothing
         if not self.slots[slot]:

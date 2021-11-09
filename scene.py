@@ -1,7 +1,7 @@
 # todo:
-#  display combo counter
 #  support for tiled arbitrary sized arenas
 #  tile generation
+#  display combo counter
 # After tech demo
 # todo:
 #  scenario feeds dict with debug info into scene for display_debug
@@ -15,7 +15,6 @@
 #  Dialogues
 
 from particle import *
-from artifact import *
 from boss import *
 
 # Display FPS counters(initial state):
@@ -2671,7 +2670,7 @@ class Defeat(Menu):
             BASE_SIZE * 2,
             v(scene.box.center[:]) - v(0, scene.box.height//3),
             colors["game_over"],
-            lifetime=30,
+            lifetime=6,
             animation_duration=3,
             tick_down=False
         )

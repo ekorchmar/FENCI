@@ -1,5 +1,4 @@
 # todo:
-#  Add cosmetic crowns
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -21,7 +20,58 @@ from particle import Kicker, MouseHint, Spark, DustCloud
 
 # Define equipment classes:
 class Hat(Equipment):
+    _size_modifier = 1
     prefer_slot = 'hat'
+
+    def __init__(self, size, tier, *args, **kwargs):
+        super(Hat, self).__init__(*args, **kwargs)
+        self.surface = None
+        self.flipped_surface = None
+
+        # Generate:
+        self.size = int(size * self._size_modifier)
+        self.generate(tier)
+        self.redraw_loot()
+
+        self.loot_cards[None] = LootCard(self)
+
+    def draw(self, character, position):
+        surface = self.surface if character.facing_right else self.flipped_surface
+        return surface, surface.get_rect(center=position)
+
+    def generate(self, tier=None):
+        pass
+
+
+class EliteCrown(Hat):
+    _size_modifier = 2
+    _tilt_angle = 10
+
+    def generate(self, tier=None):
+        # Choose a precious metal to generate crown from
+        # Fill missing parts of self.builder on the go:
+        self.builder["constructor"] = self.builder.get("constructor", {})
+        self.builder["tier"] = self.builder.get("tier", tier)
+
+        # Use this for calculations from now on
+        tier = self.builder["tier"]
+        self.builder["class"] = "Crown"
+
+        material = Material.pick(['precious'], tier)
+        self.builder["constructor"]["whole"] = {
+            "str": random.choice(parts_dict['crown']),
+            "material": material,
+            "color": Material.registry[material].generate()
+        }
+
+        surface = ascii_draw(
+            self.size,
+            self.builder["constructor"]["whole"]['str'],
+            self.builder["constructor"]["whole"]['color']
+        )
+
+        self.surface = pygame.transform.rotate(surface, self._tilt_angle)
+        self.flipped_surface = pygame.transform.flip(self.surface, True, False)
 
 
 class Wielded(Equipment):
@@ -935,6 +985,11 @@ class Pointed(Wielded):
             self.agility_modifier
 
     def _skewer(self, character, victim):
+        # Bleed Bosses instead of skewering
+        if not victim.drops_shields:
+            self.cause_bleeding(victim)
+            return
+
         self.kebab = victim
         self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
         self.kebab_size = victim.size

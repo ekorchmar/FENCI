@@ -1,5 +1,4 @@
 # todo:
-#  Custom summoning callouts for each elite base class
 # After tech demo:
 # todo:
 #  Troll boss with custom AI
@@ -20,16 +19,15 @@ class Boss(Humanoid):
     def set_state(self, state, duration):
         super(Boss, self).set_state('active' if state in DISABLED else state, duration)
 
-    # Don't get interrupted:
-    def channel(self, duration, task, arguments=None):
-        self.anchor(duration, self.position)
-        self.immune_timer = self.immune_timer_wall = duration
-        super(Boss, self).channel(duration, task, arguments)
-
     # Remove bars; Scene should spawn giant HP bar:
     def __init__(self, *args, **kwargs):
         super(Boss, self).__init__(*args, **kwargs)
         self.bars.clear()
+
+    # Instantly restore all stamina:
+    def breath(self):
+        super(Boss, self).breath()
+        self.stamina = self.max_stamina
 
 
 class Elite(Boss):
@@ -90,14 +88,15 @@ class Elite(Boss):
         )
 
         # Breakpoint treshold:
-        self.breakpoint_treshold = self.max_hp / self._breakpoints
+        self.breakpoint_treshold = self._breakpoints / self.max_hp
 
     def hurt(self, *args, **kwargs) -> (bool, int):
-        before_breakpoints = self.hp // self.breakpoint_treshold
+        before_breakpoints = round(self.hp * self.breakpoint_treshold)
         output = super(Elite, self).hurt(*args, **kwargs)
 
         # Summon reinforcements if damage took self under a breakpoint:
-        if output[0] and before_breakpoints > self.hp // self.breakpoint_treshold:
+        new_breakpoints = round(self.hp * self.breakpoint_treshold)
+        if output[0] and before_breakpoints > new_breakpoints:
             self.ai.start_summon()
 
         return output
@@ -145,6 +144,7 @@ class EliteAI(AI):
         # If there are no friends, 50% to summon a new batch:
         if (
                 not initial and
+                self.character.hp < self.character.max_hp * 0.9 and
                 not self.friends and
                 random.random() > self._random_summon_chance and
                 pygame.time.get_ticks() - self.spawn_time > self._random_summon_cooldown
@@ -175,13 +175,20 @@ class EliteAI(AI):
             monsters=minions
         )
 
-    def start_summon(self, phrase="To me!"):
+    def start_summon(self, phrase=None):
+
+        phrase = phrase or random.choice(string['shout']['elite_summon'][self.minion.class_name])
+
+        self.character.anchor(2, position=v(self.character.position))
+        self.character.immune_timer = self.character.immune_timer_wall = 2
+
         self.spawn_time = pygame.time.get_ticks()
         self.push_away()
         self.character.channel(self._summon_channel, self._summon)
         self.scene.echo(self.character, phrase, self.character.attacks_color)
 
     def push_away(self):
+        self.character.set_state('active', 1)
         self.scene.explosion(
             self.character.position,
             max_distance=self.character.hitbox[0].width * 2,

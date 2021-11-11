@@ -188,8 +188,8 @@ class Humanoid(Character):
         # Inform the scene:
         scene.log_weapons()
 
-    def aim(self, target=None):
-        super(Humanoid, self).aim(target)
+    def aim(self, target=None, disable_weapon=False):
+        super(Humanoid, self).aim(target, disable_weapon)
 
         # Support for rolling
         if self.rolling >= 0:

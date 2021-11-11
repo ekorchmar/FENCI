@@ -16,6 +16,7 @@
     "Fae iron is certainly not iron at all. Faefolk can touch it, and in fact produce most of it.",
     "Shaping quicksilver into smithing metal is graduation exam for student alchemists.",
     "Kobolds are distant relatives of goblins, characterized by blue skin and spending their entire lives in mines.",
+    "Empire's army standard equipment was special alloy named Imperium. It is costly to produce, but Empire spared no expence for it's defenders.",
     "Rumour is that sanchezium is extremely effective against alchemists and artificers. It is not a true rumour.",
     "Dwarfish steel contains no iron or steel at all. Dwarves carefully guard the secret, but sell weapons to any buyer.",
     "It takes at least two powerful wizards to produce moonglow silver. It is extremely rare, because powerful wizards hate working together.",
@@ -111,7 +112,7 @@
     "Although elves and humans are usual students of wizard schools, there are legends of powerful orcish wizards, whose heavy staves are as dangerous as their spells.",
 
     "Trolls will investigate any commotion occuring on their territory. Investigation includes hitting source of commotion until it stops making noise.",
-    "Trolls tolerate goblin gangs, as long as latter are successful in providing victim carcasses to the troll.",
+    "Trolls tolerate goblin gangs as neighbours, as long as latter are successful in providing victim carcasses to the troll.",
     "Trolls are carnivores, and are civilised just enough to steal gold from people they kill for food, and no more.",
     "After Empire fell, Elvenking laid claim to every forest of former Empire. He hunts down any intruders to his domain for sport.",
     "Many Elves openly despise humans. Some of them even dream of restoring Elven Kingdom, rebuilt on ashes of human cities.",
@@ -130,7 +131,7 @@
     "You are not guaranteed to get weapons you want or are used to. Your success depends on your ability to adapt.",
     "Keeping low durability weapons for their powerful stats will get you killed. You have to let go.",
     "You can throw away weapons by holding mouse button over them while paused. Why would you want to do it?",
-    "Holding Shift stops your weapons from moving and draining your stamina.",
+    "Holding Shift stops your weapon from moving and draining your stamina. Your off-hand weapon stays active.",
     "Stamina restores much faster if you don't swing your weapons for some time.",
     "Light weapons are easier to control, but are also much easier to parry.",
     "Parrying enemy weapons hurts your stamina. You may want to dodge heavy hits instead.",
@@ -351,5 +352,24 @@
     "level": "LEVEL",
     "loot_drop": "LOOT",
     "loot_soon": "LOOT ON CLEAR!"
+  },
+  "shout": {
+    "elite_summon": {
+      "Orc": [
+        "GO FACE!",
+        "GET THEM!",
+        "TO ME!"
+      ],
+      "Goblin": [
+        "Need help here!",
+        "Bite their knees!",
+        "Where are my boys at?"
+      ],
+      "Human": [
+        "Give me your lunch money!",
+        "This is our town!",
+        "Pile on, lads!"
+      ]
+    }
   }
 }

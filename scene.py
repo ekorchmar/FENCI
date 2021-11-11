@@ -79,8 +79,11 @@ class Scene:
         self.loot_overlay = None
         self.draw_helper = False
         self.draw_group_append = []
+
+        # Boss HP baar and name:
         self.boss_bar = None
         self.boss_bar_center = None
+        self.boss_name = None
 
         # Support drawing buttons and menus:
         self.menus = []
@@ -222,16 +225,13 @@ class Scene:
                             self.player.use(PLAYER_SLOTS[i], continuous)
 
                     # Aim:
-                    if not shift:
-                        aiming = self.mouse_target
-                    else:
-                        aiming = None
+                    aiming = self.mouse_target
                 # Listen to AI choices:
                 else:
                     char_direction, aiming = char.ai.execute()
                     speed_limit = char.ai.speed_limit
 
-                char.aim(aiming)
+                char.aim(aiming, disable_weapon=shift)
                 char.move(char_direction, self, limit=speed_limit)
 
             # Check character states to check if any character landed to spawn particles:
@@ -530,6 +530,7 @@ class Scene:
             bar, rect = self.boss_bar.display(boss.hp)
             rect.center = self.boss_bar_center
             draw_group.append((bar, rect))
+            draw_group.append(self.boss_name.draw())
 
         # Draw pause surfaces
         if self.pause_popups:
@@ -727,7 +728,7 @@ class Scene:
             ]
 
             # Don't check weapons of disabled characters:
-            if character.state not in DISABLED:
+            if character.state not in DISABLED and character.anchor_weapon is None:
                 for weapon in iteration_list[character]:
                     # Don't iterate over non-dangerous, disabled or deflected weapons:
                     if (
@@ -771,7 +772,8 @@ class Scene:
                                     target_weapon in set(already_hit) or
                                     target_weapon.disabled or
                                     not target_weapon.hitbox() or
-                                    not weapon.can_parry
+                                    not weapon.can_parry or
+                                    foe.state in DISABLED
                             ):
                                 continue
 
@@ -1100,13 +1102,14 @@ class Scene:
         ):
 
             if (
-                    character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD * POKE_THRESHOLD or
-                    (character.ai is None and character.immune_timer > 0)
+                character.wall_collision_v.length_squared() < 0.25 * POKE_THRESHOLD * POKE_THRESHOLD or
+                (character.ai is None and character.immune_timer > 0) or
+                not character.drops_shields
             ):
                 character.wall_collision_v = v()
                 continue
 
-            damage_modifier = lerp((0.25 * POKE_THRESHOLD * POKE_THRESHOLD, POKE_THRESHOLD * POKE_THRESHOLD),
+            damage_modifier = lerp((0.25 * POKE_THRESHOLD * POKE_THRESHOLD, 9 * POKE_THRESHOLD * POKE_THRESHOLD),
                                    character.wall_collision_v.length_squared())
             impact_damage = 0.025 * character.weight * damage_modifier
             play_sound('collision', 0.01*impact_damage)
@@ -1212,6 +1215,7 @@ class Scene:
         # If target was a Boss, remove hp bar and stop music:
         if isinstance(character, Boss):
             self.boss_bar = None
+            self.boss_name.tick_down = True
             end_theme()
 
     def iterate(self):
@@ -1513,14 +1517,14 @@ class Scene:
 
             self.spawn(monster)
 
-    def _add_boss_bar(self, boss: Boss, font_size=BASE_SIZE, offset=BASE_SIZE):
+    def _add_boss_bar(self, boss: Boss, font_size=BASE_SIZE, offset=BASE_SIZE//2):
         # Calculate character size:
         test_surface = ascii_draw(font_size, '█', (255, 255, 255))
 
         # Calculate available rect, place it on top of the scene:
         boss_bar_rect = r(
             offset,
-            offset,
+            offset*2 + BASE_SIZE,
             self.box.width - offset*2,
             test_surface.get_height()
         ).move(*self.box.topleft)
@@ -1531,7 +1535,18 @@ class Scene:
             fill_color=c(*colors['enemy']['hp_color'], 100),
             max_value=boss.max_hp,
             show_number=True,
-            style=" █_ "
+            style="{- }"
+        )
+
+        # Add Banner with Boss name:
+        self.boss_name = Banner(
+            text=boss.name.upper(),
+            size=font_size * 3 // 2,
+            position=v(self.box.width//2, self.box.top+offset+font_size//2),
+            color=c(*colors['enemy']['hp_color'], 100),
+            lifetime=4,
+            animation_duration=2,
+            tick_down=False
         )
 
         # Save bar center:
@@ -3221,7 +3236,7 @@ class SkirmishScenehandler(SceneHandler):
                 position=None,
                 tier=tier,
                 base_creature=random.choice(pad_monster_classes),
-                pack_difficulty=on_scren_enemies_value[1]
+                pack_difficulty=on_scren_enemies_value[1] * 2 // 3
             )
 
         super().__init__(

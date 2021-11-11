@@ -6,7 +6,6 @@
 # todo: respect "origin" for materials, prevent mixing evil and good material
 
 
-import copy
 from primitive import *
 from perlin_noise.perlin_noise import PerlinNoise
 
@@ -295,6 +294,7 @@ class Equipment:
     prefer_slot = None
     upside = []
     downside = []
+    aim_drain_modifier = 0
 
     def __init__(self, *args, equipment_dict=None, roll_stats=True, **kwargs):
         self.roll_stats = roll_stats
@@ -682,9 +682,9 @@ class Character:
         #     cache=False
         # )
 
-    def aim(self, target=None):
+    def aim(self, target=None, disable_weapon=False):
         # Prevent modification of mutable input:
-        new_target = copy.copy(target)
+        new_target = v(target or v())
 
         # Tick down timers:
         self.life_timer += FPS_TICK
@@ -769,7 +769,11 @@ class Character:
                     if not self.facing_right:
                         aiming_vector.x *= -1
 
-            self.slots[weapon].aim(hilt_placement=hilt_placement, aiming_vector=aiming_vector, character=self)
+            self.slots[weapon].aim(
+                hilt_placement=hilt_placement,
+                aiming_vector=v() if disable_weapon and self.slots[weapon].aim_drain_modifier > 0 else aiming_vector,
+                character=self
+            )
             dangerous = dangerous or self.slots[weapon].dangerous or self.slots[weapon].disabled
 
         # If weapons were dangerous this frame, reset counter:
@@ -846,7 +850,11 @@ class Character:
             if self.anchor_weapon:
                 self.position = v(self.anchor_weapon.tip_v)
             else:
-                self.position = v(self.anchor_point)
+                try:
+                    self.position = v(self.anchor_point)
+                except ValueError:
+                    print(self.anchor_point)
+                    raise ValueError
             self.speed = v()
         else:
             self.anchor_point = None

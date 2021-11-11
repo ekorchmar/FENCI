@@ -77,6 +77,7 @@ class EliteCrown(Hat):
 class Wielded(Equipment):
     registry = {}
     """Weapons, shields"""
+    aim_drain_modifier = 1
     default_angle = 0
     max_tilt = None
     hitting_surface = "blade"
@@ -1267,7 +1268,7 @@ class Spear(Pointed):
 
         # Calculate damage range depending on weight and tier; longer range causes more damage,
         # Max damage is further increased by weight:
-        min_damage = int((60 + 0.7 * self.weight) * 1.08 ** (tip_material.tier - 1))
+        min_damage = int((70 + 0.85 * self.weight) * 1.08 ** (tip_material.tier - 1))
         max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.3 * math.sqrt(shaft_len / 8)))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -3147,6 +3148,7 @@ class Katar(Pointed, OffHand):
         if all([
                 victor,
                 victim,
+                victim.drops_shields,
                 self.in_use,
                 not self.kebab,
                 0 < dealt_damage < victim.hp
@@ -3185,6 +3187,7 @@ class Katar(Pointed, OffHand):
         }
 
     def _skewer(self, character, victim):
+        self.cause_bleeding(victim, skip_kicker=True)
         super(Katar, self)._skewer(character, victim)
         grab_distance = max(
             self.character_specific["grab_distance"],

@@ -14,6 +14,7 @@ class Boss(Humanoid):
     pct_cap = .02
     _dps_pct_cap = 0.005
     drops_shields = False
+    remains_persistence = 0
 
     # Don't get disabled:
     def set_state(self, state, duration):
@@ -44,6 +45,10 @@ class Elite(Boss):
         body_stats["size"] *= self._size_modifier
         body_stats["hp_restoration"] = 0
         body_stats["health"] = 1000 + 200*tier
+
+        # These are class specific, so reset them to make them distinct for each boss:
+        self.__class__.color = None
+        self.__class__.blood = None
 
         # Initialize self:
         super().__init__(

@@ -1,4 +1,5 @@
 # todo:
+#  F causes taunt, forcing closest enemy to charge
 #  support for tiled arbitrary sized arenas
 #  tile generation
 #  display combo counter
@@ -22,9 +23,8 @@ fps_querried_time = 1000
 fps_count = ascii_draw(40, '0', (255, 255, 0))
 
 
-# Scene class, that draws everything and processess game physics
+# Scene class draws everything and processess game physics
 class Scene:
-    """Takes Rect as bounding box, list of enemies and a player"""
 
     def __init__(self, player, window, bounds, enemies=None, progression=None, decorative=False):
         self.window = window
@@ -49,8 +49,6 @@ class Scene:
         self.collision_groups.sort()
 
         # Updated with player input
-        self.mouse_state = False, False, False
-        self.last_mouse_state = False, False, False
         self.display_debug = False
         self.paused = False
         self.mouse_target = [0, 0]
@@ -152,7 +150,7 @@ class Scene:
                     number_keys[index_key[0]] = (event.key == index_key[1])
 
         self.mouse_target = v(pygame.mouse.get_pos())
-        self.mouse_state = pygame.mouse.get_pressed(num_buttons=3)
+        MouseV.instance.update_buttons()
         keyboard = pygame.key.get_pressed()
 
         # Digest held buttons input:
@@ -220,8 +218,8 @@ class Scene:
 
                     # Use:
                     for i in range(3):
-                        if self.mouse_state[i]:
-                            continuous = self.last_mouse_state[i]
+                        if MouseV.instance.mouse_state[i]:
+                            continuous = MouseV.instance.last_mouse_state[i]
                             self.player.use(PLAYER_SLOTS[i], continuous)
 
                     # Aim:
@@ -274,7 +272,7 @@ class Scene:
             if self.loot_overlay.rect.collidepoint(self.mouse_target):
 
                 # Middle click closes overlay
-                if self.mouse_state[1]:
+                if MouseV.instance.mouse_state[1]:
                     self._close_and_repair()
 
                 else:
@@ -282,9 +280,9 @@ class Scene:
                     self.draw_helper = True
 
                     # Pass mouse click to loot overlay:
-                    result = self.loot_overlay.catch(self.mouse_target, self.mouse_state)
+                    result = self.loot_overlay.catch(self.mouse_target, MouseV.instance.mouse_state)
                     # Prevent accidental mouse holds
-                    if all(result) and self.mouse_state != self.last_mouse_state:
+                    if all(result) and MouseV.instance.input_changed():
                         self._from_loot_overlay(*result)
 
                     # If any loot cards are moused over and there is a valid comparison, draw a loot card nearby
@@ -322,7 +320,7 @@ class Scene:
                 self.player.weapon_slots + ['backpack']
             ))) > 1
 
-            if not_last_weapon and self.held_mouse is None and self.mouse_state[0]:
+            if not_last_weapon and self.held_mouse is None and MouseV.instance.mouse_state[0]:
 
                 # Spawn a held_mouse object that will drop from inventory
                 for slot in self.player.inventory.slot_rects:
@@ -348,7 +346,7 @@ class Scene:
 
         # Handle procession and deletion of HeldMouse object:
         if self.held_mouse is not None:
-            if not self.mouse_state[0] or self.held_mouse.hold():
+            if not MouseV.instance.mouse_state[0] or self.held_mouse.hold():
                 self.held_mouse = None
 
         # Handle most recent displayed menu:
@@ -356,7 +354,7 @@ class Scene:
             # Set cursor shape:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-            if self.mouse_state[0] and not self.last_mouse_state[0]:
+            if MouseV.instance.mouse_state[0] and not MouseV.instance.last_mouse_state[0]:
                 self.menus[-1].collide_button(self.mouse_target)
 
             elif any(number_keys):
@@ -375,7 +373,7 @@ class Scene:
             # Set cursor shape:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-            if self.mouse_state[0] and not self.last_mouse_state[0]:
+            if MouseV.instance.mouse_state[0] and not MouseV.instance.last_mouse_state[0]:
                 self.pause_popups.collide_button(self.mouse_target)
 
             elif any(number_keys):
@@ -384,9 +382,6 @@ class Scene:
             elif escape:
                 escape_index = self.pause_popups.escape_button_index
                 self.pause_popups.index_button(escape_index)
-
-        # Save to determine if mouse buttons are held for the next frame
-        self.last_mouse_state = self.mouse_state[:]
 
         # Prevent event queue overflow:
         # pygame.event.pump()
@@ -526,11 +521,20 @@ class Scene:
 
         # Draw Boss bar:
         if self.boss_bar is not None:
+
+            # Draw boss banner:
+            draw_group.append(self.boss_name.draw())
+
+            # Animate hp bar:
             boss = [char for char in self.characters if isinstance(char, Boss)][0]
             bar, rect = self.boss_bar.display(boss.hp)
+            bar.set_alpha(int(lerp(
+                values_range=(0, 255),
+                progression=(self.boss_name.max_lifetime - self.boss_name.lifetime) / self.boss_name.animation_duration
+            )))
+
             rect.center = self.boss_bar_center
             draw_group.append((bar, rect))
-            draw_group.append(self.boss_name.draw())
 
         # Draw pause surfaces
         if self.pause_popups:
@@ -1208,7 +1212,11 @@ class Scene:
         if character.collision_group != 0:
             self.enemies_count_on_death.append(self.count_enemies_value())
 
-        self.particles.append(Remains(character.kill(), self.box, particle_dump=self.particles))
+        self.particles.append(Remains(
+            *character.kill(),
+            bounding_box=self.box,
+            particle_dump=self.particles
+        ))
         self.log_weapons()
         self.alert_ai(character)
 
@@ -1435,7 +1443,8 @@ class Scene:
         if dropped_item:
             self.particles.append(Remains(
                 [dropped_item.drop(character)],
-                self.box,
+                persistence=1,
+                bounding_box=self.box,
                 particle_dump=self.particles
             ))
 
@@ -1544,8 +1553,8 @@ class Scene:
             size=font_size * 3 // 2,
             position=v(self.box.width//2, self.box.top+offset+font_size//2),
             color=c(*colors['enemy']['hp_color'], 100),
-            lifetime=4,
-            animation_duration=2,
+            lifetime=3,
+            animation_duration=1.5,
             tick_down=False
         )
 
@@ -1568,7 +1577,7 @@ class Scene:
         self.particles.append(report_banner)
 
 
-# Supplemental drawing elements
+# Supplemental UI elements
 class Inventory:
     slots_order = 'main_hand', 'off_hand', 'hat', 'backpack'
 
@@ -2591,7 +2600,7 @@ class Victory(Menu):
 
         # Form victory surface for title:
         # 1. Victory statement surface
-        victory_string = random.choice(string['gameplay']['scene_clear'])
+        victory_string = '  ' + random.choice(string['gameplay']['scene_clear']).rjust(15)
         statement_surface = ascii_draw(BASE_SIZE*2, victory_string, colors['inventory_better'])
         # 2. Form killed monsters list surface
         if scene.dead_characters:
@@ -2743,6 +2752,7 @@ class Difficulty(Menu):
 class Player(Humanoid):
     drops_shields = False
     hit_immunity = 1.2
+    remains_persistence = 0.3
 
     def __init__(self, position, species='Human'):
         player_body = character_stats["body"][species].copy()
@@ -2758,6 +2768,13 @@ class Player(Humanoid):
         self.flip(new_collision=0)
         self.seen_loot_drops = False
         self.inventory = Inventory(self, INVENTORY_SPACE)
+
+        # Add a secondary stamina bar to replace the usual when no stamina is consumed
+        main_stamina_bar_parameters = list(get_key(self.bars["stamina"], Bar.instance_cache))
+        new_parameters = list(main_stamina_bar_parameters)
+        # Change color:
+        new_parameters[2] = c(colors['sp_special'])
+        self.sp_passive = Bar(*new_parameters)
 
     def push(self, vector, time, state='flying', affect_player=False, **kwargs):
         # Player character is more resilient to pushback
@@ -2798,9 +2815,28 @@ class Player(Humanoid):
             generated = weapon_gen(BASE_SIZE, equipment_dict=artifacts[weapon[0]], roll_stats=False)
             self.equip(generated, weapon[1])
 
+    # Player SP is drawn differently if no weapon consumes stamina
+    def _draw_bars(self):
+        self.weapons_drain = any(
+            weapon for weapon in self.slots
+            if (
+                self.slots[weapon] and
+                self.slots[weapon].aim_drain_modifier != 0 and
+                self.slots[weapon].stamina_ignore_timer <= 0
+            )
+        )
+        return super(Player, self)._draw_bars()
+
+    def _fill_bar_dicts(self, bar: str, drawn_bars: dict, bar_rects: dict):
+        if bar == 'stamina' and not self.weapons_drain:
+            drawn_bars[bar], bar_rects[bar] = self.sp_passive.display(self.stamina)
+        else:
+            super(Player, self)._fill_bar_dicts(bar, drawn_bars, bar_rects)
+
 
 # Scene Handlers: 'brains' of Scenes
 class SceneHandler:
+    _batch_spawn_chance = 0.3
     theme = None
     # Stores persistent reference to active scene handler to help instances of SceneHandler exchange game states:
     active = None
@@ -2997,6 +3033,7 @@ class SceneHandler:
                     self.scene.count_enemies_value() == 0
             ):
                 self.batch_spawn()
+            # Otherwise, spawn normally
             else:
                 self.spawn_monster()
 
@@ -3121,8 +3158,14 @@ class SceneHandler:
 
         # If there are less enemies than needed and no spawn is queued, queue one
         elif self.spawn_queued is None and present_enemies_value < current_on_scren_enemies and any(self.monsters):
-            self.spawn_queued = self.monsters.pop()
+
             self.spawn_timer = current_spawn_delay
+
+            # Depending on progression, there is a chance to get batch spawn instead, increasing with progress
+            if random.random() > self._batch_spawn_chance + (1-self._batch_spawn_chance) * self.relative_progression:
+                self.batch_spawn()
+            else:
+                self.spawn_queued = self.monsters.pop()
 
     def death_sequence(self, respawn_bang=True):
 

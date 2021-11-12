@@ -1,4 +1,5 @@
 # todo:
+#  MouseV handles scene mouse targetting
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -11,6 +12,37 @@ from perlin_noise.perlin_noise import PerlinNoise
 
 
 # Define base classes:
+class MouseV:
+    # MouseV is supposed to have a singular instance
+    instance = None
+
+    def __new__(cls):
+        if cls.instance is None:
+            return super().__new__(cls)
+        return cls.instance
+
+    def __init__(self):
+        if self.__class__.instance is not None:
+            return
+        self.mouse_state = self.last_mouse_state = False, False, False
+        self.__class__.instance = self
+
+    def update_buttons(self):
+        self.last_mouse_state = self.mouse_state
+        self.mouse_state = pygame.mouse.get_pressed(num_buttons=3)
+
+    def input_changed(self):
+        return self.mouse_state != self.last_mouse_state
+
+    @staticmethod
+    def position(origin: v = None) -> v:
+        return v(pygame.mouse.get_pos()) - (origin or v())
+
+    @classmethod
+    def instantiate(cls):
+        cls.instance = cls()
+
+
 class Material:
     _metal_bonus = 2
     registry = dict()
@@ -508,6 +540,7 @@ class Character:
     hit_immunity = 0.6
     difficulty = 0
     has_blood = True
+    remains_persistence = 1  # 0 to remain indefinitely in scene
 
     # Logic:
     pct_cap = 0.15
@@ -801,31 +834,41 @@ class Character:
 
         # Draw bars:
         if not no_bars and not body_only and any(self.bars):
-            bar_placement = v(self.body_coordinates['bars']) + v(self.position)
-            drawn_bars = dict()
-            bar_rects: dict = {}
-            for bar in self.bars:
-                drawn_bars[bar], bar_rects[bar] = self.bars[bar].display(self.__dict__[bar])
-
-            # Order bars, hp first, stamina second, then alphabetically
-            all_bars: list = list(self.bars.keys())
-            all_bars.sort(key=lambda x: (x != "hp", x != "stamina", x))
-
-            # Find the topleft corner of first bar
-            topleft_v = bar_placement - v(
-                bar_rects[all_bars[0]].width*0.5,
-                sum([bar_rects[bar].height for bar in bar_rects])*0.5
-            )
-
-            for bar_key in all_bars:
-                # Prepare bar surface and rect
-                surface = drawn_bars[bar_key]
-                rect = bar_rects[bar_key].move(topleft_v)
-                # Shift topleft for the next bar
-                topleft_v.y += rect.height
-                return_list.append((surface, rect))
+            return_list.extend(self._draw_bars())
 
         return return_list
+
+    def _draw_bars(self):
+        return_list = []
+
+        bar_placement = v(self.body_coordinates['bars']) + v(self.position)
+        drawn_bars = dict()
+        bar_rects: dict = {}
+        for bar in self.bars:
+            self._fill_bar_dicts(bar, drawn_bars, bar_rects)
+
+        # Order bars, hp first, stamina second, then alphabetically
+        all_bars: list = list(self.bars.keys())
+        all_bars.sort(key=lambda x: (x != "hp", x != "stamina", x))
+
+        # Find the topleft corner of first bar
+        topleft_v = bar_placement - v(
+            bar_rects[all_bars[0]].width*0.5,
+            sum([bar_rects[bar].height for bar in bar_rects])*0.5
+        )
+
+        for bar_key in all_bars:
+            # Prepare bar surface and rect
+            surface = drawn_bars[bar_key]
+            rect = bar_rects[bar_key].move(topleft_v)
+            # Shift topleft for the next bar
+            topleft_v.y += rect.height
+            return_list.append((surface, rect))
+
+        return return_list
+
+    def _fill_bar_dicts(self, bar: str, drawn_bars: dict, bar_rects: dict):
+        drawn_bars[bar], bar_rects[bar] = self.bars[bar].display(self.__dict__[bar])
 
     def set_state(self, state, duration):
         # Special state sounds:
@@ -1042,7 +1085,7 @@ class Character:
             dropped = self.slots[weapon].drop(self)
             remains_set.append(dropped)
 
-        return remains_set
+        return remains_set, self.remains_persistence
 
     def hurt(self, damage, vector, duration=1.5, deflectable=True, weapon=None, offender=None) -> (bool, int):
         """Reduces HP and pushes self in target direction; returns Boolean, True if character survived the attack"""

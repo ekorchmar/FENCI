@@ -297,6 +297,14 @@ def random_point(v1: v, v2: v):
     return v1 + difference_v
 
 
+def get_key(val, my_dict):
+    for key, value in my_dict.items():
+        if val == value:
+            return key
+
+    raise ValueError("No key holds this value")
+
+
 # Game utils:
 def roll_tier(tier):
     if tier == 0:

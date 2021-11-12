@@ -20,6 +20,9 @@ if __name__ == "__main__":
     # Initiate sound:
     load_sound_profile(OPTIONS["sound"])
 
+    # Initiate controls:
+    MouseV.instantiate()
+
     # Log state to console:
     print(f"Loaded sounds from profile {SOUND_PROFILES[OPTIONS['sound']]}: "
           f"{', '.join(SOUND.keys()) or 'None'}")

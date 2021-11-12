@@ -32,6 +32,7 @@
   "lightning": [253, 208, 35],
   "dust": [138, 110, 86, 150],
   "indicator_good": [143, 200, 152],
+  "sp_special": [170, 158, 255],
   "player": {
     "attacks_color": [127, 127, 255, 127],
     "hp_color": [19, 153, 41]

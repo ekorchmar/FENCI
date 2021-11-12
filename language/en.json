@@ -358,17 +358,19 @@
       "Orc": [
         "GO FACE!",
         "GET THEM!",
-        "TO ME!"
+        "TO ME!",
+        "I WILL HUNT YOU DOWN!",
+        "ZUG-ZUG!"
       ],
       "Goblin": [
         "Need help here!",
-        "Bite their knees!",
-        "Where are my boys at?"
+        "Where are my boys at?",
+        "Give me your lunch money!"
       ],
       "Human": [
-        "Give me your lunch money!",
         "This is our town!",
-        "Pile on, lads!"
+        "Pile on, lads!",
+        "Everyone! Get in here!"
       ]
     }
   }

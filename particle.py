@@ -70,7 +70,7 @@ class Kicker(Particle):
 class Remains:
     shakeable = True
 
-    def __init__(self, blitting_list, bounding_box, particle_dump: list = None):
+    def __init__(self, blitting_list, persistence, bounding_box, particle_dump: list = None):
         """Takes list of lists of three: surface, drawing rect, initial movement vector"""
         self.bounding_box = bounding_box
 
@@ -79,7 +79,11 @@ class Remains:
         for triple in blitting_list:
             if not triple:  # Some things may return nothing
                 continue
-            quintuple = [*triple, 0.5 + random.uniform(0, 2), REMAINS_SCREENTIME]
+            quintuple = [
+                *triple,
+                0.5 + random.uniform(0, 2),
+                REMAINS_SCREENTIME * persistence if persistence != 0 else None
+            ]
             self.blitting_list.append(quintuple)
         self.lifetime = len(self.blitting_list)
         self.cache = None
@@ -123,10 +127,10 @@ class Remains:
 
                         speed_v = to_center
 
-            if speed_v == v():
+            if speed_v == v() and decay_timer is not None:
                 decay_timer -= FPS_TICK
 
-            transparency = int(127 * decay_timer / REMAINS_SCREENTIME)
+            transparency = int(127 * (decay_timer if decay_timer is not None else 1) / REMAINS_SCREENTIME)
             transparent_surface = surface.copy()
             transparent_surface.set_alpha(transparency)
 
@@ -134,7 +138,7 @@ class Remains:
             output.append((transparent_surface, rect))
 
             # Repack:
-            if decay_timer > 0:
+            if decay_timer is None or decay_timer > 0:
                 new_list.append([surface, rect, speed_v, time, decay_timer])
 
         self.blitting_list = new_list

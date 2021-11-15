@@ -1,5 +1,4 @@
 # todo:
-#  MouseV handles scene mouse targetting
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -26,10 +25,12 @@ class MouseV:
             return
         self.mouse_state = self.last_mouse_state = False, False, False
         self.__class__.instance = self
+        self.v = v()
 
     def update_buttons(self):
         self.last_mouse_state = self.mouse_state
         self.mouse_state = pygame.mouse.get_pressed(num_buttons=3)
+        self.v = v(pygame.mouse.get_pos())
 
     def input_changed(self):
         return self.mouse_state != self.last_mouse_state
@@ -41,6 +42,9 @@ class MouseV:
     @classmethod
     def instantiate(cls):
         cls.instance = cls()
+
+    def get_v(self, start_v=None):
+        return self.v if start_v is None else self.v - start_v
 
 
 class Material:

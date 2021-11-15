@@ -2235,11 +2235,8 @@ class Falchion(Sword):
         if continuous_input or character.roll_cooldown > 0:
             return
 
-        if point is None:
-            point = v(pygame.mouse.get_pos())
-
         # Get mouse target for roll direction and range
-        roll_v = point - v(character.position)
+        roll_v = (point or MouseV.instance.v) - v(character.position)
 
         # Modify/limit roll length (^2 is faster)
         if roll_v.length_squared() > (self.character_specific["roll_treshold"] * FPS_TARGET) ** 2:
@@ -2280,6 +2277,7 @@ class OffHand(Wielded):
 
 
 class Shield(OffHand):
+    aim_drain_modifier = 0
     class_name = "Shield"
     hitting_surface = "plate"
     default_angle = -20

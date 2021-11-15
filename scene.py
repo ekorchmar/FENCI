@@ -1,10 +1,10 @@
 # todo:
-#  F causes taunt, forcing closest enemy to charge
 #  support for tiled arbitrary sized arenas
 #  tile generation
 #  display combo counter
 # After tech demo
 # todo:
+#  ?? F causes taunt, forcing closest enemy to charge
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
 #  cut off all surfaces by bounding box
@@ -51,7 +51,6 @@ class Scene:
         # Updated with player input
         self.display_debug = False
         self.paused = False
-        self.mouse_target = [0, 0]
         self.keyboard = pygame.key.get_pressed()
         self.held_mouse: [None, HeldMouse] = None
 
@@ -149,7 +148,6 @@ class Scene:
                 for index_key in NUMBER_CODES:
                     number_keys[index_key[0]] = (event.key == index_key[1])
 
-        self.mouse_target = v(pygame.mouse.get_pos())
         MouseV.instance.update_buttons()
         keyboard = pygame.key.get_pressed()
 
@@ -223,7 +221,7 @@ class Scene:
                             self.player.use(PLAYER_SLOTS[i], continuous)
 
                     # Aim:
-                    aiming = self.mouse_target
+                    aiming = MouseV.instance.v
                 # Listen to AI choices:
                 else:
                     char_direction, aiming = char.ai.execute()
@@ -269,7 +267,7 @@ class Scene:
 
         # Process clicks and keypresses on loot overlay
         elif self.loot_overlay:
-            if self.loot_overlay.rect.collidepoint(self.mouse_target):
+            if self.loot_overlay.rect.collidepoint(MouseV.instance.v):
 
                 # Middle click closes overlay
                 if MouseV.instance.mouse_state[1]:
@@ -280,7 +278,7 @@ class Scene:
                     self.draw_helper = True
 
                     # Pass mouse click to loot overlay:
-                    result = self.loot_overlay.catch(self.mouse_target, MouseV.instance.mouse_state)
+                    result = self.loot_overlay.catch(MouseV.instance.v, MouseV.instance.mouse_state)
                     # Prevent accidental mouse holds
                     if all(result) and MouseV.instance.input_changed():
                         self._from_loot_overlay(*result)
@@ -311,7 +309,7 @@ class Scene:
         if (
                 self.player and
                 (self.loot_overlay or self.paused) and
-                self.player.inventory.rect.collidepoint(self.mouse_target)
+                self.player.inventory.rect.collidepoint(MouseV.instance.v)
         ):
 
             # Can't drop last damaging weapon:
@@ -325,10 +323,8 @@ class Scene:
                 # Spawn a held_mouse object that will drop from inventory
                 for slot in self.player.inventory.slot_rects:
 
-                    modified_target = v(self.mouse_target) - v(
-                        self.player.inventory.rect.left,
-                        self.player.inventory.rect.top
-                    )
+                    modified_target = MouseV.instance.get_v(
+                        start_v=(self.player.inventory.rect.left, self.player.inventory.rect.top))
 
                     if (
                             self.player.inventory.slot_rects[slot].collidepoint(modified_target) and
@@ -355,7 +351,7 @@ class Scene:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
             if MouseV.instance.mouse_state[0] and not MouseV.instance.last_mouse_state[0]:
-                self.menus[-1].collide_button(self.mouse_target)
+                self.menus[-1].collide_button(MouseV.instance.v)
 
             elif any(number_keys):
                 self.menus[-1].index_button(number_keys.index(True))
@@ -374,7 +370,7 @@ class Scene:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
             if MouseV.instance.mouse_state[0] and not MouseV.instance.last_mouse_state[0]:
-                self.pause_popups.collide_button(self.mouse_target)
+                self.pause_popups.collide_button(MouseV.instance.v)
 
             elif any(number_keys):
                 self.pause_popups.index_button(number_keys.index(True))
@@ -538,7 +534,7 @@ class Scene:
 
         # Draw pause surfaces
         if self.pause_popups:
-            pause_ensemble = self.pause_popups.display(self.mouse_target, active=not bool(self.menus))
+            pause_ensemble = self.pause_popups.display(MouseV.instance.v, active=not bool(self.menus))
             if pause_ensemble:
                 draw_group.extend(pause_ensemble)
             else:
@@ -556,9 +552,9 @@ class Scene:
         expired_menus = []
         if self.menus:
             for menu in self.menus:
-                draw_group.extend(menu.display(mouse_v=self.mouse_target, active=menu == self.menus[-1]))
+                draw_group.extend(menu.display(mouse_v=MouseV.instance.v, active=menu == self.menus[-1]))
                 mouse_on_button = mouse_on_button or any(
-                    button.rect.collidepoint(self.mouse_target) for button in menu.buttons_list
+                    button.rect.collidepoint(MouseV.instance.v) for button in menu.buttons_list
                 )
                 if not menu.buttons_list and not menu.decoration_objects:
                     expired_menus.append(menu)
@@ -570,12 +566,12 @@ class Scene:
         # Unless any of the buttons are moused over in menus or pause popup:
         if self.pause_popups:
             mouse_on_button = mouse_on_button or any(
-                button.rect.collidepoint(self.mouse_target) for button in self.pause_popups.buttons_list
+                button.rect.collidepoint(MouseV.instance.v) for button in self.pause_popups.buttons_list
             )
 
         if self.paused and not mouse_on_button:
 
-            if self.box.collidepoint(self.mouse_target):
+            if self.box.collidepoint(MouseV.instance.v):
                 displayed = False
                 for character in self.characters:
 
@@ -583,8 +579,8 @@ class Scene:
                         break
 
                     for equipment in character.drawn_equipment:
-                        if character.drawn_equipment[equipment].collidepoint(self.mouse_target):
-                            draw_group.append(equipment.loot_cards[None].draw(position=self.mouse_target))
+                        if character.drawn_equipment[equipment].collidepoint(MouseV.instance.v):
+                            draw_group.append(equipment.loot_cards[None].draw(position=MouseV.instance.v))
                             displayed = True
                             break
 
@@ -593,17 +589,17 @@ class Scene:
 
                     # If no equipment overlaps, try to display statcard instead:
                     for rect in character.hitbox:
-                        if rect.collidepoint(self.mouse_target):
-                            draw_group.append(character.stat_cards[None].draw(position=self.mouse_target))
+                        if rect.collidepoint(MouseV.instance.v):
+                            draw_group.append(character.stat_cards[None].draw(position=MouseV.instance.v))
                             displayed = True
                             break
 
         # In both pause and loot overlay, if mouse is hovering over inventory rects, show loot cards
         if self.player and (
                 any((self.paused, self.loot_overlay)) and
-                self.player.inventory.rect.collidepoint(self.mouse_target)
+                self.player.inventory.rect.collidepoint(MouseV.instance.v)
         ):
-            mouse_in_inv = v(self.mouse_target) - v(self.player.inventory.rect.left, self.player.inventory.rect.top)
+            mouse_in_inv = v(MouseV.instance.v) - v(self.player.inventory.rect.left, self.player.inventory.rect.top)
             for slot in self.player.inventory.slot_rects:
                 if self.player.inventory.slot_rects[slot].collidepoint(mouse_in_inv):
                     armament = self.player.slots[slot]
@@ -627,7 +623,7 @@ class Scene:
                         armament.loot_cards[compare_armament] = LootCard(armament, compare_to=compare_armament)
 
                     draw_group.append(armament.loot_cards[compare_armament].draw(
-                        position=self.mouse_target,
+                        position=MouseV.instance.v,
                         draw_compared=True
                     ))
 
@@ -683,7 +679,7 @@ class Scene:
 
         # Draw held mouse if exists
         if self.held_mouse is not None:
-            draw_group.append(self.held_mouse.draw(v(self.mouse_target)))
+            draw_group.append(self.held_mouse.draw(MouseV.instance.v))
 
         if self.draw_group_append:
             draw_group.extend(self.draw_group_append)
@@ -1456,8 +1452,7 @@ class Scene:
 
     def echo(self, character, text, color):
         character.set_state('talk', 2)
-        offset = v(4 * BASE_SIZE, 3 * BASE_SIZE) if character.position.x < self.box.center[0] \
-            else v(-4 * BASE_SIZE, 3 * BASE_SIZE)
+        offset = v(4 * BASE_SIZE if character.position.x < self.box.center[0] else -4 * BASE_SIZE, -3 * BASE_SIZE)
 
         self.particles.append(
             SpeechBubble(
@@ -1544,7 +1539,7 @@ class Scene:
             fill_color=c(*colors['enemy']['hp_color'], 100),
             max_value=boss.max_hp,
             show_number=True,
-            style="{- }"
+            style="{– }"
         )
 
         # Add Banner with Boss name:
@@ -2600,7 +2595,7 @@ class Victory(Menu):
 
         # Form victory surface for title:
         # 1. Victory statement surface
-        victory_string = '  ' + random.choice(string['gameplay']['scene_clear']).rjust(15)
+        victory_string = '  ' + random.choice(string['gameplay']['scene_clear']).ljust(15)
         statement_surface = ascii_draw(BASE_SIZE*2, victory_string, colors['inventory_better'])
         # 2. Form killed monsters list surface
         if scene.dead_characters:

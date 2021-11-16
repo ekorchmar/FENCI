@@ -171,8 +171,7 @@ class Shaker:
         repacked_oscillators = []
         timestamp = self._frequency * pygame.time.get_ticks()
         cumulative_v = v()
-        for triple in self.oscillators:
-            intensity, shaker_x, shaker_y = triple
+        for intensity, shaker_x, shaker_y in self.oscillators:
             cumulative_v.x += self._max_shake*intensity*shaker_x(timestamp)
             cumulative_v.y += self._max_shake*intensity*shaker_y(timestamp)
 
@@ -442,9 +441,10 @@ class Equipment:
 
     def description(self):
         # Form list of parts and their material
-        part_material_dict = dict()
-        for part in self.builder["constructor"]:
-            part_material_dict[part] = self.builder["constructor"][part]["material"]
+        part_material_dict = {
+            part: self.builder["constructor"][part]["material"]
+            for part in self.builder["constructor"]
+        }
 
         # If there is only one material, return simple description, e.g. Iron Dagger:
         if len(set(part_material_dict.values())) == 1:
@@ -1086,8 +1086,7 @@ class Character:
             remains_set.append((surf, rect, self.speed + nudge))
 
         for weapon in self.weapon_slots:
-            dropped = self.slots[weapon].drop(self)
-            remains_set.append(dropped)
+            remains_set.append(self.slots[weapon].drop(self))
 
         return remains_set, self.remains_persistence
 
@@ -1178,7 +1177,7 @@ class Character:
                 continue
             weapon.lock(duration=duration, angle=weapon.default_angle)
 
-    def penalize(self):
+    def penalize(self) -> (bool, str):
         # Backpacked equipment can not be damaged
         viable_equipment = [
             self.slots[slot]
@@ -1192,10 +1191,10 @@ class Character:
         equipment = random.choice(viable_equipment)
         return True, equipment.damage()
 
-    def ignores_collision(self):
+    def ignores_collision(self) -> bool:
         return self.state in AIRBORNE or self.phasing
 
-    def is_flying_meat(self):
+    def is_flying_meat(self) -> bool:
         return self.state in DISABLED
 
     def reset(self):
@@ -1617,10 +1616,10 @@ class StatCard(Card):
             }
         ]
 
-        for i in range(len(differing_options)):
+        for option_item in differing_options:
             next_element_top += blit_cascade_text(
                 **common_options,
-                **differing_options[i],
+                **option_item,
                 xy_topleft=(self.xy_offset, next_element_top)
             )
 
@@ -1660,10 +1659,10 @@ class StatCard(Card):
                 }
             ]
 
-            for i in range(len(ai_options)):
+            for ai in ai_options:
                 next_element_top += blit_cascade_text(
                     **common_options,
-                    **ai_options[i],
+                    **ai,
                     xy_topleft=(self.xy_offset, next_element_top)
                 )
 

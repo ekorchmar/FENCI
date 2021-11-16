@@ -94,11 +94,10 @@ class Scene:
 
     def log_weapons(self):
         for character in self.characters:
-            self.colliding_weapons[character] = []
-            for slot in character.weapon_slots:
-                weapon = character.slots[slot]
-                if weapon.hitbox():
-                    self.colliding_weapons[character].append(weapon)
+            self.colliding_weapons[character] = [
+                character.slots[slot] for slot in character.weapon_slots
+                if character.slots[slot].hitbox()
+            ]
 
         if self.player and self.player.inventory:
             self.player.inventory.update()
@@ -164,8 +163,8 @@ class Scene:
             #    self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
             #                   collision_group=self.player.collision_group)
 
-            for boss in filter(lambda x: isinstance(x, Boss), self.characters):
-                boss.ai.start_summon()
+            # for boss in filter(lambda x: isinstance(x, Boss), self.characters):
+            #     boss.ai.start_summon()
 
             # play_sound(random.choice(list(SOUND.keys())), 1.0)
             # play_sound('landing', 1)
@@ -453,8 +452,7 @@ class Scene:
             # Respect screenshake:
             if self.shake_v:
                 drawn_new = []
-                for pair in drawn_pairs:
-                    surf, placement = pair
+                for surf, placement in drawn_pairs:
                     new_placement = (v(placement[:2]) + self.shake_v)
                     drawn_new.append((surf, new_placement))
 
@@ -482,8 +480,7 @@ class Scene:
                 # Respect screenshake:
                 if self.shake_v:
                     drawn_new = []
-                    for pair in drawn_remains:
-                        surf, placement = pair
+                    for surf, placement in drawn_remains:
                         new_placement = (v(placement[:2]) + self.shake_v)
                         drawn_new.append((surf, new_placement))
                     drawn_remains = drawn_new
@@ -688,6 +685,7 @@ class Scene:
         try:
             pygame.display.update(self.window.blits(draw_group, doreturn=1))
         except ValueError as error:
+            print("Could not draw following:")
             [print(pair) for pair in draw_group]
             raise ValueError(error)
 
@@ -878,8 +876,7 @@ class Scene:
                         log_colision(character, character, meatbag, meatbag, character.position)
 
         # Now process collsions:
-        for quintet in collision_quintet:
-            weapon, owner, target, opponent, point = quintet
+        for weapon, owner, target, opponent, point in collision_quintet:
 
             # Process weapon hits
             if isinstance(weapon, Wielded):
@@ -1427,12 +1424,12 @@ class Scene:
 
         return sum(
             enemy.difficulty
-            for enemy in (
-                filter(
+            for enemy
+            in filter(
                     lambda x: x.collision_group != self.player.collision_group,
                     self.characters
                 )
-            ))
+            )
 
     def item_drop(self, character, dropped_item, slot=None, equip=True):
         # Animate remains
@@ -1879,8 +1876,7 @@ class ProgressionBars:
         # Draw from top and right:
         x, y = self.rect.width - self.offset, self.offset
 
-        for i in range(len(self.content)):
-            name, graphic = list(self.content.items())[i]
+        for i, (name, graphic) in enumerate(self.content.items()):
             value = values[i]
 
             if isinstance(graphic, Bar):

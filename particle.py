@@ -708,7 +708,4 @@ class LootOverlayHelp:
         ]
 
     def draw(self):
-        resulting_draw = []
-        for hint in self.particles:
-            resulting_draw.append(hint.draw(pause=False))
-        return resulting_draw
+        return [hint.draw(pause=True) for hint in self.particles]

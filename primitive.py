@@ -422,13 +422,7 @@ def ascii_draws(font_size: int, draw_order):
     Example (iron hilt):
         ascii_draws(14, [('•~[', iron.generate[0)])
     """
-    surfaces: list = []
-    for tpl in draw_order:
-        # May be less efficient than calculating offset, but it's done once per item
-        string_input, color_input = tpl
-        surface = ascii_draw(font_size, string_input, color_input)
-        surfaces.append(surface)
-    return glue_horizontal(*surfaces)
+    return glue_horizontal(*[ascii_draw(font_size, text, color) for text, color in draw_order])
 
 
 def ascii_draw_rows(font_size, rows: list):
@@ -593,10 +587,14 @@ def play_sound(sound, volume, **kwargs):
 
 # Cheats/debugs
 def morph_equipment(char):
-    for slot in char.weapon_slots:
-        char.slots[slot].builder = {}
-        char.slots[slot].generate(char.slots[slot].font_size, tier=random.randint(1, 4))
-        char.slots[slot].update_stats()
+    for slot, weapon in char.slots.items():
+        if not weapon:
+            continue
+
+        weapon.builder = {}
+        weapon.generate(weapon.font_size, tier=random.randint(1, 4))
+        weapon.update_stats()
+        weapon.redraw_loot()
 
 
 def aneurysm(character, scene):

@@ -3068,14 +3068,14 @@ class Katar(Pointed, OffHand):
         # Restore stamina from all bleeding enemies:
         stamina_increment = 0
         dry_veins = []
-        for bleeder in self.stamina_from_bleed:
-            if self.stamina_from_bleed[bleeder]["duration"] > 0:
+        for bleeder, flow in self.stamina_from_bleed.items():
+            if flow["duration"] > 0:
                 stamina_increment += self.stamina_from_bleed[bleeder]["absolute_damage"]
-                self.stamina_from_bleed[bleeder]["duration"] -= FPS_TICK
+                flow["duration"] -= FPS_TICK
             else:
                 dry_veins.append(bleeder)
-        for bleeder in dry_veins:
-            self.stamina_from_bleed.pop(bleeder, None)
+        for bled_out in dry_veins:
+            self.stamina_from_bleed.pop(bled_out, None)
         character.stamina = min(character.max_stamina, character.stamina + stamina_increment)
 
         # If not active:

@@ -732,7 +732,7 @@ class ComboCounter(Particle):
     _max_intensity = BASE_SIZE // 4
     _max_shake = 20
 
-    def __init__(self, position: v, font_size: int = BASE_SIZE*3//2):
+    def __init__(self, scene, position: v, font_size: int = BASE_SIZE*3//2):
         self.current_banner = None
         self.counter = 0
         self.lifetime = 1
@@ -746,6 +746,9 @@ class ComboCounter(Particle):
 
         # Plug to return if not needed:
         self.empty = s((0, 0)), r((0, 0, 0, 0))
+
+        # Awareness of scene:
+        self.scene = scene
 
     def increment(self):
         intensity = min(1.0, self.counter/self._max_shake)
@@ -783,6 +786,11 @@ class ComboCounter(Particle):
 
         # Move banner to shaken position:
         self.current_banner.position = v(self.position + self.shaker.get_current_v())
-        drawn_banner = (self.current_banner.draw(pause))
-        return drawn_banner
+        surface, rect = self.current_banner.draw(pause)
 
+        # Modify transparency:
+        player_distance = (self.scene.player.position or v()) - self.position
+        transparency = int(255*min(1.0, player_distance.length_squared()/(25*BASE_SIZE*BASE_SIZE)))
+        surface.set_alpha(transparency)
+
+        return surface, rect

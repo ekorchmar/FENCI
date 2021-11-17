@@ -42,6 +42,7 @@ class Scene:
 
         # Create a combo counter for player
         self.combo_counter = None if self.player is None else ComboCounter(
+            scene=self,
             position=v(self.box.topright) + v(-BASE_SIZE*4, BASE_SIZE*2)
         )
 
@@ -1069,7 +1070,8 @@ class Scene:
                         weapon.speed *= 0.5 * weapon.weight/target.weight
 
                 else:
-                    play_sound('collision', 0.2)
+                    if self.player in (weapon, target):
+                        play_sound('collision', 0.2)
                     collision_v.scale_to_length(POKE_THRESHOLD)
                     if not (weapon.shielded or weapon.anchor_timer > 0):
                         weapon.push(collision_v, 0.2, 'active')
@@ -1535,9 +1537,9 @@ class Scene:
 
         # Calculate available rect, place it on top of the scene:
         boss_bar_rect = r(
-            offset,
+            self.box.width // 3,
             offset*2 + BASE_SIZE,
-            self.box.width - offset*2,
+            self.box.width // 3,
             test_surface.get_height()
         ).move(*self.box.topleft)
 
@@ -2820,7 +2822,7 @@ class Player(Humanoid):
     # Player SP is drawn differently if no weapon consumes stamina
     def _draw_bars(self):
         self.weapons_drain = any(
-            weapon for weapon in self.slots
+            weapon for weapon in self.weapon_slots
             if (
                 self.slots[weapon] and
                 self.slots[weapon].aim_drain_modifier != 0 and

@@ -1,4 +1,5 @@
 # todo:
+#  Collide weapons by rect first, only then by vector based hitbox
 #  support for tiled arbitrary sized arenas
 #  tile generation
 # After tech demo
@@ -25,10 +26,12 @@ fps_count = ascii_draw(40, '0', (255, 255, 0))
 # Scene class draws everything and processess game physics
 class Scene:
 
-    def __init__(self, player, window, bounds, enemies=None, progression=None, decorative=False):
+    def __init__(self, player, window, bounds, enemies=None, progression=None, decorative=False, field_size=None):
         self.window = window
         self.box = bounds
         self.decorative = decorative
+        self.field = s(field_size or bounds.size)
+        self.field.fill(DISPLAY_COLOR)
 
         # Remember player:
         self.player = player
@@ -447,23 +450,28 @@ class Scene:
         self.loot_overlay = None
 
     def draw(self):
-        draw_group = []
 
-        # Draw all characters
+        # Draw bg:
+        self.window.fill(colors["base"])
+
+        # Find a center of field of view, centered around player:
+        fov_rect = self.box.copy()
+        # Follow player:
+        if self.player:
+            fov_rect.center = self.player.position
+        fov_rect = fov_rect.clamp(self.field.get_rect()).move(self.shake_v)
+
+        draw_groups = {
+            "field": list(),
+            "box": list()
+        }
+
+        # Draw all characters on field
         for character in self.characters:
 
             drawn_pairs = character.draw(freeze=self.paused, no_bars=self.decorative)
 
-            # Respect screenshake:
-            if self.shake_v:
-                drawn_new = []
-                for surf, placement in drawn_pairs:
-                    new_placement = (v(placement[:2]) + self.shake_v)
-                    drawn_new.append((surf, new_placement))
-
-                draw_group.extend(drawn_new)
-            else:
-                draw_group.extend(drawn_pairs)
+            draw_groups["field"].extend(drawn_pairs)
 
             # Spawn dust clouds under rolling or ramming characters
             try:
@@ -481,28 +489,18 @@ class Scene:
             # Remains are returning lists of tuples:
             if isinstance(particle, Remains):
                 drawn_remains = particle.draw(pause=self.paused)
-
-                # Respect screenshake:
-                if self.shake_v:
-                    drawn_new = []
-                    for surf, placement in drawn_remains:
-                        new_placement = (v(placement[:2]) + self.shake_v)
-                        drawn_new.append((surf, new_placement))
-                    drawn_remains = drawn_new
-
-                draw_group.extend(drawn_remains)
+                draw_groups["field"].extend(drawn_remains)
 
             # Everything else returns tuples or nothing:
             else:
                 drawn = particle.draw(pause=self.paused)
                 if drawn:
-                    # Respect screenshake if particle is shakeable (e.g. Banners stay static):
-                    if self.shake_v and particle.shakeable:
-                        draw_group.append((drawn[0], v(drawn[1][:2]) + self.shake_v))
-                    else:
-                        draw_group.append(drawn)
+                    # Draw on field if particle is shakeable, on box otherwise:
+                    draw_groups["field" if particle.shakeable else "box"].append(drawn)
+
                     # If particle is outside bounds and not a Banner, despawn it
-                    if not (drawn[1].colliderect(self.box) or isinstance(particle, Banner)):
+                    if not (drawn[1].colliderect(self.box) and particle.shakeable):
+                        print(f"Warning: despawning {particle} out of bounds")
                         exhausted.append(particle)
 
             if particle.lifetime <= 0:
@@ -515,15 +513,15 @@ class Scene:
         if self.player:
             for ui in (self.player.inventory, self.progression, self.combo_counter):
                 drawn = ui.draw()
-                draw_group.append((drawn[0], v(drawn[1][:2]) + self.shake_v) if self.shake_v else drawn)
+                draw_groups['box'].append((drawn[0], v(drawn[1][:2]) + self.shake_v) if self.shake_v else drawn)
 
         # Draw Boss bar:
         if self.boss_bar is not None:
 
             # Draw boss banner:
-            draw_group.append(self.boss_name.draw())
+            draw_groups['box'].append(self.boss_name.draw())
 
-            # Animate hp bar:
+            # Animate boss HP bar appearance:
             boss = [char for char in self.characters if isinstance(char, Boss)][0]
             bar, rect = self.boss_bar.display(boss.hp)
             bar.set_alpha(int(lerp(
@@ -532,29 +530,29 @@ class Scene:
             )))
 
             rect.center = self.boss_bar_center
-            draw_group.append((bar, rect))
+            draw_groups['box'].append((bar, rect))
 
         # Draw pause surfaces
         if self.pause_popups:
             pause_ensemble = self.pause_popups.display(MouseV.instance.v, active=not bool(self.menus))
             if pause_ensemble:
-                draw_group.extend(pause_ensemble)
+                draw_groups['box'].extend(pause_ensemble)
             else:
                 self.pause_popups = None
 
         if self.loot_overlay:
-            draw_group.append(self.loot_overlay.draw())
+            draw_groups['box'].append(self.loot_overlay.draw())
 
             # Draw helper:
             if self.draw_helper:
-                draw_group.extend(self.loot_overlay.helper.draw())
+                draw_groups['box'].extend(self.loot_overlay.helper.draw())
 
         # Draw menus:
         mouse_on_button = False
         expired_menus = []
         if self.menus:
             for menu in self.menus:
-                draw_group.extend(menu.display(mouse_v=MouseV.instance.v, active=menu == self.menus[-1]))
+                draw_groups['box'].extend(menu.display(mouse_v=MouseV.instance.v, active=menu == self.menus[-1]))
                 mouse_on_button = mouse_on_button or any(
                     button.rect.collidepoint(MouseV.instance.v) for button in menu.buttons_list
                 )
@@ -582,7 +580,7 @@ class Scene:
 
                     for equipment in character.drawn_equipment:
                         if character.drawn_equipment[equipment].collidepoint(MouseV.instance.v):
-                            draw_group.append(equipment.loot_cards[None].draw(position=MouseV.instance.v))
+                            draw_groups['box'].append(equipment.loot_cards[None].draw(position=MouseV.instance.v))
                             displayed = True
                             break
 
@@ -592,7 +590,7 @@ class Scene:
                     # If no equipment overlaps, try to display statcard instead:
                     for rect in character.hitbox:
                         if rect.collidepoint(MouseV.instance.v):
-                            draw_group.append(character.stat_cards[None].draw(position=MouseV.instance.v))
+                            draw_groups['box'].append(character.stat_cards[None].draw(position=MouseV.instance.v))
                             displayed = True
                             break
 
@@ -624,7 +622,7 @@ class Scene:
                     if compare_armament not in armament.loot_cards:
                         armament.loot_cards[compare_armament] = LootCard(armament, compare_to=compare_armament)
 
-                    draw_group.append(armament.loot_cards[compare_armament].draw(
+                    draw_groups['box'].append(armament.loot_cards[compare_armament].draw(
                         position=MouseV.instance.v,
                         draw_compared=True
                     ))
@@ -667,8 +665,8 @@ class Scene:
                     strategy_rect = strategy.get_rect(center=strategy_place)
                     state_place = character.position.x, character.position.y - BASE_SIZE * 4
                     state_rect = state.get_rect(center=state_place)
-                    draw_group.append((strategy, strategy_rect))
-                    draw_group.append((state, state_rect))
+                    draw_groups['field'].append((strategy, strategy_rect))
+                    draw_groups['field'].append((state, state_rect))
 
             global fps_querried_time
             global fps_count
@@ -681,17 +679,33 @@ class Scene:
 
         # Draw held mouse if exists
         if self.held_mouse is not None:
-            draw_group.append(self.held_mouse.draw(MouseV.instance.v))
+            draw_groups['box'].append(self.held_mouse.draw(MouseV.instance.v))
 
         if self.draw_group_append:
-            draw_group.extend(self.draw_group_append)
+            draw_groups['box'].extend(self.draw_group_append)
             self.draw_group_append = []
 
+        # todo: draw field and align it
+        # Draw on field surface:
+        field = self.field.copy()
+
+        # Only draw if it is in view:
+        in_view: list = list()
+        for surface, dest in draw_groups['field']:
+            if fov_rect.colliderect(surface.get_rect(topleft=dest) if isinstance(dest, v) else dest):
+                in_view.append((surface, dest))
+
+        field.blits(in_view, doreturn=False)
+
+        # Add field to box contents:
+        draw_groups['box'].insert(0, [field.subsurface(fov_rect), fov_rect])
+
+        # Draw box contents unconditionaly:
         try:
-            pygame.display.update(self.window.blits(draw_group, doreturn=1))
+            pygame.display.update(self.window.blits(blit_sequence=draw_groups["box"], doreturn=1))
         except ValueError as error:
             print("Could not draw following:")
-            [print(pair) for pair in draw_group]
+            [print(pair) for pair in draw_groups["box"]]
             raise ValueError(error)
 
         CLOCK.tick(FPS_TARGET)
@@ -1245,11 +1259,6 @@ class Scene:
         else:
             self.shaker.reset()
             self.shake_v = v()
-
-        # Draw bg:
-        self.window.fill(colors["base"])
-        filling_rect = self.box.move(self.shake_v)
-        pygame.draw.rect(surface=self.window, rect=filling_rect, color=DISPLAY_COLOR)
 
         # Iterate scene:
         self.update_input()

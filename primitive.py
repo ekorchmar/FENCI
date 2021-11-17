@@ -572,7 +572,7 @@ def play_sound(sound, volume, **kwargs):
     volume = max(0, volume)
 
     # Free up a sound channel if needed:
-    free_channel = pygame.mixer.find_channel(False)
+    free_channel = pygame.mixer.find_channel(True)
 
     if free_channel is None:
         return

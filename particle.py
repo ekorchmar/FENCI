@@ -708,4 +708,4 @@ class LootOverlayHelp:
         ]
 
     def draw(self):
-        return [hint.draw(pause=True) for hint in self.particles]
+        return [hint.draw(pause=False) for hint in self.particles]

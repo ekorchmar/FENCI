@@ -156,12 +156,13 @@ class Material:
 
 class Shaker:
     _max_duration = 1.2
-    _max_shake = 2*BASE_SIZE
     _minimum_intensity = 0.05
     _frequency = 0.003
 
-    def __init__(self):
+    def __init__(self, fading=True, max_shake=2*BASE_SIZE):
         self.oscillators: list = []
+        self.fading = fading
+        self.max_shake = max_shake
 
     def add_shake(self, intensity):
         seed = pygame.time.get_ticks()
@@ -172,12 +173,15 @@ class Shaker:
         timestamp = self._frequency * pygame.time.get_ticks()
         cumulative_v = v()
         for intensity, shaker_x, shaker_y in self.oscillators:
-            cumulative_v.x += self._max_shake*intensity*shaker_x(timestamp)
-            cumulative_v.y += self._max_shake*intensity*shaker_y(timestamp)
+            cumulative_v.x += self.max_shake*intensity*shaker_x(timestamp)
+            cumulative_v.y += self.max_shake*intensity*shaker_y(timestamp)
 
             # Reduce intensity:
-            time_remaining = lerp((0, self._max_duration), intensity) - FPS_TICK
-            new_intensity = lerp((0, 1), time_remaining / self._max_duration)
+            if self.fading:
+                time_remaining = lerp((0, self._max_duration), intensity) - FPS_TICK
+                new_intensity = lerp((0, 1), time_remaining / self._max_duration)
+            else:
+                new_intensity = intensity
 
             # Repack if intensity is above treshold:
             if intensity > self._minimum_intensity:
@@ -187,7 +191,7 @@ class Shaker:
         self.oscillators = repacked_oscillators
 
         # Set max shake limits:
-        limit = self._max_shake*0.5 if OPTIONS["screenshake"] == 2 else self._max_shake*0.25
+        limit = self.max_shake*0.5 if OPTIONS["screenshake"] == 2 else self.max_shake*0.25
         cumulative_v.x = cumulative_v.x if cumulative_v.x < limit else limit
         cumulative_v.x = cumulative_v.x if cumulative_v.x > -limit else -limit
         cumulative_v.y = cumulative_v.y if cumulative_v.y < limit else limit

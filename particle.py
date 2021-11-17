@@ -317,6 +317,8 @@ class AttackWarning(Particle):
 
 class Banner(Particle):
     shakeable = False
+    _max_angle = 15
+    _min_angle = 15
 
     def __init__(
             self,
@@ -349,7 +351,7 @@ class Banner(Particle):
         self.anchor = anchor
         self.position = position
 
-        if animation not in {None, 'fade', 'slide', 'simple', 'grow'}:
+        if animation not in {None, 'fade', 'slide', 'simple', 'grow', 'settle'}:
             raise KeyError("Invalid animation")
         else:
             self.animation = animation
@@ -449,6 +451,20 @@ class Banner(Particle):
                 )
 
             rect = surface.get_rect(**positioning)
+
+        elif self.animation == 'settle':
+            if timer <= self.animation_duration:
+                progress = 1-timer/self.animation_duration
+
+                # This is the way to randomize starting angle, but to keep it constant each iteration
+                max_angle = self._max_angle * 0.01 * (id(self) % 100 - 50)
+                max_angle += math.copysign(self._min_angle, max_angle)
+
+                surface, rect = rot_center(
+                    surface,
+                    max_angle * progress,
+                    rect.center
+                )
 
         self.cache = surface, rect
         return surface, rect
@@ -709,3 +725,64 @@ class LootOverlayHelp:
 
     def draw(self):
         return [hint.draw(pause=False) for hint in self.particles]
+
+
+class ComboCounter(Particle):
+    shakeable = False
+    _max_intensity = BASE_SIZE // 4
+    _max_shake = 20
+
+    def __init__(self, position: v, font_size: int = BASE_SIZE*3//2):
+        self.current_banner = None
+        self.counter = 0
+        self.lifetime = 1
+
+        # Shake:
+        self.shaker = Shaker(fading=False, max_shake=self._max_intensity)
+
+        # Banner options:
+        self.position = position
+        self.font_size = font_size
+
+        # Plug to return if not needed:
+        self.empty = s((0, 0)), r((0, 0, 0, 0))
+
+    def increment(self):
+        intensity = min(1.0, self.counter/self._max_shake)
+
+        self.counter += 1
+        self.shaker.reset()
+        self.shaker.add_shake(intensity)
+        banner_color = c(colors["lightning"]).lerp(c(colors["crit_kicker"]), intensity)
+        self.current_banner = Banner(
+            text=f"x{self.counter}",
+            size=self.font_size,
+            position=self.position,
+            color=banner_color,
+            lifetime=20,
+            animation_duration=3,
+            animation='settle',
+            tick_down=False
+        )
+
+    def reset(self):
+        if self.current_banner is not None:
+            self.current_banner.animation = 'simple'
+            self.current_banner.animation_time = 0.7
+            self.current_banner.lifetime = 0.7
+            self.current_banner.tick_down = True
+        self.counter = 0
+
+    def draw(self, pause=False):
+        if pause or self.current_banner is None:
+            return self.empty
+
+        if self.current_banner.lifetime < 0:
+            self.current_banner = None
+            return self.empty
+
+        # Move banner to shaken position:
+        self.current_banner.position = v(self.position + self.shaker.get_current_v())
+        drawn_banner = (self.current_banner.draw(pause))
+        return drawn_banner
+

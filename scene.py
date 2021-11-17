@@ -1,7 +1,6 @@
 # todo:
 #  support for tiled arbitrary sized arenas
 #  tile generation
-#  display combo counter
 # After tech demo
 # todo:
 #  ?? F causes taunt, forcing closest enemy to charge
@@ -31,7 +30,7 @@ class Scene:
         self.box = bounds
         self.decorative = decorative
 
-        # Spawn player:
+        # Remember player:
         self.player = player
 
         # Put player in characters list
@@ -41,11 +40,16 @@ class Scene:
         if enemies:
             self.characters.extend(enemies)
 
+        # Create a combo counter for player
+        self.combo_counter = None if self.player is None else ComboCounter(
+            position=v(self.box.topright) + v(-BASE_SIZE*4, BASE_SIZE*2)
+        )
+
+        # Landing animation requires scene to remember character states:
         self.character_states = {char: char.state for char in self.characters}
 
-        self.collision_groups = set([char.collision_group for char in self.characters])
         # Order collision groups so that player is processed first:
-        self.collision_groups = list(self.collision_groups)
+        self.collision_groups = [char.collision_group for char in self.characters]
         self.collision_groups.sort()
 
         # Updated with player input
@@ -508,7 +512,7 @@ class Scene:
 
         # Draw UI elements:
         if self.player:
-            for ui in (self.player.inventory, self.progression):
+            for ui in (self.player.inventory, self.progression, self.combo_counter):
                 drawn = ui.draw()
                 draw_group.append((drawn[0], v(drawn[1][:2]) + self.shake_v) if self.shake_v else drawn)
 
@@ -1137,6 +1141,13 @@ class Scene:
     def splatter(self, point, target, damage, weapon=None):
         if damage == 0:
             return
+
+        # Modify combo counter, if it's here:
+        if self.combo_counter:
+            if target is self.player:
+                self.combo_counter.reset()
+            else:
+                self.combo_counter.increment()
 
         # Spawn kicker
         kicker = Kicker(

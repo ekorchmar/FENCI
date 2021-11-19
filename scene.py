@@ -1,7 +1,11 @@
 # todo:
+#  Allow Scenes to take custom surfaces as backgrounds
 #  Collide weapons by rect first, only then by vector based hitbox
+#  Add enemy off-screen direction pointers
+#  Attack warnings are clamped to always remain on-screen
 #  support for tiled arbitrary sized arenas
 #  tile generation
+#  Tween camera to slowly pan to player
 # After tech demo
 # todo:
 #  ?? F causes taunt, forcing closest enemy to charge
@@ -30,8 +34,29 @@ class Scene:
         self.window = window
         self.box = bounds
         self.decorative = decorative
-        self.field = s(field_size or bounds.size)
+
+        # Increase field size by shake range in all directions
+        self.field = s(v(field_size or bounds.size) + 2*SHAKER_BUFFER)
         self.field.fill(DISPLAY_COLOR)
+        # Buffered field rect:
+        self.field_rect = r(
+            SHAKE_RANGE,
+            SHAKE_RANGE,
+            self.field.get_width() - 2*SHAKE_RANGE,
+            self.field.get_height() - 2*SHAKE_RANGE
+        )
+
+        # Calculate conversion between point on field and in window:
+        self.conversion_v: v = v()
+
+        blit_cascade_text(
+            surface=self.field,
+            font_size=BASE_SIZE*3//2,
+            text=string["lorem_ipsum"],
+            xy_topleft=SHAKER_BUFFER,
+            right_offset=SHAKE_RANGE,
+            color=colors["background_noise"]
+        )
 
         # Remember player:
         self.player = player
@@ -57,6 +82,7 @@ class Scene:
         self.collision_groups.sort()
 
         # Updated with player input
+        self.pointer: v = v()
         self.display_debug = False
         self.paused = False
         self.keyboard = pygame.key.get_pressed()
@@ -126,6 +152,9 @@ class Scene:
             character.ai.fight_or_flight(victim)
 
     def update_input(self):
+
+        # Convert mouse target:
+        self.pointer = MouseV.instance.get_v(self.conversion_v)
 
         spacebar, debug, wheel, escape = False, False, False, False
         number_keys = [False]*9
@@ -228,7 +257,7 @@ class Scene:
                             self.player.use(PLAYER_SLOTS[i], continuous)
 
                     # Aim:
-                    aiming = MouseV.instance.v
+                    aiming = self.pointer
                 # Listen to AI choices:
                 else:
                     char_direction, aiming = char.ai.execute()
@@ -459,7 +488,11 @@ class Scene:
         # Follow player:
         if self.player:
             fov_rect.center = self.player.position
-        fov_rect = fov_rect.clamp(self.field.get_rect()).move(self.shake_v)
+        fov_rect = fov_rect.clamp(self.field_rect)
+        self.conversion_v = v(self.box.topleft) - v(fov_rect.topleft)
+
+        # Add shake:
+        fov_rect.move_ip(self.shake_v)
 
         draw_groups = {
             "field": list(),
@@ -499,9 +532,10 @@ class Scene:
                     draw_groups["field" if particle.shakeable else "box"].append(drawn)
 
                     # If particle is outside bounds and not a Banner, despawn it
-                    if not (drawn[1].colliderect(self.box) and particle.shakeable):
-                        print(f"Warning: despawning {particle} out of bounds")
-                        exhausted.append(particle)
+                    # Commented: causes more headache than performance boost
+                    # if not (drawn[1].colliderect(fov_rect) and not particle.shakeable):
+                    #    print(f"Warning: despawning {particle} out of bounds")
+                    #    exhausted.append(particle)
 
             if particle.lifetime <= 0:
                 exhausted.append(particle)
@@ -510,10 +544,17 @@ class Scene:
             self.particles.remove(particle)
 
         # Draw UI elements:
+        if OPTIONS["screenshake"] == 0:
+            ui_shake = v()
+        elif OPTIONS["screenshake"] == 1:
+            ui_shake = self.shake_v*0.5
+        else:
+            ui_shake = self.shake_v
+
         if self.player:
             for ui in (self.player.inventory, self.progression, self.combo_counter):
                 drawn = ui.draw()
-                draw_groups['box'].append((drawn[0], v(drawn[1][:2]) + self.shake_v) if self.shake_v else drawn)
+                draw_groups['box'].append((drawn[0], v(drawn[1][:2]) + ui_shake))
 
         # Draw Boss bar:
         if self.boss_bar is not None:
@@ -569,6 +610,7 @@ class Scene:
                 button.rect.collidepoint(MouseV.instance.v) for button in self.pause_popups.buttons_list
             )
 
+        # Draw on-screen cards for characters and equipment
         if self.paused and not mouse_on_button:
 
             if self.box.collidepoint(MouseV.instance.v):
@@ -627,47 +669,6 @@ class Scene:
                         draw_compared=True
                     ))
 
-        # Display hitboxes if Tab is toggled
-        if self.display_debug:
-            for character in self.characters:
-                for hand in character.weapon_slots:
-                    hitbox = character.slots[hand].hitbox()
-                    if hitbox and hitbox[0] and hitbox[1]:
-                        hilt = r(*hitbox[0], 10, 10)
-                        tip = r(*hitbox[1], 10, 10)
-                        pygame.draw.rect(self.window, (255, 0, 0), hilt)
-                        pygame.draw.rect(self.window, (0, 255, 0), tip)
-
-                for hitbox in character.hitbox:
-                    pygame.draw.rect(self.window, (255, 255, 0), hitbox, width=2)
-
-                if character.ai:
-                    topleft = character.position + character.body_coordinates[character.ai.slot] - \
-                              v(character.ai.stab_reach_rx, character.ai.stab_reach_ry)
-                    reach_rect = r(topleft, (character.ai.stab_reach_rx * 2, character.ai.stab_reach_ry * 2))
-
-                    if character.facing_right:
-                        angle_range = -math.pi / 2, +math.pi / 2
-                    else:
-                        angle_range = +math.pi / 2, -math.pi / 2
-
-                    pygame.draw.arc(
-                        self.window,
-                        (64, 0, 0),
-                        reach_rect,
-                        *angle_range,
-                        width=2
-                    )
-
-                    strategy = ascii_draw(BASE_SIZE // 2, character.ai.strategy, c(255, 0, 0))
-                    state = ascii_draw(BASE_SIZE // 2, character.state, c(255, 0, 0))
-                    strategy_place = character.position.x, character.position.y - BASE_SIZE * 3
-                    strategy_rect = strategy.get_rect(center=strategy_place)
-                    state_place = character.position.x, character.position.y - BASE_SIZE * 4
-                    state_rect = state.get_rect(center=state_place)
-                    draw_groups['field'].append((strategy, strategy_rect))
-                    draw_groups['field'].append((state, state_rect))
-
             global fps_querried_time
             global fps_count
 
@@ -692,13 +693,67 @@ class Scene:
         # Only draw if it is in view:
         in_view: list = list()
         for surface, dest in draw_groups['field']:
+            # dest_list = dest[:]
+            # dest_list[:2] = v(dest_list[:2]) + SHAKER_BUFFER
+            # dest = dest.__class__(*dest_list)
             if fov_rect.colliderect(surface.get_rect(topleft=dest) if isinstance(dest, v) else dest):
                 in_view.append((surface, dest))
 
         field.blits(in_view, doreturn=False)
 
         # Add field to box contents:
-        draw_groups['box'].insert(0, [field.subsurface(fov_rect), fov_rect])
+        draw_groups['box'].insert(0, [field.subsurface(fov_rect), self.box])
+
+        # Display hitboxes if Tab is toggled
+        if self.display_debug:
+
+            for character in self.characters:
+                for hand in character.weapon_slots:
+                    hitbox = character.slots[hand].hitbox()
+                    if hitbox and hitbox[0] and hitbox[1]:
+                        hilt = r(*hitbox[0], 10, 10)
+                        tip = r(*hitbox[1], 10, 10)
+                        pygame.draw.rect(field, (255, 0, 0), hilt)
+                        pygame.draw.rect(field, (0, 255, 0), tip)
+
+                for hitbox in character.hitbox:
+                    pygame.draw.rect(field, (255, 255, 0), hitbox, width=2)
+
+                if character.ai:
+                    topleft = character.position + character.body_coordinates[character.ai.slot] - \
+                              v(character.ai.stab_reach_rx, character.ai.stab_reach_ry)
+                    reach_rect = r(topleft, (character.ai.stab_reach_rx * 2, character.ai.stab_reach_ry * 2))
+
+                    if character.facing_right:
+                        angle_range = -math.pi / 2, +math.pi / 2
+                    else:
+                        angle_range = +math.pi / 2, -math.pi / 2
+
+                    pygame.draw.arc(
+                        field,
+                        (64, 0, 0),
+                        reach_rect,
+                        *angle_range,
+                        width=2
+                    )
+
+                    strategy: s = ascii_draw(BASE_SIZE // 2, character.ai.strategy, c(255, 0, 0))
+                    state: s = ascii_draw(BASE_SIZE // 2, character.state, c(255, 0, 0))
+                    strategy_place = character.position.x, character.position.y - BASE_SIZE * 3
+                    strategy_rect: r = strategy.get_rect(center=strategy_place)
+                    state_place = character.position.x, character.position.y - BASE_SIZE * 4
+                    state_rect: r = state.get_rect(center=state_place)
+                    field.blit(strategy, strategy_rect)
+                    field.blit(state, state_rect)
+
+                # Draw aiming vector
+                elif self.player == character:
+                    pygame.draw.line(
+                        field,
+                        c(127, 127, 255),
+                        self.player.position,
+                        self.pointer
+                    )
 
         # Draw box contents unconditionaly:
         try:
@@ -1301,20 +1356,20 @@ class Scene:
 
         def roll_position(left=False):
             # Offset from center
-            x_offset = random.uniform(self.box.width // 3, self.box.width // 4)
+            x_offset = random.uniform(self.field_rect.width // 3, self.field_rect.width // 4)
             if left:
                 x_offset *= -1
 
             position = v(
-                self.box.left + self.box.width // 2 + + x_offset,
-                self.box.top + random.randint(self.box.height // 4, self.box.height * 3 // 4)
+                self.field_rect.left + self.field_rect.width // 2 + + x_offset,
+                self.field_rect.top + random.randint(self.field_rect.height // 4, self.field_rect.height * 3 // 4)
             )
 
             return position
 
         # Spawn away from the player, or at random if player is absent
         if self.player is not None:
-            spawn_left = self.player is not None and self.player.position.x > self.box.left + self.box.width * 0.5
+            spawn_left = self.player and self.player.position.x > self.field_rect.left + self.field_rect.width * 0.5
         else:
             spawn_left = random.random() > 0.5
 
@@ -2869,7 +2924,8 @@ class SceneHandler:
             spawn_delay: float = (8.0, 2.0),
             sort_loot: bool = False,
             no_player: bool = False,
-            next_level_options: dict = None
+            next_level_options: dict = None,
+            scene_size: v = None
     ):
         # If there is no active SceneHandler, proclaim self to be one:
         if SceneHandler.active is None:
@@ -2894,7 +2950,7 @@ class SceneHandler:
             self.player = player
 
         # Initiate a new scene, again, if needed:
-        self.scene = scene or Scene(self.player, SCREEN, SCENE_BOUNDS)
+        self.scene = scene or Scene(self.player, SCREEN, SCENE_BOUNDS, field_size=scene_size)
 
         # If scene does not have a player, but we do, add it to scene:
         if self.scene.player is None and self.player is not None:
@@ -3303,6 +3359,7 @@ class SkirmishScenehandler(SceneHandler):
             pad_monster_classes=pad_monster_classes,
             pad_monster_weights=pad_monster_weights,
             on_scren_enemies_value=on_scren_enemies_value,
+            scene_size=ARENA_RECT.size,
             **kwargs
         )
 

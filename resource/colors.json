@@ -12,6 +12,7 @@
   "disabled_weapon": [127, 127, 127],
   "base": [0, 0, 0],
   "background": [19, 16, 17],
+  "background_noise": [24, 21, 22],
   "dmg_kicker": [255, 0, 0],
   "crit_kicker": [255, 127, 127],
   "sp_color": [0, 96, 255],

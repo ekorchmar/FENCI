@@ -1,10 +1,11 @@
 # todo:
+#  Clampable particles flag
 
 from base_class import *
 
 
 class Kicker(Particle):
-    shakeable = False
+    shakeable = True
 
     """Display oscilating floating damage number when character is hit"""
     def __init__(
@@ -12,7 +13,7 @@ class Kicker(Particle):
             position,
             damage_value,
             color,
-            base_speed=SWING_THRESHOLD / 4,
+            base_speed=POKE_THRESHOLD / 2,
             lifetime=REMAINS_SCREENTIME / 1.5,
             weapon=None,
             critcolor=None,
@@ -39,7 +40,7 @@ class Kicker(Particle):
                     pass
 
         self.surface = ascii_draw(int(size), damage_string, color)
-        self.position = position
+        self.position = v(position[:])
         self.max_lifetime = lifetime
         self.lifetime = lifetime
         self.speed = v(0, -base_speed)
@@ -57,7 +58,11 @@ class Kicker(Particle):
             center_v = self.position + v(oscillation_x, 0)
         else:
             center_v = self.position
-        rect = self.surface.get_rect(center=center_v).clamp(0, 0, *WINDOW_SIZE)
+
+        # Clamping this way does not work due to screen scrolling. On the other hand,
+        # there is no need to clamp it with bigger arena size
+        # rect = self.surface.get_rect(center=center_v).clamp(0, 0, *WINDOW_SIZE)
+        rect = self.surface.get_rect(center=center_v)
 
         transparency = int(255*self.lifetime / self.max_lifetime)
         transparent_surface = self.surface.copy()
@@ -508,7 +513,7 @@ class Stunned(Particle):
 
 
 class SpeechBubble(Particle):
-    shakeable = False
+    shakeable = True
 
     def __init__(
         self,

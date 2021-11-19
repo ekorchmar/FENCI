@@ -30,6 +30,10 @@ class Boss(Humanoid):
         super(Boss, self).breath()
         self.stamina = self.max_stamina
 
+    # Never interrupted:
+    def _interrupt_channel(self):
+        return
+
 
 class Elite(Boss):
     class_name = 'Elite'

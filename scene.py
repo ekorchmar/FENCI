@@ -1,10 +1,7 @@
 # todo:
-#  Add enemy off-screen direction pointers
-#  support for tiled arbitrary sized arenas
-#  tile generation
-#  Tween camera to slowly pan to player
 # After tech demo
 # todo:
+#  tile generation
 #  ?? F causes taunt, forcing closest enemy to charge
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
@@ -56,7 +53,10 @@ class Scene:
             self.field.get_height() - 2*SHAKE_RANGE
         )
 
-        # Calculate conversion between point on field and in window:
+        # Camera position:
+        self.camera: v = v(self.field_rect.center)
+
+        # Calculated conversion between point on field and in window:
         self.conversion_v: v = v()
 
         # Remember player:
@@ -72,7 +72,7 @@ class Scene:
         # Create a combo counter for player
         self.combo_counter = None if self.player is None else ComboCounter(
             scene=self,
-            position=v(self.box.topright) + v(-BASE_SIZE*4, BASE_SIZE*2)
+            position=v(self.box.topright) + v(-BASE_SIZE*2.5, BASE_SIZE*2)
         )
 
         # Landing animation requires scene to remember character states:
@@ -482,7 +482,6 @@ class Scene:
         self.loot_overlay = None
 
     def draw(self):
-
         # Draw bg:
         self.window.fill(colors["base"])
 
@@ -490,8 +489,9 @@ class Scene:
         fov_rect = self.box.copy()
         # Follow player:
         if self.player:
-            fov_rect.center = self.player.position
+            fov_rect.center = self.camera.lerp(self.player.position, CAMERA_SPEED)
         fov_rect = fov_rect.clamp(self.field_rect)
+        self.camera = v(fov_rect.center)
         self.conversion_v = v(self.box.topleft) - v(fov_rect.topleft)
 
         # Add shake:
@@ -1378,6 +1378,14 @@ class Scene:
 
     def spawn(self, monster, position_v=None):
 
+        # Find box in which to spawn enemy, close to the player:
+        if self.player:
+            box = self.box.copy()
+            box.center = self.player.position[:]
+            box.clamp_ip(self.field_rect)
+        else:
+            box = self.field_rect
+
         # If monster is Boss with a music theme, play it's theme:
         if OPTIONS["music"] and isinstance(monster, Boss) and monster.theme is not None:
             play_theme(os.path.join('music', monster.theme))
@@ -1391,13 +1399,13 @@ class Scene:
 
         def roll_position(left=False):
             # Offset from center
-            x_offset = random.uniform(self.field_rect.width // 3, self.field_rect.width // 4)
+            x_offset = random.uniform(box.width // 3, box.width // 4)
             if left:
                 x_offset *= -1
 
             position = v(
-                self.field_rect.left + self.field_rect.width // 2 + + x_offset,
-                self.field_rect.top + random.randint(self.field_rect.height // 4, self.field_rect.height * 3 // 4)
+                box.left + box.width // 2 + + x_offset,
+                box.top + random.randint(box.height // 4, box.height * 3 // 4)
             )
 
             return position
@@ -1432,7 +1440,7 @@ class Scene:
 
             # Calculate starting roll position
             roll_from_v = v()
-            roll_from_v.x = self.field_rect.left - off_screen_x if spawn_left else self.field_rect.right + off_screen_x
+            roll_from_v.x = box.left - off_screen_x if spawn_left else box.right + off_screen_x
             roll_from_v.y = position_v.y + off_screen_y
 
             # Calculate roll vector
@@ -1446,9 +1454,9 @@ class Scene:
             # Calculate a parabollic jump from outside the screen to land monster in the required position
             jump_time = random.uniform(1.5, 2)
             if spawn_left:
-                jump_x = position_v.x - self.field_rect.left + off_screen_x
+                jump_x = position_v.x - box.left + off_screen_x
             else:
-                jump_x = position_v.x - self.field_rect.right - off_screen_x
+                jump_x = position_v.x - box.right - off_screen_x
 
             position_v.x -= jump_x
 

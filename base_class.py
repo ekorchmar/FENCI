@@ -1020,6 +1020,11 @@ class Character:
         new_place = v(self.position) + self.speed
         self.position = new_place
 
+    def _interrupt_channel(self):
+        self.channeling = dict()
+        self.channeling_timer = 0
+        self.bars.pop("channeling_timer", 0)
+
     def push(self, vector, time, state='flying', **kwargs):
         # Interrupt any active channels:
         if (
@@ -1027,9 +1032,7 @@ class Character:
             self.anchor_timer <= 0 and
             (state in DISABLED or not self.drops_shields)
         ):
-            self.channeling = {}
-            self.channeling_timer = 0
-            self.bars.pop("channeling_timer", 0)
+            self._interrupt_channel()
 
         self.set_state(state, time)
         self.speed = vector
@@ -1155,9 +1158,10 @@ class Character:
             return
 
         # Test if any weapons are offset:
-        for slot in self.weapon_slots:
-            if self.slots[slot].activation_offset != v():
-                return
+        if self.drops_shields:
+            for slot in self.weapon_slots:
+                if self.slots[slot].activation_offset != v():
+                    return
 
         self.set_state("channeling", duration)
 

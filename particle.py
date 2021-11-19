@@ -747,6 +747,7 @@ class ComboCounter(Particle):
 
         # Shake:
         self.shaker = Shaker(fading=False, max_shake=self._max_intensity)
+        self.shake_v = v()
 
         # Banner options:
         self.position = position
@@ -760,7 +761,6 @@ class ComboCounter(Particle):
 
     def increment(self):
         intensity = min(1.0, self.counter/self._max_shake)
-
         self.counter += 1
         self.shaker.reset()
         self.shaker.add_shake(intensity)
@@ -785,21 +785,19 @@ class ComboCounter(Particle):
         self.counter = 0
 
     def draw(self, pause=False):
-        if pause or self.current_banner is None:
+        if self.current_banner is None:
             return self.empty
 
         if self.current_banner.lifetime < 0:
             self.current_banner = None
             return self.empty
 
-        # Move banner to shaken position:
-        self.current_banner.position = v(self.position + self.shaker.get_current_v())
-        surface, rect = self.current_banner.draw(pause)
+        if not pause:
+            self.shake_v = self.shaker.get_current_v()
 
-        # Modify transparency:
-        player_distance = (self.scene.player.position or v()) - self.position
-        transparency = int(255*min(1.0, player_distance.length_squared()/(25*BASE_SIZE*BASE_SIZE)))
-        surface.set_alpha(transparency)
+        # Move banner to shaken position:
+        self.current_banner.position = v(self.position + self.shake_v)
+        surface, rect = self.current_banner.draw()
 
         return surface, rect
 

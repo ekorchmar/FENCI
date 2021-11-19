@@ -1,8 +1,5 @@
 # todo:
-#  Allow Scenes to take custom surfaces as backgrounds
-#  Collide weapons by rect first, only then by vector based hitbox
 #  Add enemy off-screen direction pointers
-#  Attack warnings are clamped to always remain on-screen
 #  support for tiled arbitrary sized arenas
 #  tile generation
 #  Tween camera to slowly pan to player
@@ -11,7 +8,6 @@
 #  ?? F causes taunt, forcing closest enemy to charge
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
-#  cut off all surfaces by bounding box
 #  separate skirmish scene handler
 # todo: Add lightning effect to character spawn
 # todo: draw complex background
@@ -30,14 +26,28 @@ fps_count = ascii_draw(40, '0', (255, 255, 0))
 # Scene class draws everything and processess game physics
 class Scene:
 
-    def __init__(self, player, window, bounds, enemies=None, progression=None, decorative=False, field_size=None):
+    def __init__(
+            self,
+            player,
+            window,
+            bounds,
+            enemies=None,
+            progression=None,
+            decorative: bool = False,
+            custom_surface: s = None
+    ):
         self.window = window
         self.box = bounds
         self.decorative = decorative
 
         # Increase field size by shake range in all directions
-        self.field = s(v(field_size or bounds.size) + 2*SHAKER_BUFFER)
-        self.field.fill(DISPLAY_COLOR)
+        if custom_surface is None:
+            self.field = s(v(bounds.size) + 2*SHAKER_BUFFER)
+            self.field.fill(DISPLAY_COLOR)
+        else:
+            self.field = s(v(custom_surface.get_size()) + 2*SHAKER_BUFFER)
+            self.field.blit(custom_surface, SHAKER_BUFFER)
+
         # Buffered field rect:
         self.field_rect = r(
             SHAKE_RANGE,
@@ -48,15 +58,6 @@ class Scene:
 
         # Calculate conversion between point on field and in window:
         self.conversion_v: v = v()
-
-        blit_cascade_text(
-            surface=self.field,
-            font_size=BASE_SIZE*3//2,
-            text=string["lorem_ipsum"],
-            xy_topleft=SHAKER_BUFFER,
-            right_offset=SHAKE_RANGE,
-            color=colors["background_noise"]
-        )
 
         # Remember player:
         self.player = player
@@ -101,6 +102,7 @@ class Scene:
 
         # Store damage kickers and other particles
         self.particles = []
+        self.enemy_direction = None if self.player is None else EnemyDirection(self.player, self.characters)
 
         # Store display for level progress:
         self.progression = progression
@@ -111,7 +113,7 @@ class Scene:
         self.draw_helper = False
         self.draw_group_append = []
 
-        # Boss HP baar and name:
+        # Boss HP bar and name:
         self.boss_bar = None
         self.boss_bar_center = None
         self.boss_name = None
@@ -155,6 +157,7 @@ class Scene:
 
         # Convert mouse target:
         self.pointer = MouseV.instance.get_v(self.conversion_v)
+        MouseV.instance.remember(self.pointer)
 
         spacebar, debug, wheel, escape = False, False, False, False
         number_keys = [False]*9
@@ -263,7 +266,7 @@ class Scene:
                     char_direction, aiming = char.ai.execute()
                     speed_limit = char.ai.speed_limit
 
-                char.aim(aiming, disable_weapon=shift)
+                char.update(aiming, disable_weapon=shift)
                 char.move(char_direction, self, limit=speed_limit)
 
             # Check character states to check if any character landed to spawn particles:
@@ -515,6 +518,23 @@ class Scene:
             except AttributeError:
                 pass
 
+        # Test if any enemy is visible this frame:
+        if self.player:
+            self.player.sees_enemies = False
+            enemies = list(filter(lambda char: char.collision_group != self.player.collision_group, self.characters))
+            for enemy in enemies:
+                for rect in enemy.hitbox:
+                    if rect.colliderect(fov_rect):
+                        self.player.sees_enemies = True
+                        break
+                if self.player.sees_enemies:
+                    break
+
+            if enemies and not self.player.sees_enemies:
+                self.enemy_direction.find_closest_enemy(self.characters)
+                surface, rect = self.enemy_direction.draw()
+                draw_groups["field"].append((surface, rect.clamp(fov_rect)))
+
         # Draw damage kickers, dead bodies and other particles:
         exhausted = []
         for particle in self.particles:
@@ -529,7 +549,12 @@ class Scene:
                 drawn = particle.draw(pause=self.paused)
                 if drawn:
                     # Draw on field if particle is shakeable, on box otherwise:
-                    draw_groups["field" if particle.shakeable else "box"].append(drawn)
+                    canvas = "field" if particle.shakeable else "box"
+                    surf, rect = drawn
+                    # Some informative particles must always stay visible
+                    if particle.clampable:
+                        rect.clamp_ip(fov_rect)
+                    draw_groups[canvas].append(drawn)
 
                     # If particle is outside bounds and not a Banner, despawn it
                     # Commented: causes more headache than performance boost
@@ -544,9 +569,7 @@ class Scene:
             self.particles.remove(particle)
 
         # Draw UI elements:
-        if OPTIONS["screenshake"] == 0:
-            ui_shake = v()
-        elif OPTIONS["screenshake"] == 1:
+        if OPTIONS["screenshake"] >= 1:
             ui_shake = self.shake_v*0.5
         else:
             ui_shake = self.shake_v
@@ -613,7 +636,7 @@ class Scene:
         # Draw on-screen cards for characters and equipment
         if self.paused and not mouse_on_button:
 
-            if self.box.collidepoint(MouseV.instance.v):
+            if self.box.collidepoint(MouseV.instance.custom_pointer):
                 displayed = False
                 for character in self.characters:
 
@@ -621,7 +644,7 @@ class Scene:
                         break
 
                     for equipment in character.drawn_equipment:
-                        if character.drawn_equipment[equipment].collidepoint(MouseV.instance.v):
+                        if character.drawn_equipment[equipment].collidepoint(MouseV.instance.custom_pointer):
                             draw_groups['box'].append(equipment.loot_cards[None].draw(position=MouseV.instance.v))
                             displayed = True
                             break
@@ -631,7 +654,7 @@ class Scene:
 
                     # If no equipment overlaps, try to display statcard instead:
                     for rect in character.hitbox:
-                        if rect.collidepoint(MouseV.instance.v):
+                        if rect.collidepoint(MouseV.instance.custom_pointer):
                             draw_groups['box'].append(character.stat_cards[None].draw(position=MouseV.instance.v))
                             displayed = True
                             break
@@ -669,15 +692,6 @@ class Scene:
                         draw_compared=True
                     ))
 
-            global fps_querried_time
-            global fps_count
-
-            fps_querried_time += CLOCK.get_time()
-            if fps_querried_time >= 1000:
-                fps_count = ascii_draw(40, str(int(CLOCK.get_fps())), (255, 255, 0))
-                fps_querried_time = 0
-            self.window.blit(fps_count, (0, 0))
-
         # Draw held mouse if exists
         if self.held_mouse is not None:
             draw_groups['box'].append(self.held_mouse.draw(MouseV.instance.v))
@@ -686,7 +700,6 @@ class Scene:
             draw_groups['box'].extend(self.draw_group_append)
             self.draw_group_append = []
 
-        # todo: draw field and align it
         # Draw on field surface:
         field = self.field.copy()
 
@@ -754,6 +767,15 @@ class Scene:
                         self.player.position,
                         self.pointer
                     )
+
+                global fps_querried_time
+                global fps_count
+
+                fps_querried_time += CLOCK.get_time()
+                if fps_querried_time >= 1000:
+                    fps_count = ascii_draw(40, str(int(CLOCK.get_fps())), (255, 255, 0))
+                    fps_querried_time = 0
+                field.blit(fps_count, fov_rect)
 
         # Draw box contents unconditionaly:
         try:
@@ -837,7 +859,7 @@ class Scene:
 
                             # Not all weapons can parry
                             if not weapon.can_parry:
-                                break
+                                continue
 
                             # 1 Frame = 1 hit
                             if (
@@ -847,6 +869,17 @@ class Scene:
                                     not weapon.can_parry or
                                     foe.state in DISABLED
                             ):
+                                continue
+
+                            # Before intersecting weapon hitboxes which are SEGMENTS, run a cheap test to see if
+                            # drawn RECTS intersect:
+                            try:
+                                if not character.drawn_equipment[weapon].colliderect(
+                                        foe.drawn_equipment[target_weapon]
+                                ):
+                                    continue
+                            except KeyError:
+                                # Ignore non-drawn weapons
                                 continue
 
                             # If hitboxes intersect, extend output pairs and add both to already_hit
@@ -1289,7 +1322,7 @@ class Scene:
 
         self.particles.append(Remains(
             *character.kill(),
-            bounding_box=self.box,
+            bounding_box=self.field_rect,
             particle_dump=self.particles
         ))
         self.log_weapons()
@@ -1303,10 +1336,12 @@ class Scene:
 
     def iterate(self):
         # May happen when scene is handed over:
-        # if player is specified, and not in dead characters, make sure it is in characters
+        # if player is specified, and not in dead characters, make sure it is in characters list
         if self.player and self.player not in self.dead_characters and self.player not in self.characters:
             self.characters = [self.player] + self.characters
             self.log_weapons()
+
+            # Update player's
 
         # Calculate shake vector
         if OPTIONS["screenshake"]:
@@ -1397,7 +1432,7 @@ class Scene:
 
             # Calculate starting roll position
             roll_from_v = v()
-            roll_from_v.x = self.box.left - off_screen_x if spawn_left else self.box.right + off_screen_x
+            roll_from_v.x = self.field_rect.left - off_screen_x if spawn_left else self.field_rect.right + off_screen_x
             roll_from_v.y = position_v.y + off_screen_y
 
             # Calculate roll vector
@@ -1411,9 +1446,9 @@ class Scene:
             # Calculate a parabollic jump from outside the screen to land monster in the required position
             jump_time = random.uniform(1.5, 2)
             if spawn_left:
-                jump_x = position_v.x - self.box.left + off_screen_x
+                jump_x = position_v.x - self.field_rect.left + off_screen_x
             else:
-                jump_x = position_v.x - self.box.right - off_screen_x
+                jump_x = position_v.x - self.field_rect.right - off_screen_x
 
             position_v.x -= jump_x
 
@@ -1534,7 +1569,7 @@ class Scene:
                 c(color),
                 character,
                 text,
-                self.box
+                self.field_rect
             )
         )
 
@@ -2835,6 +2870,7 @@ class Player(Humanoid):
         )
         self.flip(new_collision=0)
         self.seen_loot_drops = False
+        self.sees_enemies = False
         self.inventory = Inventory(self, INVENTORY_SPACE)
 
         # Add a secondary stamina bar to replace the usual when no stamina is consumed
@@ -2925,7 +2961,7 @@ class SceneHandler:
             sort_loot: bool = False,
             no_player: bool = False,
             next_level_options: dict = None,
-            scene_size: v = None
+            scene_background: s = None
     ):
         # If there is no active SceneHandler, proclaim self to be one:
         if SceneHandler.active is None:
@@ -2950,7 +2986,7 @@ class SceneHandler:
             self.player = player
 
         # Initiate a new scene, again, if needed:
-        self.scene = scene or Scene(self.player, SCREEN, SCENE_BOUNDS, field_size=scene_size)
+        self.scene = scene or Scene(self.player, SCREEN, SCENE_BOUNDS, custom_surface=scene_background)
 
         # If scene does not have a player, but we do, add it to scene:
         if self.scene.player is None and self.player is not None:
@@ -3351,6 +3387,19 @@ class SkirmishScenehandler(SceneHandler):
                 pack_difficulty=on_scren_enemies_value[1] * 2 // 3
             )
 
+        # Draw background (Lorem Ipsum currently)
+        # todo: replace with tiles
+        lorem_ipsum = s(ARENA_RECT.size)
+        lorem_ipsum.fill(colors["background"])
+        blit_cascade_text(
+            surface=lorem_ipsum,
+            font_size=BASE_SIZE*3//2,
+            text=string["lorem_ipsum"],
+            xy_topleft=v(),
+            right_offset=0,
+            color=colors["background_noise"]
+        )
+
         super().__init__(
             tier=tier,
             *args,
@@ -3359,7 +3408,7 @@ class SkirmishScenehandler(SceneHandler):
             pad_monster_classes=pad_monster_classes,
             pad_monster_weights=pad_monster_weights,
             on_scren_enemies_value=on_scren_enemies_value,
-            scene_size=ARENA_RECT.size,
+            scene_background=lorem_ipsum,
             **kwargs
         )
 

@@ -6,6 +6,7 @@ from base_class import *
 
 class Kicker(Particle):
     shakeable = True
+    clampable = True
 
     """Display oscilating floating damage number when character is hit"""
     def __init__(
@@ -285,6 +286,7 @@ class Droplet(Particle):
 
 class AttackWarning(Particle):
     shakeable = True
+    clampable = True
 
     def __init__(
             self,
@@ -322,7 +324,7 @@ class AttackWarning(Particle):
 
 class Banner(Particle):
     shakeable = False
-    _max_angle = 15
+    _max_angle = 10
     _min_angle = 15
 
     def __init__(
@@ -514,6 +516,7 @@ class Stunned(Particle):
 
 class SpeechBubble(Particle):
     shakeable = True
+    clampable = True
 
     def __init__(
         self,
@@ -799,3 +802,49 @@ class ComboCounter(Particle):
         surface.set_alpha(transparency)
 
         return surface, rect
+
+
+class EnemyDirection(Particle):
+    shakeable = False
+    clampable = True
+
+    def __init__(self, player: Character, characters: list, size=BASE_SIZE*3//2):
+        self.surfaces = {
+            "right": ascii_draw(size, '▶', colors['lightning']),
+            "left": ascii_draw(size, '◀', colors['lightning'])
+        }
+
+        self.lifetime = 1
+        self.player = player
+        self.enemy = None
+        self.distance2 = 0
+        # Find closest enemy as character
+        self.find_closest_enemy(characters)
+
+    def _set_enemy(self, enemy: Character):
+        self.enemy = enemy
+        self.distance2 = (self.player.position - enemy.position).length_squared()
+
+    def find_closest_enemy(self, characters: list):
+        # Reset if enemy is dead:
+        if self.enemy not in characters:
+            self.enemy = None
+            self.distance2 = 0
+
+        for char in filter(
+                lambda x: x.collision_group != self.player.collision_group and x.position,
+                characters
+        ):
+            if self.distance2 == 0 or (self.player.position - char.position).length_squared() < self.distance2:
+                self._set_enemy(char)
+
+    def draw(self, pause=False):
+        if self.player.sees_enemies:
+            return
+
+        direction = 'right' if (self.enemy.position - self.player.position).x > 0 else 'left'
+        surface = self.surfaces[direction].copy()
+        surface.set_alpha(int(127 + 127 * math.sin(pygame.time.get_ticks() * 0.02)))
+
+        # Rely on scene clamping to reposition own sprite to the edge
+        return surface, surface.get_rect(center=self.enemy.position)

@@ -26,6 +26,7 @@ class MouseV:
         self.mouse_state = self.last_mouse_state = False, False, False
         self.__class__.instance = self
         self.v = v()
+        self.custom_pointer = v()
 
     def update_buttons(self):
         self.last_mouse_state = self.mouse_state
@@ -35,9 +36,8 @@ class MouseV:
     def input_changed(self):
         return self.mouse_state != self.last_mouse_state
 
-    @staticmethod
-    def position(origin: v = None) -> v:
-        return v(pygame.mouse.get_pos()) - (origin or v())
+    def remember(self, point: v):
+        self.custom_pointer = point
 
     @classmethod
     def instantiate(cls):
@@ -556,6 +556,7 @@ class Character:
     class_name = None
     debug = False
     drops_shields = True
+    sees_enemies = False  # Only important for player characters
 
     # Class-specific:
     color = None
@@ -723,7 +724,7 @@ class Character:
         #     cache=False
         # )
 
-    def aim(self, target=None, disable_weapon=False):
+    def update(self, target=None, disable_weapon=False):
         # Prevent modification of mutable input:
         new_target = v(target or v())
 
@@ -1345,6 +1346,7 @@ class Character:
 
 class Particle:
     shakeable = False
+    clampable = False
 
     @staticmethod
     def _monitor_decoy():

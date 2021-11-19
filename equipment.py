@@ -2220,7 +2220,7 @@ class Falchion(Sword):
             return
 
         # Get mouse target for roll direction and range
-        roll_v = (point or MouseV.instance.v) - v(character.position)
+        roll_v = (point or MouseV.instance.custom_pointer) - v(character.position)
 
         # Modify/limit roll length (^2 is faster)
         if roll_v.length_squared() > (self.character_specific["roll_treshold"] * FPS_TARGET) ** 2:

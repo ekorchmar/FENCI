@@ -159,7 +159,7 @@ class Shaker:
     _minimum_intensity = 0.05
     _frequency = 0.003
 
-    def __init__(self, fading=True, max_shake=2*BASE_SIZE):
+    def __init__(self, fading=True, max_shake=SHAKE_RANGE):
         self.oscillators: list = []
         self.fading = fading
         self.max_shake = max_shake
@@ -983,8 +983,8 @@ class Character:
                 self.speed.xy = (0, 0)
 
         # Bounce off boundaries towards center if reached edge
-        boundaries = (scene.box.left, scene.box.right), (scene.box.top, scene.box.bottom)
-        center_v = scene.box.center
+        boundaries = (scene.field_rect.left, scene.field_rect.right), (scene.field_rect.top, scene.field_rect.bottom)
+        center_v = scene.field_rect.center
 
         # Push disabled characters or characters somehow outside
         # Don't affect jumping or phasing characters (spawning)
@@ -993,7 +993,7 @@ class Character:
 
         if not (self.ai and (self.phasing or self.state == 'jumping')):
 
-            if self.state in DISABLED or not scene.box.collidepoint(self.position):
+            if self.state in DISABLED or not scene.field_rect.collidepoint(self.position):
                 for coordinate in {0, 1}:
                     if not boundaries[coordinate][0] < self.position[coordinate] < boundaries[coordinate][1]:
                         to_center = center_v - v(self.position)

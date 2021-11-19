@@ -113,12 +113,22 @@ DEFAULT_BUTTON_RECT = r(
     WINDOW_SIZE[1] // 10
 )
 
-# Initial player position
+# Game constants
 # Initial position is (1/6, 1/2) of scene bounding box,
 PLAYER_SPAWN = v(
     SCENE_BOUNDS.left + SCENE_BOUNDS.width // 6,
     SCENE_BOUNDS.top + SCENE_BOUNDS.height // 2
 )
+
+ARENA_RECT = r(
+    0,
+    0,
+    512*3,
+    512*2
+)
+
+SHAKE_RANGE = 2*BASE_SIZE
+SHAKER_BUFFER = v(SHAKE_RANGE, SHAKE_RANGE)
 
 # Physics constants:
 SWING_THRESHOLD = 300 * FPS_TICK
@@ -303,6 +313,11 @@ def get_key(val, my_dict):
             return key
 
     raise ValueError("No key holds this value")
+
+
+def rect_collide_destination(rect: r, destination) -> bool:
+    return (isinstance(destination, r) and destination.colliderect(rect)) or \
+           (isinstance(destination, v) and rect.collidepoint(*destination))
 
 
 # Game utils:

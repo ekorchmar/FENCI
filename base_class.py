@@ -5,7 +5,6 @@
 # todo: separate upside and downside lists for enemy weapons
 # todo: respect "origin" for materials, prevent mixing evil and good material
 
-
 from primitive import *
 from perlin_noise.perlin_noise import PerlinNoise
 
@@ -502,6 +501,26 @@ class Equipment:
         current_limit = self.speed_limit
         self.speed_limit = 1.0
         return current_limit
+
+    def drop_json(self):
+        own_stats = self.__dict__.copy()
+
+        # Pop all generated objects:
+        own_stats.pop('loot_cards', 0)
+        own_stats.pop('character_specific', 0)
+        own_stats.pop('particles', 0)
+        for key in [key for key, value in own_stats.items() if isinstance(value, (s, v))]:
+            own_stats.pop(key)
+
+        return json.dumps(own_stats, sort_keys=False, indent=2)
+
+    def from_json(self, json_string):
+        new_stats = json.loads(json_string)
+        self.__dict__.update(**new_stats)
+
+        # Re-generate:
+        self.generate()
+        self.redraw_loot()
 
 
 class Nothing(Equipment):

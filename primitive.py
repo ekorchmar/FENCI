@@ -48,7 +48,8 @@ OPTIONS = load_json('options.json', 'options')
 FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
 
 # Screen options:
-WINDOW_SIZE = 1024, 768
+# WINDOW_SIZE = 1024, 768
+WINDOW_SIZE = 1440, 900
 FPS_TARGET = 60
 FPS_TICK = 1 / FPS_TARGET
 BASE_SIZE = 24
@@ -442,10 +443,11 @@ def ascii_draws(font_size: int, draw_order):
 
 
 def ascii_draw_rows(font_size, rows: list):
-    """Take input in form of multiple rows of ascii_draws. Assume rows are already of same length"""
+    """Take input in form of multiple rows of ascii_draws. Use length of the longest row"""
     # Form list of surfaces from each row
     surfaces = [ascii_draws(font_size, [row]) for row in rows]
-    row_x, row_y = surfaces[0].get_size()
+    row_x = max(surf.get_width() for surf in surfaces)
+    row_y = surfaces[0].get_height()
     initial_y = 0
     resulting_surface = s((row_x, row_y * len(rows)), pygame.SRCALPHA)
     for surface in surfaces:

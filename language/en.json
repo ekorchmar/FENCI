@@ -276,7 +276,14 @@
     ],
     "trivia_label": "TRIVIA",
     "tip_label": "TIP",
-    "monster_list": "Killed enemies:"
+    "monster_list": "Killed enemies",
+    "victory_stats": {
+      "time": "Time elaplsed",
+      "damage": "Total damage dealt",
+      "combo": "Highest combo",
+      "deaths": "Deaths",
+      "dps": "DPS"
+    }
   },
   "menu": {
     "campaign": "Campaign",

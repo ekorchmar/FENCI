@@ -122,16 +122,11 @@ class Wielded(Equipment):
 
     def __init__(self, size, color=None, tier_target=None, equipment_dict=None, name=None, **kwargs):
         super().__init__(size, color=None, tier_target=None, equipment_dict=equipment_dict, **kwargs)
+        # Position of hilt on default surface
         self.hilt = None
 
         # Remember for generation scripts
         self.font_size = size
-
-        # Depend on Material.registry and quality
-        self.length = None
-        self.weight = 0
-        self.agility_modifier = None
-        self.stamina_drain = None
 
         # Physical locations tethered to hilt start
         self.hilt_v = None
@@ -151,10 +146,16 @@ class Wielded(Equipment):
         self.dangerous = False
         self.stamina_ignore_timer = 0
 
-        # Fill attributes according to tier: called by subclasses
+        # Depend on Material.registry and quality
+        self.agility_modifier = None
+        self.stamina_drain = None
         self.bleed = 0
         self.damage_range = 0, 0
         self.color = color
+
+        # Fill attributes according to tier: modified by subclasses
+        self.length = None
+        self.weight = 0
         self.generate(tier_target)
         self.update_stats()
         self.name = name or self.generate_name()
@@ -503,9 +504,11 @@ class Wielded(Equipment):
         if character.hp > 0:
             play_sound('drop', 0.5)
 
-        # Set place if not set
-        if self.hilt_v is None:
-            self.reset(character)
+        # Reset place if not set or if dropping from backpack
+        if character.slots['backpack'] == self:
+            self.hilt_v = None
+        self.reset(character)
+        self.hilt_v = self.hilt_v or character.position
 
         # Surface and Rect are provided by .draw
         # Movement vector is character's speed with added random push between 60º and 120º
@@ -2341,7 +2344,8 @@ class Shield(OffHand):
             # 40%, paint the plate
             if Material.registry[self.builder["constructor"]['plate']["material"]].physics in PAINTABLE and \
                     random.random() > 0.6:
-                self.builder["constructor"]['plate']['tags'] = ['painted']
+                if "color" not in self.builder["constructor"]['plate']:
+                    self.builder["constructor"]['plate']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
@@ -2615,7 +2619,7 @@ class Shield(OffHand):
         surface = s(rect.size, pygame.SRCALPHA)
 
         # Find horizontal scale to fill the rectangle:
-        scale = 3*(rect.width-2*offset)/self.surface.get_rect().width
+        scale = 2*(rect.width-2*offset)/self.surface.get_rect().width
         portrait = pygame.transform.rotozoom(self.surface, 15, scale)
         if discolor:
             if self.durability > 0:

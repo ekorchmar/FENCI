@@ -1,7 +1,11 @@
 # todo:
+#  Save player state at beginning of each level; wipe save on defeat
+#  MainMenu adds Continue button if a game is saved
 # After tech demo
 # todo:
+#  bleeding contributes to player_damage
 #  tile generation
+#  achievements
 #  ?? F causes taunt, forcing closest enemy to charge
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
@@ -33,6 +37,7 @@ class Scene:
             decorative: bool = False,
             custom_surface: s = None
     ):
+        self.timer = 0
         self.window = window
         self.box = bounds
         self.decorative = decorative
@@ -69,11 +74,14 @@ class Scene:
         if enemies:
             self.characters.extend(enemies)
 
-        # Create a combo counter for player
+        # Create a combo counter and stats for player
         self.combo_counter = None if self.player is None else ComboCounter(
             scene=self,
             position=v(self.box.topright) + v(-BASE_SIZE*2.5, BASE_SIZE*2)
         )
+        self.max_combo = 0
+        self.player_deaths = 0
+        self.player_damage = 0
 
         # Landing animation requires scene to remember character states:
         self.character_states = {char: char.state for char in self.characters}
@@ -200,6 +208,13 @@ class Scene:
         if debug:
             if self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
+
+                # Test saving/unsaving
+                weapon = self.player.slots['main_hand']
+                main_hand_json = (weapon.drop_json())
+                weapon.from_json(main_hand_json)
+                self.player.equip(weapon, 'main_hand')
+
             #    self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
             #                   collision_group=self.player.collision_group)
 
@@ -777,6 +792,13 @@ class Scene:
                     fps_querried_time = 0
                 field.blit(fps_count, fov_rect)
 
+                # Add timer:
+                time_surf = ascii_draw(BASE_SIZE, f"{self.timer:.3f}", (127, 255, 127))
+                draw_groups['box'].append((
+                    time_surf,
+                    time_surf.get_rect(topright=self.box.topright)
+                ))
+
         # Draw box contents unconditionaly:
         try:
             pygame.display.update(self.window.blits(blit_sequence=draw_groups["box"], doreturn=1))
@@ -1172,8 +1194,12 @@ class Scene:
                         weapon.speed *= 0.5 * weapon.weight/target.weight
 
                 else:
+                    # Play sound (but not too often)
                     if self.player in (weapon, target):
-                        play_sound('collision', 0.2)
+                        stamp = pygame.time.get_ticks()
+                        if stamp - self.player.last_bump > 1000:
+                            self.player.last_bump = stamp
+                            play_sound('collision', 0.2)
                     collision_v.scale_to_length(POKE_THRESHOLD)
                     if not (weapon.shielded or weapon.anchor_timer > 0):
                         weapon.push(collision_v, 0.2, 'active')
@@ -1251,7 +1277,9 @@ class Scene:
             if target is self.player:
                 self.combo_counter.reset()
             else:
+                self.player_damage += damage
                 self.combo_counter.increment()
+                self.max_combo = max(self.combo_counter.counter, self.max_combo)
 
         # Spawn kicker
         kicker = Kicker(
@@ -1330,18 +1358,25 @@ class Scene:
 
         # If target was a Boss, remove hp bar and stop music:
         if isinstance(character, Boss):
+            play_sound('loot', 1)
             self.boss_bar = None
             self.boss_name.tick_down = True
             end_theme()
 
+        # If target was Player, increment player death count:
+        elif character == self.player:
+            self.player_deaths += 1
+
     def iterate(self):
+        # Unless scene is paused, increase timer:
+        if not (self.paused or self.menus):
+            self.timer += FPS_TICK
+
         # May happen when scene is handed over:
         # if player is specified, and not in dead characters, make sure it is in characters list
         if self.player and self.player not in self.dead_characters and self.player not in self.characters:
             self.characters = [self.player] + self.characters
             self.log_weapons()
-
-            # Update player's
 
         # Calculate shake vector
         if OPTIONS["screenshake"]:
@@ -2723,7 +2758,7 @@ class Victory(Menu):
 
             content_rows = frame_text(
                 [
-                    f"{key_value[0]}: {key_value[1]}".ljust(15)
+                    f"{key_value[0]}: {key_value[1]}".rjust(31)
                     for key_value in
                     sorted(killed_monsters_count.items(), key=lambda x: -x[1])
                 ],
@@ -2732,7 +2767,19 @@ class Victory(Menu):
 
             colored_content_rows = [[row, colors["inventory_text"]] for row in content_rows.splitlines()]
 
-            killed_monsters_surface = ascii_draw_rows(BASE_SIZE, colored_header_row+colored_content_rows)
+            # Add stats rows:
+            combo = f'{scene.max_combo}{"!"*(max(3, scene.max_combo//10))}'
+            time = f'{scene.timer//60:d}:{int(scene.timer%60):d}.{scene.timer%1:.2f}'
+            damage = f'{scene.player_damage:,} {string["gameplay"]["victory_stats"]["dps"]}'
+            dps = f'{scene.player_damage/scene.timer:d}'
+            stats_rows = [
+                [f'{string["gameplay"]["victory_stats"]["time"]}: {time}', colors["inventory_text"]],
+                [f'{string["gameplay"]["victory_stats"]["combo"]}: {combo}', colors["inventory_text"]],
+                [f'{string["gameplay"]["victory_stats"]["damage"]}: {damage} ({dps})', colors["inventory_text"]],
+                [f'{string["gameplay"]["victory_stats"]["deaths"]}: {scene.player_deaths}', colors["inventory_text"]]
+            ]
+
+            killed_monsters_surface = ascii_draw_rows(BASE_SIZE, colored_header_row+colored_content_rows+stats_rows)
 
         else:
             killed_monsters_surface = s((0, 0))
@@ -2876,10 +2923,17 @@ class Player(Humanoid):
             faces=character_stats["mind"][species],
             name=string["protagonist_name"]
         )
+
+        # Face right when starting:
         self.flip(new_collision=0)
+
+        # Scene interaction:
+        self.inventory = Inventory(self, INVENTORY_SPACE)
         self.seen_loot_drops = False
         self.sees_enemies = False
-        self.inventory = Inventory(self, INVENTORY_SPACE)
+
+        # Bump sound limit:
+        self.last_bump = 0
 
         # Add a secondary stamina bar to replace the usual when no stamina is consumed
         main_stamina_bar_parameters = list(get_key(self.bars["stamina"], Bar.instance_cache))
@@ -3187,11 +3241,16 @@ class SceneHandler:
                 ])
 
         # 2.3. Drop loot for player if scene is clear and progress is achieved
-        if not self.scene.loot_overlay and self.loot_querried and self.scene.count_enemies_value() == 0 and not any([
-            weapon
-            for weapon in self.player.weapon_slots
-            if self.player.slots[weapon] and self.player.slots[weapon].activation_offset != v()
-        ]):
+        if (
+                not self.scene.paused and
+                not self.scene.loot_overlay and
+                self.loot_querried and
+                self.scene.count_enemies_value() == 0 and not any([
+                    weapon
+                    for weapon in self.player.weapon_slots
+                    if self.player.slots[weapon] and self.player.slots[weapon].activation_offset != v()
+                ])
+        ):
             self.batch_spawn_after_loot = True
             loot_package = self.loot[:3]
             del self.loot[:3]
@@ -3203,7 +3262,7 @@ class SceneHandler:
             self.player.seen_loot_drops = True
 
             # Animate overlay from last dead monster:
-            last_victim = self.scene.dead_characters[-1].position
+            last_victim = self.scene.dead_characters[-1].position+self.scene.conversion_v
             self.scene.loot_overlay = LootOverlay(loot_package, self.player, label=loot_label, appear_from=last_victim)
             self.loot_querried = False
 

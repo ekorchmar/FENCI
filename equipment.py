@@ -1054,7 +1054,7 @@ class Sword(Bladed, Pointed):
             # Prevent same material generation if tier is above current tier
             blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
-            if random.random() > 0.4 and blade_tier <= tier:  # 40% of the time, pick same material for hilt
+            if random.random() > 0.4 or blade_tier > tier:  # 40% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -1070,6 +1070,9 @@ class Sword(Bladed, Pointed):
         )
 
         def new_hilt_color():
+            if "color" in self.builder["constructor"]['hilt']:
+                return
+
             if 'painted' in set(self.builder["constructor"]['hilt'].get("tags", [])):
                 return paint()
 
@@ -1206,15 +1209,13 @@ class Spear(Pointed):
         )
 
         # Generate colors:
-        def new_color(part):
-            return Material.registry[self.builder["constructor"][part]["material"]].generate()
+        def new_color(x):
+            return Material.registry[self.builder["constructor"][x]["material"]].generate()
 
-        self.builder["constructor"]['shaft']["color"] = self.builder["constructor"]['shaft'].get(
-            "color", new_color("shaft")
-        )
-        self.builder["constructor"]['head']["color"] = self.builder["constructor"]['head'].get(
-            "color", new_color("head")
-        )
+        for part in self.builder["constructor"]:
+            self.builder["constructor"][part]['color'] = self.builder["constructor"][part].get(
+                "color", new_color(part)
+            )
 
         # Now that builder is filled, create visuals:
         shaft_str = self.builder["constructor"]["shaft"]["str"]
@@ -1498,7 +1499,7 @@ class Dagger(Short, Bladed):
             # Prevent same material generation if tier is above current tier
             blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
-            if random.random() > 0.7 and blade_tier <= tier:  # 30% of the time, pick same material for hilt
+            if random.random() > 0.7 or blade_tier > tier:  # 30% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -1515,6 +1516,9 @@ class Dagger(Short, Bladed):
         )
 
         def new_hilt_color():
+            if "color" in self.builder["constructor"]['hilt']:
+                return
+
             if 'painted' in set(self.builder["constructor"]['hilt'].get("tags", [])):
                 return paint()
 
@@ -2139,7 +2143,7 @@ class Falchion(Sword):
             # Prevent same material generation if tier is above current tier
             blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
-            if random.random() > 0.6 and blade_tier <= tier:  # 40% of the time, pick same material for hilt
+            if random.random() > 0.6 or blade_tier > tier:  # 40% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -2155,6 +2159,9 @@ class Falchion(Sword):
         )
 
         def new_hilt_color():
+            if "color" in self.builder["constructor"]['hilt']:
+                return
+
             if 'painted' in set(self.builder["constructor"]['hilt'].get("tags", [])):
                 return paint()
 
@@ -2338,6 +2345,9 @@ class Shield(OffHand):
 
         # Paint plate if possible:
         def new_plate_color():
+            if "color" in self.builder["constructor"]['plate']:
+                return
+
             if 'painted' in set(self.builder["constructor"]['plate'].get("tags", {})):
                 return paint()
 
@@ -2544,7 +2554,7 @@ class Shield(OffHand):
         # Determine how much stamina would a full block require
         character.stamina -= damage * self.stamina_drain
 
-        block_failed = character.stamina < 0
+        block_failed = character.stamina < 0 and (weapon is None or self.weight <= weapon.weight)
 
         # Fully charged Spears and Spinning Axes can destroy shields
         if weapon:
@@ -2561,6 +2571,7 @@ class Shield(OffHand):
                 self.activation_offset += weapon.tip_delta
 
             # Spawn a kicker and queue destruction if held by AI:
+            self.active_this_frame = self.active_last_frame = False
             self.queue_destroy = character.drops_shields
             self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
             if self.queue_destroy:
@@ -2750,7 +2761,7 @@ class Swordbreaker(Dagger, OffHand):
             # Prevent same material generation if tier is above current tier
             blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
-            if random.random() > 0.7 and blade_tier <= tier:  # 30% of the time, pick same material for hilt
+            if random.random() > 0.7 or blade_tier > tier:  # 30% of the time, pick same material for hilt
                 hm = Material.pick(['metal', 'wood', 'bone', 'precious'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
@@ -2766,6 +2777,9 @@ class Swordbreaker(Dagger, OffHand):
         )
 
         def new_hilt_color():
+            if "color" in self.builder["constructor"]['hilt']:
+                return
+
             if 'painted' in set(self.builder["constructor"]['hilt'].get("tags", [])):
                 return paint()
 
@@ -2941,6 +2955,9 @@ class Katar(Pointed, OffHand):
         )
 
         def new_guard_color():
+            if "color" in self.builder["constructor"]['guard']:
+                return
+
             if 'painted' in set(self.builder["constructor"]['guard'].get("tags", [])):
                 return paint()
 

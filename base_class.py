@@ -509,10 +509,10 @@ class Equipment:
         own_stats.pop('loot_cards', 0)
         own_stats.pop('character_specific', 0)
         own_stats.pop('particles', 0)
-        for key in [key for key, value in own_stats.items() if isinstance(value, (s, v))]:
+        for key in [key for key, value in own_stats.items() if isinstance(value, (s, v, c))]:
             own_stats.pop(key)
 
-        return json.dumps(own_stats, sort_keys=False, indent=2)
+        return json.dumps(own_stats, sort_keys=False)
 
     def from_json(self, json_string):
         new_stats = json.loads(json_string)

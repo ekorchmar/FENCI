@@ -286,6 +286,7 @@
     }
   },
   "menu": {
+    "continue": "Continue saved",
     "campaign": "Campaign",
     "skirmish": "Arena",
     "unpause": "Continue",

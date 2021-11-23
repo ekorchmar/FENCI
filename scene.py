@@ -1,6 +1,6 @@
 # todo:
 #  Save player state at beginning of each level; wipe save on defeat
-#  MainMenu adds Continue button if a game is saved
+#  MainMenu adds Continue button if a game save is present
 # After tech demo
 # todo:
 #  bleeding contributes to player_damage
@@ -210,10 +210,8 @@ class Scene:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
 
                 # Test saving/unsaving
-                weapon = self.player.slots['main_hand']
-                main_hand_json = (weapon.drop_json())
-                weapon.from_json(main_hand_json)
-                self.player.equip(weapon, 'main_hand')
+                # SceneHandler.active.save()
+                # print('saved!')
 
             #    self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
             #                   collision_group=self.player.collision_group)
@@ -230,6 +228,7 @@ class Scene:
             # self.log_weapons()
             # self.menus.append(Defeat(self))
             # self.shaker.add_shake(1.0)
+            aneurysm(random.choice([char for char in self.characters if char != self.player]), self)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -2598,54 +2597,73 @@ class PauseEnsemble(Menu):
 class MainMenu(Menu):
 
     def generate_buttons(self):
-        # Campaign button:
-        campaign_button = Button(
-            text=[string['menu']['campaign']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=print,
-            action_parameters=["Not implemented in demo! How did you reach here, anyway?"],
-            kb_index=0
-        )
-        campaign_button.disabled = True
 
-        # Skirmish button
-        skirmish_button = Button(
-            text=[string['menu']['skirmish']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": Difficulty,
-                "keywords": {"action": self._start_skirmish}
-            },
-            kb_index=1
-        )
+        buttons = [
+            # Continue button:
+            Button(
+                text=[string['menu']['continue']],
+                rect=DEFAULT_BUTTON_RECT,
+                action=SceneHandler.active.load_save,
+                action_parameters=[SkirmishScenehandler],
+                kb_index=0
+            ),
 
-        # Options button:
-        options_button = Button(
-            text=[string['menu']['options']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.scene.generate_menu_popup,
-            action_keywords={"menu_class": Options},
-            kb_index=2
-        )
+            # Campaign button:
+            Button(
+                text=[string['menu']['campaign']],
+                rect=DEFAULT_BUTTON_RECT,
+                action=print,
+                action_parameters=["Not implemented in demo! How did you reach here, anyway?"],
+                kb_index=1
+            ),
 
-        # Exit button
-        exit_button = Button(
-            text=[string['menu']['exit']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_exit"],
-                    "confirm_text": string['menu']['confirmed_exit'],
-                    "action": exit_game
-                }
-            },
-            kb_index=3
-        )
+            # Skirmish button
+            Button(
+                text=[string['menu']['skirmish']],
+                rect=DEFAULT_BUTTON_RECT,
+                action=self.scene.generate_menu_popup,
+                action_keywords={
+                    "menu_class": Difficulty,
+                    "keywords": {"action": self._start_skirmish}
+                },
+                kb_index=2
+            ),
 
-        return [campaign_button, skirmish_button, options_button, exit_button]
+            # Options button:
+            Button(
+                text=[string['menu']['options']],
+                rect=DEFAULT_BUTTON_RECT,
+                action=self.scene.generate_menu_popup,
+                action_keywords={"menu_class": Options},
+                kb_index=3
+            ),
+
+            # Exit button
+            Button(
+                text=[string['menu']['exit']],
+                rect=DEFAULT_BUTTON_RECT,
+                action=self.scene.generate_menu_popup,
+                action_keywords={
+                    "menu_class": RUSureMenu,
+                    "keywords": {
+                        "title": string["menu"]["confirm_exit"],
+                        "confirm_text": string['menu']['confirmed_exit'],
+                        "action": exit_game
+                    }
+                },
+                kb_index=4
+            )
+        ]
+
+        # Disable Campaign
+        buttons[1].disabled = True
+
+        # Check if there is a savefile; disable Continue button if not
+        save = load_json('saved.json', 'progression')
+        if save.get('type', None) != 'skirmish':
+            buttons[0].disabled = True
+
+        return buttons
 
     def __init__(self, scene):
         # Work within scene:
@@ -2659,7 +2677,7 @@ class MainMenu(Menu):
 
         super(MainMenu, self).__init__(
             self.generate_buttons(),
-            reposition_buttons=(2, 2),
+            reposition_buttons=(3, 2),
             background=True,
             title_surface=title_surface,
             add_tnt=True
@@ -2678,6 +2696,12 @@ class Victory(Menu):
             next_level_parameters=None,
             next_level_keywords=None
     ):
+        # Modify savefile to be next level
+        if SceneHandler.active.tier < 4:
+            SceneHandler.active.save(next_level=True)
+        else:
+            # At Tier 4, character must be hall of famed instead of save
+            wipe_save()
 
         # Stop theme music, play sound:
         if pygame.mixer.music.get_busy():
@@ -2807,6 +2831,9 @@ class Victory(Menu):
 class Defeat(Menu):
 
     def __init__(self, scene):
+        # No cheating! Wipe savefile:
+        wipe_save()
+
         # Stop theme music, play sound:
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.stop()
@@ -2913,14 +2940,15 @@ class Player(Humanoid):
     remains_persistence = 0.3
 
     def __init__(self, position, species='Human'):
-        player_body = character_stats["body"][species].copy()
+        self.species = species
+        player_body = character_stats["body"][self.species].copy()
         player_body["agility"] *= 2
 
         super(Player, self).__init__(
             position,
             **player_body,
             **colors["player"],
-            faces=character_stats["mind"][species],
+            faces=character_stats["mind"][self.species],
             name=string["protagonist_name"]
         )
 
@@ -2998,6 +3026,52 @@ class Player(Humanoid):
             drawn_bars[bar], bar_rects[bar] = self.sp_passive.display(self.stamina)
         else:
             super(Player, self)._fill_bar_dicts(bar, drawn_bars, bar_rects)
+
+    def save(self) -> str:
+        # All Player objects are mostly identical, main difference is equipment and species
+        equipment_classes = {
+            slot: eq.class_name
+            for slot, eq in self.slots.items()
+            if eq
+        }
+        equipment_stats = {
+            slot: eq.drop_json()
+            for slot, eq in self.slots.items()
+            if eq
+        }
+
+        player_json = {
+            'species': self.species,
+            'seen_ld': self.seen_loot_drops,
+            'classes': equipment_classes,
+            'stats': equipment_stats
+        }
+
+        return json.dumps(player_json, sort_keys=False)
+
+    @classmethod
+    def load(cls, json_string: str, position=None):
+        saved_state = json.loads(json_string)
+
+        equipment_reg = Wielded.registry.copy()
+        equipment_reg.update(Hat.registry)
+
+        saved_classes = {
+            slot: equipment_reg[tp_str]
+            for slot, tp_str in
+            saved_state['classes'].items()
+        }
+
+        player = cls(position, species=saved_state['species'])
+        player.seen_loot_drops = saved_state['seen_ld']
+
+        # Create and equip saved weapons:
+        for slot, tp in saved_classes.items():
+            item = tp(tier_target=1, size=player.size)
+            item.from_json(saved_state['stats'][slot])
+            player.equip(item, slot)
+
+        return player
 
 
 # Scene Handlers: 'brains' of Scenes
@@ -3390,8 +3464,8 @@ class SceneHandler:
                 banner.tick_down = True
 
         # Transplant scene banners and menus and player.
-        scene_handler.scene.particles.extend(banner for banner in self.scene.particles if isinstance(banner, Banner))
-        scene_handler.scene.menus.extend(self.scene.menus)
+        # scene_handler.scene.particles.extend(banner for banner in self.scene.particles if isinstance(banner, Banner))
+        # scene_handler.scene.menus.extend(self.scene.menus)
 
         if not isinstance(scene_handler, MainMenuSceneHandler) and self.player is not None and give_player:
             scene_handler.player = scene_handler.scene.player = self.player
@@ -3429,6 +3503,13 @@ class SceneHandler:
             if isinstance(monster, Boss) and monster.theme is not None:
                 theme = monster.theme
         play_theme(os.path.join('music', theme))
+
+    @classmethod
+    def load(cls):
+        pass
+
+    def save(self, next_level=False):
+        return
 
 
 class SkirmishScenehandler(SceneHandler):
@@ -3506,6 +3587,9 @@ class SkirmishScenehandler(SceneHandler):
                     ignore_pause=False
                 ))
 
+        # Save state of level to the disc:
+        self.save()
+
     def _start_spawning(self):
         self.spawn_enemies = True
         # Spawn monsters for scene inception:
@@ -3569,6 +3653,31 @@ class SkirmishScenehandler(SceneHandler):
             banner=False
         )
 
+    def save(self, next_level=False):
+        save_dict = {
+            'type': 'skirmish',
+            'level': self.tier+1 if next_level else self.tier,
+            'offer': [self.offer_off_hand, self.offer_main_hand],
+            'player': self.player.save(),
+            'seed': None  # May be useful one day
+        }
+        save_state(save_dict)
+
+    @classmethod
+    def load(cls):
+        saved_state = load_json('saved.json', directory='progression')
+
+        # Rereate saved player:
+        saved_player = Player.load(saved_state['player'], position=PLAYER_SPAWN)
+
+        # Create SceneHandler:
+        handler = cls(tier=saved_state['level'], player=saved_player)
+
+        # Player may have been saved without equipped weapons, so check save to supplement them:
+        handler.offer_off_hand, handler.offer_main_hand = saved_state['offer']
+
+        return handler
+
 
 class MainMenuSceneHandler(SceneHandler):
     _spawn_delay = 2
@@ -3622,3 +3731,6 @@ class MainMenuSceneHandler(SceneHandler):
 
         # Main Menu is never completed
         return False
+
+    def load_save(self, cls):
+        self.hand_off_to(cls.load())

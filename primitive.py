@@ -137,7 +137,7 @@ SWING_THRESHOLD = 300 * FPS_TICK
 MAX_SPEED = 4 * SWING_THRESHOLD
 POKE_THRESHOLD = 150 * FPS_TICK
 REMAINS_SCREENTIME = 4
-FFA = pygame.math.Vector2(0, 3.33*FPS_TICK)
+FFA = v(0, 3.33*FPS_TICK)
 
 # Inventory constants:
 TIERS = range(1, 5)
@@ -387,6 +387,15 @@ def draw_icon():
 
 def unfocused():
     return not (pygame.mouse.get_focused() or pygame.mouse.get_focused())
+
+
+def save_state(state: dict):
+    with open(os.path.join('progression', 'saved.json'), 'w') as saved_game_json:
+        json.dump(state, saved_game_json)
+
+
+def wipe_save():
+    save_state(dict())
 
 
 # Drawing tools

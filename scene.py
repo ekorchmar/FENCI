@@ -228,7 +228,8 @@ class Scene:
             # self.log_weapons()
             # self.menus.append(Defeat(self))
             # self.shaker.add_shake(1.0)
-            aneurysm(random.choice([char for char in self.characters if char != self.player]), self)
+            # if self.player.sees_enemies:
+            #    aneurysm(random.choice([char for char in self.characters if char != self.player]), self)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -2792,10 +2793,10 @@ class Victory(Menu):
             colored_content_rows = [[row, colors["inventory_text"]] for row in content_rows.splitlines()]
 
             # Add stats rows:
-            combo = f'{scene.max_combo}{"!"*(max(3, scene.max_combo//10))}'
-            time = f'{scene.timer//60:d}:{int(scene.timer%60):d}.{scene.timer%1:.2f}'
-            damage = f'{scene.player_damage:,} {string["gameplay"]["victory_stats"]["dps"]}'
-            dps = f'{scene.player_damage/scene.timer:d}'
+            combo = f'{scene.max_combo}{"!"*(min(3, scene.max_combo//23))}'
+            time = f'{scene.timer//60:.0f}m:{int(scene.timer%60):.0f}.{str(scene.timer%1)[2:4]}s'
+            damage = f'{scene.player_damage:,}'
+            dps = f'{scene.player_damage/scene.timer:.1f} {string["gameplay"]["victory_stats"]["dps"]}'
             stats_rows = [
                 [f'{string["gameplay"]["victory_stats"]["time"]}: {time}', colors["inventory_text"]],
                 [f'{string["gameplay"]["victory_stats"]["combo"]}: {combo}', colors["inventory_text"]],
@@ -3503,6 +3504,9 @@ class SceneHandler:
             if isinstance(monster, Boss) and monster.theme is not None:
                 theme = monster.theme
         play_theme(os.path.join('music', theme))
+
+    def load_save(self, cls):
+        return
 
     @classmethod
     def load(cls):

@@ -506,11 +506,15 @@ class Equipment:
         own_stats = self.__dict__.copy()
 
         # Pop all generated objects:
-        own_stats.pop('loot_cards', 0)
-        own_stats.pop('character_specific', 0)
-        own_stats.pop('particles', 0)
+        for stat in ['loot_cards', 'character_specific', 'particles', 'trail_frames', 'wing_tips', 'wing_tips_v']:
+            own_stats.pop(stat, 0)
+
         for key in [key for key, value in own_stats.items() if isinstance(value, (s, v, c))]:
             own_stats.pop(key)
+
+        # Modify constructor to use lists instead of colors:
+        for part in self.builder["constructor"]:
+            own_stats["builder"]["constructor"][part]["color"] = self.builder["constructor"][part]["color"][:]
 
         return json.dumps(own_stats, sort_keys=False)
 

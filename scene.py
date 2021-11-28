@@ -1,6 +1,4 @@
 # todo:
-#  Save player state at beginning of each level; wipe save on defeat
-#  MainMenu adds Continue button if a game save is present
 # After tech demo
 # todo:
 #  bleeding contributes to player_damage
@@ -2625,7 +2623,10 @@ class MainMenu(Menu):
                 action=self.scene.generate_menu_popup,
                 action_keywords={
                     "menu_class": Difficulty,
-                    "keywords": {"action": self._start_skirmish}
+                    "keywords": {
+                        "action": self._start_skirmish,
+                        "locked_from": PROGRESS["max_skirmish_beaten"] + 1
+                    }
                 },
                 kb_index=2
             ),
@@ -2895,7 +2896,7 @@ class Defeat(Menu):
 
 
 class Difficulty(Menu):
-    def __init__(self, action):
+    def __init__(self, action, locked_from: int = None):
 
         button_list = []
         index = 0
@@ -2912,6 +2913,8 @@ class Difficulty(Menu):
 
             index += 1
             button_list.append(button)
+            if difficulty > (locked_from or 0):
+                button.disabled = True
 
         # Generate back buton:
         button_rect = DEFAULT_BUTTON_RECT.copy()
@@ -3257,7 +3260,7 @@ class SceneHandler:
         while self.monsters and self.scene.count_enemies_value() < value:
             self.spawn_monster(force=True)
 
-    def execute(self):
+    def execute(self) -> bool:
         # 1. Iterate the scene
         self.scene.iterate()
 
@@ -3359,7 +3362,7 @@ class SceneHandler:
 
         # Spawn victory menu
         if done and not any(victory for victory in self.scene.menus if isinstance(victory, Victory)):
-            self.scene.menus.append(Victory(self.scene, **self.next_level_options))
+            self._win()
 
         # 4. If scene requests a new handler, hand over:
         self._process_handover()
@@ -3370,6 +3373,9 @@ class SceneHandler:
     def _process_handover(self):
         if self.scene.new_sh_hook is not None:
             self.hand_off_to(self.scene.new_sh_hook)
+
+    def _win(self):
+        self.scene.menus.append(Victory(self.scene, **self.next_level_options))
 
     def spawn_monster(self, force=False):
         # If forced, immediately spawn a monster. Exception unsafe!
@@ -3599,7 +3605,7 @@ class SkirmishScenehandler(SceneHandler):
         # Spawn monsters for scene inception:
         self.batch_spawn(self.on_scren_enemies_value_range[0])
 
-    def execute(self):
+    def execute(self) -> bool:
         # If no custom loot drops are needed, proceed as normal:
         if not any((self.offer_main_hand, self.offer_off_hand)):
 
@@ -3608,6 +3614,8 @@ class SkirmishScenehandler(SceneHandler):
                 self.spawn_enemies = True
 
             return super(SkirmishScenehandler, self).execute()
+        else:
+            self.spawn_enemies = False
 
         # Usual processing:
         self.fill_scene_progression()
@@ -3682,6 +3690,10 @@ class SkirmishScenehandler(SceneHandler):
 
         return handler
 
+    def _win(self):
+        super(SkirmishScenehandler, self)._win()
+        mark_skirmish_progress(self.tier)
+
 
 class MainMenuSceneHandler(SceneHandler):
     _spawn_delay = 2
@@ -3713,7 +3725,7 @@ class MainMenuSceneHandler(SceneHandler):
         # Spawn MainMenu in the scene
         self.scene.menus.append(MainMenu(self.scene))
 
-    def execute(self):
+    def execute(self) -> bool:
         # Spawn a monster if less than N are present
         if len(self.scene.characters) < self._gladiator_capacity and self.spawn_timer <= 0:
             challenger_tier = random.choice(range(1, 5))

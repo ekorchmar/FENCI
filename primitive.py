@@ -45,6 +45,9 @@ string = load_json('en.json', directory='language')
 # Global options
 OPTIONS = load_json('options.json', 'options')
 
+# Global progression tracking:
+PROGRESS = load_json('progress.json', 'progression')
+
 FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
 
 # Screen options:
@@ -392,6 +395,13 @@ def unfocused():
 def save_state(state: dict):
     with open(os.path.join('progression', 'saved.json'), 'w') as saved_game_json:
         json.dump(state, saved_game_json)
+
+
+def mark_skirmish_progress(beaten_tier: int):
+    PROGRESS["max_skirmish_beaten"] = min(PROGRESS["max_skirmish_beaten"], beaten_tier)
+
+    with open(os.path.join('progression', 'progress.json'), 'w') as progress_json:
+        json.dump(PROGRESS, progress_json)
 
 
 def wipe_save():

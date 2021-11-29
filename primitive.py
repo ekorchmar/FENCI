@@ -398,7 +398,7 @@ def save_state(state: dict):
 
 
 def mark_skirmish_progress(beaten_tier: int):
-    PROGRESS["max_skirmish_beaten"] = min(PROGRESS["max_skirmish_beaten"], beaten_tier)
+    PROGRESS["max_skirmish_beaten"] = max(PROGRESS["max_skirmish_beaten"], beaten_tier)
 
     with open(os.path.join('progression', 'progress.json'), 'w') as progress_json:
         json.dump(PROGRESS, progress_json)

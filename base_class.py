@@ -388,20 +388,16 @@ class Equipment:
     def update_stats(self):
         pass
 
-    @staticmethod
-    def aim(*args, **kwargs):
+    def aim(self, *args, **kwargs):
         return None
 
-    @staticmethod
-    def hitbox():
+    def hitbox(self):
         return []
 
-    @staticmethod
-    def is_dangerous():
+    def is_dangerous(self):
         return False
 
-    @staticmethod
-    def drop(character):
+    def drop(self, character):
         return []
 
     def reduce_damage(self, penalty):
@@ -493,8 +489,7 @@ class Equipment:
         if cls.class_name:
             cls.registry[cls.class_name] = cls
 
-    @staticmethod
-    def on_equip(character):
+    def on_equip(self, character):
         pass
 
     def limit_speed(self):

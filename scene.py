@@ -1,17 +1,16 @@
 # todo:
 # After tech demo
 # todo:
+#  Store each completed level in progression/victory.json
+#  Procedure to querry victory.json for top DPS and lowest time per level tier and type
 #  bleeding contributes to player_damage
 #  tile generation
 #  achievements
 #  ?? F causes taunt, forcing closest enemy to charge
 #  scenario feeds dict with debug info into scene for display_debug
 #  Player.fate: dict to remember player choices for future scenario, also displayed in stat card
-#  separate skirmish scene handler
 # todo: Add lightning effect to character spawn
-# todo: draw complex background
 #  sparks in inventory when weapon is damaged
-#  character portrait, stats and name in topleft
 #  Dialogues
 
 from particle import *
@@ -814,11 +813,10 @@ class Scene:
         """
         # 0. List of weapons is extracted and ordered. It is stored in Scene.weapons.
         # 1. Each frame, the list is copied and iterated over
-        iteration_list = self.colliding_weapons.copy()
         collision_quintet = []  # Hitting weapon, target, target's owner
         already_hit = []  # Do not iterate over each weapon more than once
 
-        def log_colision(weapon_1, weapon_owner, victim, victim_owner, contact_point):
+        def log_collision(weapon_1, weapon_owner, victim, victim_owner, contact_point):
             collision_quintet.append((weapon_1, weapon_owner, victim, victim_owner, contact_point))
             already_hit.extend([weapon_1, victim])
 
@@ -843,7 +841,7 @@ class Scene:
 
             # Don't check weapons of disabled characters:
             if character.state not in DISABLED and character.anchor_weapon is None:
-                for weapon in iteration_list[character]:
+                for weapon in self.colliding_weapons[character]:
                     # Don't iterate over non-dangerous, disabled or deflected weapons:
                     if (
                             (not weapon.dangerous and abs(weapon.angular_speed) < SWING_THRESHOLD * 0.5) or
@@ -875,7 +873,7 @@ class Scene:
                         except AttributeError:
                             pass
 
-                        for target_weapon in iteration_list[foe]:
+                        for target_weapon in self.colliding_weapons[foe]:
 
                             # Not all weapons can parry
                             if not weapon.can_parry:
@@ -908,7 +906,7 @@ class Scene:
                                     collision_point = (weapon.hitbox()[0][0] + weapon.hitbox()[1][0]) // 2, \
                                                       (weapon.hitbox()[0][1] + weapon.hitbox()[1][1]) // 2
                                     weapon_cleared = True
-                                    log_colision(weapon, character, target_weapon, foe, collision_point)
+                                    log_collision(weapon, character, target_weapon, foe, collision_point)
                                     break
 
                                 # Intersect target weapon with tip trail
@@ -916,58 +914,49 @@ class Scene:
                                     collision_point = (weapon.hitbox()[0][0] + weapon.hitbox()[1][0]) // 2, \
                                                       (weapon.hitbox()[0][1] + weapon.hitbox()[1][1]) // 2
                                     weapon_cleared = True
-                                    log_colision(weapon, character, target_weapon, foe, collision_point)
+                                    log_collision(weapon, character, target_weapon, foe, collision_point)
                                     break
                             except TypeError:
                                 # Sometimes hitbox may disappear for a frame after roll; this is normal
                                 break
 
-                    # If weapon was hit, skip attempt to hit characters
-                    # Clear weapon if it's not dangerous, as it is not a threat to characters:
-                    if not weapon.dangerous or weapon_cleared:
-                        continue
-
-                    # Now iterate over all characters bodies
-                    for foe in target_characters:
-                        if weapon_cleared:
-                            break
-
+                        # If no weapon was hit, collide with foe hitboxes
                         # Ignore Players that were hit recently (or this frame)
-                        if foe.immune_timer > 0:
+                        if (
+                            not weapon.dangerous or
+                            foe.immune_timer > 0 or
+                            foe in set(already_hit) or
+                            foe.phasing or
+                            foe.anchor_weapon
+                        ):
                             continue
 
-                        if foe in set(already_hit):
-                            continue
-
-                        if foe.phasing:
-                            continue
-
-                        # Skewered by weapon characters are not colliding with it:
-                        try:
-                            kebab = weapon.kebab
-                            if foe == kebab:
-                                continue
-                        except AttributeError:
-                            pass
-
-                        # Attempt to collide with each of character's hitboxes:
+                        # Attempt to collide with each of foes hitboxes:
                         for rectangle in foe.hitbox:
+                            # Test simple rectangle collision:
+                            try:
+                                if not character.drawn_equipment[weapon].colliderect(rectangle):
+                                    continue
+                            except KeyError:
+                                # Ignore non-drawn weapons
+                                continue
+
                             if rectangle.collidepoint(weapon.tip_v):
                                 weapon_cleared = True
-                                log_colision(weapon, character, foe, foe, weapon.tip_v)
+                                log_collision(weapon, character, foe, foe, weapon.tip_v)
                                 break
                             try:
                                 clipped_line = rectangle.clipline(tip_trail)
                                 if clipped_line:
                                     weapon_cleared = True
-                                    log_colision(weapon, character, foe, foe, clipped_line[0])
+                                    log_collision(weapon, character, foe, foe, clipped_line[0])
                                     break
 
                                 # Swords and axes should also attempt to intersect with full hitbox length:
                                 clipped_line = rectangle.clipline(weapon.hitbox())
                                 if isinstance(weapon, Bladed) and clipped_line:
                                     weapon_cleared = True
-                                    log_colision(weapon, character, foe, foe, clipped_line[0])
+                                    log_collision(weapon, character, foe, foe, clipped_line[0])
                                     break
                             except TypeError:
                                 # Sometimes hitbox may disappear for a frame after roll; this is normal
@@ -1000,7 +989,7 @@ class Scene:
 
                     collision_index = rectangle.collidelist(meatbag.hitbox)
                     if collision_index != -1:
-                        log_colision(character, character, meatbag, meatbag, character.position)
+                        log_collision(character, character, meatbag, meatbag, character.position)
 
         # Now process collsions:
         for weapon, owner, target, opponent, point in collision_quintet:
@@ -1602,7 +1591,8 @@ class Scene:
 
     def echo(self, character, text, color):
         character.set_state('talk', 2)
-        offset = v(4 * BASE_SIZE if character.position.x < self.box.center[0] else -4 * BASE_SIZE, -3 * BASE_SIZE)
+        x_position = character.position.x + self.conversion_v.x
+        offset = v(4 * BASE_SIZE if x_position < self.box.center[0] else -4 * BASE_SIZE, -3 * BASE_SIZE)
 
         self.particles.append(
             SpeechBubble(
@@ -2795,9 +2785,9 @@ class Victory(Menu):
 
             # Add stats rows:
             combo = f'{scene.max_combo}{"!"*(min(3, scene.max_combo//23))}'
-            time = f'{scene.timer//60:.0f}m:{int(scene.timer%60):.0f}.{str(scene.timer%1)[2:4]}s'
-            damage = f'{scene.player_damage:,}'
-            dps = f'{scene.player_damage/scene.timer:.1f} {string["gameplay"]["victory_stats"]["dps"]}'
+            time = f'{scene.timer//60:.0f}m{int(scene.timer%60):.0f}.{str(scene.timer%1)[2:4]}s'
+            damage = f'{scene.player_damage:,.0f}'
+            dps = f'{scene.player_damage/scene.timer:.2f} {string["gameplay"]["victory_stats"]["dps"]}'
             stats_rows = [
                 [f'{string["gameplay"]["victory_stats"]["time"]}: {time}', colors["inventory_text"]],
                 [f'{string["gameplay"]["victory_stats"]["combo"]}: {combo}', colors["inventory_text"]],
@@ -3175,11 +3165,12 @@ class SceneHandler:
             loot_class = random.choice(loot_classes)
 
             # Cycle last 2 classes:
-            last_loot_classes.pop()
+            del last_loot_classes[0]
             last_loot_classes.append(loot_class)
 
             # Append loot piece
             self.loot.append(loot_class(tier_target=tier, size=BASE_SIZE))
+
         # Better loot last:
         if sort_loot:
             self.loot.sort(key=lambda x: x.tier, reverse=False)
@@ -3375,7 +3366,14 @@ class SceneHandler:
             self.hand_off_to(self.scene.new_sh_hook)
 
     def _win(self):
-        self.scene.menus.append(Victory(self.scene, **self.next_level_options))
+        # self.scene.menus.append(Victory(self.scene, **self.next_level_options))
+        self.scene.generate_menu_popup(
+            menu_class=Victory,
+            keywords={
+                "scene": self.scene,
+                **self.next_level_options
+            }
+        )
 
     def spawn_monster(self, force=False):
         # If forced, immediately spawn a monster. Exception unsafe!
@@ -3431,7 +3429,10 @@ class SceneHandler:
             self.scene.report(report, colors["inventory_worse"])
 
             if not self.player_survived:
-                self.scene.menus.append(Defeat(self.scene))
+                self.scene.generate_menu_popup(
+                    menu_class=Defeat,
+                    keywords={"scene": self.scene}
+                )
                 # Exit the loop
                 return
 
@@ -3723,7 +3724,13 @@ class MainMenuSceneHandler(SceneHandler):
         )
 
         # Spawn MainMenu in the scene
-        self.scene.menus.append(MainMenu(self.scene))
+        # self.scene.menus.append(MainMenu(self.scene))
+        self.scene.generate_menu_popup(
+            menu_class=MainMenu,
+            keywords={
+                "scene": self.scene
+            }
+        )
 
     def execute(self) -> bool:
         # Spawn a monster if less than N are present

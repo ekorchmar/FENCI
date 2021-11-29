@@ -795,7 +795,7 @@ class Bladed(Wielded):
             self.last_angle %= 360
             if -360 < self.last_angle < -180:
                 self.last_angle += 360
-            if 360 < self.last_angle < 180:
+            elif 360 < self.last_angle < 180:
                 self.last_angle -= 360
 
             character.set_state('active', 0.2)
@@ -1008,6 +1008,10 @@ class Pointed(Wielded):
             character,
             _custom_surface=_custom_surface or (self.skewering_surface if self.kebab else self.surface)
         )
+
+    def reduce_damage(self, penalty):
+        self.bleed *= 1-penalty
+        super(Pointed, self).reduce_damage(penalty)
 
 
 class Sword(Bladed, Pointed):

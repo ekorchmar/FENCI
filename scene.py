@@ -1,7 +1,7 @@
 # todo:
 # After tech demo
 # todo:
-#  Store each completed level in progression/victory.json
+#  Store each completed level in progress/victory.json
 #  Procedure to querry victory.json for top DPS and lowest time per level tier and type
 #  bleeding contributes to player_damage
 #  tile generation
@@ -2040,7 +2040,7 @@ class ProgressionBars:
                 self.surface.blit(surface, rect)
 
             else:
-                raise TypeError(f"Can't handle contents in progression bar:{graphic}")
+                raise TypeError(f"Can't handle contents in progress bar:{graphic}")
 
             y += rect.height
 
@@ -2651,7 +2651,7 @@ class MainMenu(Menu):
         buttons[1].disabled = True
 
         # Check if there is a savefile; disable Continue button if not
-        save = load_json('saved.json', 'progression')
+        save = load_json('saved.json', 'progress')
         if save.get('type', None) != 'skirmish':
             buttons[0].disabled = True
 
@@ -3220,14 +3220,14 @@ class SceneHandler:
     def fill_scene_progression(self):
         bar_size = BASE_SIZE
         items = {
-            f"{string['progression']['level']}{self.tier}": Bar(
+            f"{string['progress']['level']}{self.tier}": Bar(
                 bar_size,
                 10,
                 colors["inventory_durability"],
                 self.absolute_level_value,
                 base_color=colors['inventory_durability']
             ),
-            string['progression']['loot_drop']: Bar(
+            string['progress']['loot_drop']: Bar(
                 bar_size,
                 10,
                 colors["inventory_durability"],
@@ -3236,7 +3236,7 @@ class SceneHandler:
             ),
             "loot_drop": Indicator(ascii_draw(
                 bar_size,
-                string['progression']['loot_soon'],
+                string['progress']['loot_soon'],
                 c(colors["indicator_good"])
             ))
         }
@@ -3273,7 +3273,7 @@ class SceneHandler:
             else:
                 self.spawn_monster()
 
-        # 2.2. Modify displayed scene bars according to progression
+        # 2.2. Modify displayed scene bars according to progress
         # Calculate current progress if player is present and loot is bound to drop:
         if self.player is not None and self.loot_total != 0:
             killed_value = sum(
@@ -3381,7 +3381,7 @@ class SceneHandler:
             self.scene.spawn(self.monsters.pop())
             return
 
-        # Calculate current progression dependent variables:
+        # Calculate current progress dependent variables:
         current_on_scren_enemies = lerp(self.on_scren_enemies_value_range, self.relative_progression)
         current_spawn_delay = lerp(self.spawn_delay_range, self.relative_progression)
         present_enemies_value = self.scene.count_enemies_value()
@@ -3412,7 +3412,7 @@ class SceneHandler:
 
             self.spawn_timer = current_spawn_delay
 
-            # Depending on progression, there is a chance to get batch spawn instead, increasing with progress
+            # Depending on progress, there is a chance to get batch spawn instead, increasing with progress
             if random.random() > self._batch_spawn_chance + (1-self._batch_spawn_chance) * self.relative_progression:
                 self.batch_spawn()
             else:
@@ -3678,7 +3678,7 @@ class SkirmishScenehandler(SceneHandler):
 
     @classmethod
     def load(cls):
-        saved_state = load_json('saved.json', directory='progression')
+        saved_state = load_json('saved.json', directory='progress')
 
         # Rereate saved player:
         saved_player = Player.load(saved_state['player'], position=PLAYER_SPAWN)

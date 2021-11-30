@@ -1,9 +1,9 @@
 {
-  "fullscreen": false,
+  "fullscreen": true,
   "grab_mouse": true,
   "red_blood": 1,
-  "screenshake": 2,
-  "unpause_countdown": 0,
+  "screenshake": 1,
+  "unpause_countdown": 2,
   "music": true,
   "sound": 1
 }

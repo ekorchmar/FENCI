@@ -49,5 +49,5 @@ coll = COLLECT(exe,
                name='FENCI')
 app = BUNDLE(coll,
              name='FENCI.app',
-             icon=None,
+             icon='fenci.ico',
              bundle_identifier='INRI')

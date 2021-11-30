@@ -374,18 +374,22 @@ def exit_game():
     sys.exit()
 
 
-def draw_icon():
-    icon_surface = s((64, 64), pygame.SRCALPHA)
+def draw_icon(size=64, output_file=None):
+    icon_surface = s((size, size), pygame.SRCALPHA)
     icon_surface.fill(colors['background'])
 
-    dagger1 = ascii_draw(18, '-]=≡>', colors["inventory_text"])
-    icon_surface.blit(*rot_center(dagger1, 45, v(32, 32)))
+    dagger1 = ascii_draw((size*18)//64, '-]=≡>', colors["inventory_text"])
+    icon_surface.blit(*rot_center(dagger1, 45, v(size*0.5, size*0.5)))
 
-    dagger2 = ascii_draw(18, '⊂{≡=-', colors["inventory_text"])
-    icon_surface.blit(*rot_center(dagger2, 135, v(32, 32)))
+    dagger2 = ascii_draw((size*18)//64, '⊂{≡=-', colors["inventory_text"])
+    icon_surface.blit(*rot_center(dagger2, 135, v(size*0.5, size*0.5)))
 
     frame_surface(icon_surface, colors["inventory_text"])
-    pygame.display.set_icon(icon_surface)
+
+    if output_file is None:
+        pygame.display.set_icon(icon_surface)
+    else:
+        pygame.image.save(icon_surface, output_file)
 
 
 def unfocused():

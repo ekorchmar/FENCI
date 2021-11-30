@@ -286,7 +286,7 @@
     }
   },
   "menu": {
-    "continue": "Continue saved",
+    "continue": "Continue",
     "campaign": "Campaign",
     "skirmish": "Arena",
     "unpause": "Continue",
@@ -356,7 +356,7 @@
     "equip": "Equipped"
   },
   "tier": "Tier",
-  "progression": {
+  "progress": {
     "level": "LEVEL",
     "loot_drop": "LOOT",
     "loot_soon": "LOOT ON CLEAR!"

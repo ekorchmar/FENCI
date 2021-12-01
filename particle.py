@@ -837,7 +837,7 @@ class EnemyDirection(Particle):
                 self._set_enemy(char)
 
     def draw(self, pause=False):
-        if self.player.sees_enemies:
+        if self.player.sees_enemies or self.enemy is None:
             return
 
         direction_angle = (self.enemy.position - self.player.position).as_polar()[1]

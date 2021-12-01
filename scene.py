@@ -546,8 +546,10 @@ class Scene:
 
             if enemies and not self.player.sees_enemies:
                 self.enemy_direction.find_closest_enemy(self.characters)
-                surface, rect = self.enemy_direction.draw()
-                draw_groups["field"].append((surface, rect.clamp(fov_rect)))
+                drawn = self.enemy_direction.draw()
+                if drawn:
+                    surface, rect = drawn
+                    draw_groups["field"].append((surface, rect.clamp(fov_rect)))
 
         # Draw damage kickers, dead bodies and other particles:
         exhausted = []

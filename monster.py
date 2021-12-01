@@ -143,7 +143,7 @@ class Humanoid(Character):
                     return_list.append(self._draw_hand(weapon))
                     continue
 
-                output = self.slots[weapon].draw(self, )
+                output = self.slots[weapon].draw(self)
                 if output:
                     # Remember where weapon is drawn for UI purposes
                     self.drawn_equipment[self.slots[weapon]] = output[1]

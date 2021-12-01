@@ -30,7 +30,7 @@ s = pygame.surface.Surface
 
 # Load JSON dicts:
 def load_json(file_path, directory='resource'):
-    with open(os.path.join(directory, file_path)) as resource_json:
+    with open(os.path.join(directory, file_path), encoding="utf8") as resource_json:
         return json.loads(resource_json.read())
 
 
@@ -145,7 +145,7 @@ FFA = v(0, 3.33*FPS_TICK)
 # Inventory constants:
 TIERS = range(1, 5)
 TIER_WEIGHTS = {
-    1: (0.80, 0.15, 0.05, 0.00),
+    1: (0.70, 0.25, 0.05, 0.00),
     2: (0.40, 0.40, 0.15, 0.05),
     3: (0.20, 0.25, 0.25, 0.20),
     4: (0.15, 0.20, 0.40, 0.25)
@@ -153,7 +153,7 @@ TIER_WEIGHTS = {
 
 PLAYER_SLOTS = ("main_hand", "hat", "off_hand")  # ordered for mouse input
 LOOT_OCCURRENCE_WEIGHTS = {
-    "main_hand": 1,
+    "main_hand": 1.4,
     "off_hand": 0.75,
     "hat": 0.4
 }

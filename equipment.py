@@ -689,11 +689,14 @@ class Wielded(Equipment):
         )
         self.particles.append(bleed_kicker)
 
-    def _test_execution(self, victim: Character) -> bool:
+    @staticmethod
+    def _test_execution(victim: Character) -> bool:
         """Returns True if damage is dealt to target skewered by another weapon"""
-        return victim.anchor_weapon is not None and victim.anchor_weapon != self and victim.anchor_timer > 0
+        execute = victim.anchor_weapon is not None
+        return execute
 
-    def _perform_execution(self, victim: Character):
+    def _perform_execution(self, character, victim: Character):
+        character.stamina = character.max_stamina
         execution_kicker = Kicker(
             position=v(self.tip_v) + v(0, BASE_SIZE),
             damage_value=0,
@@ -726,7 +729,7 @@ class Bladed(Wielded):
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
         if victim and self._test_execution(victim):
             if not calculate_only:
-                self._perform_execution(victim)
+                self._perform_execution(victor, victim)
             return self.damage_range[1]
 
         # Process limit cases:
@@ -845,13 +848,14 @@ class Pointed(Wielded):
     stab_modifier = 1.0
     stab_dash_modifier = 1.0
     _stab_duration = 0.2
+    _max_skewer_duration = 2
 
     def __init__(self, *args, **kwargs):
         self.skewering_surface = None
         super(Pointed, self).__init__(*args, **kwargs)
         # Skewer execution:
         self.kebab = None
-        self.skewer_duration = self.max_skewer_duration = 0
+        self.skewer_duration = 0
         self.kebab_size = None
 
     def _drop_kebab(self):
@@ -859,7 +863,7 @@ class Pointed(Wielded):
             self.kebab.anchor_weapon = None
             self.kebab.anchor_timer = 0
         self.kebab = None
-        self.skewer_duration = self.max_skewer_duration = 0
+        self.skewer_duration = 0
         self.kebab_size = None
 
     def activate(self, character, continuous_input):
@@ -905,7 +909,11 @@ class Pointed(Wielded):
 
                 if self != character.slots[slot] and not isinstance(character.slots[slot], (Swordbreaker, Katar)):
                     weapon = character.slots[slot]
-                    # Daggers and Swordbreakers are kept active
+
+                    # Pointed weapon holding kebabs are not locked
+                    if isinstance(weapon, Pointed) and weapon.kebab is not None:
+                        continue
+
                     weapon.disabled = True
                     weapon.lock(angle=weapon.default_angle, duration=self._stab_duration)
 
@@ -947,7 +955,7 @@ class Pointed(Wielded):
         # If we stab a target that is skewered on another weapon, spawn "EXECUTION" kicker
         if victim and victor and self._test_execution(victim):
             if not calculate_only:
-                self._perform_execution(victim)
+                self._perform_execution(victor, victim)
             return self.damage_range[1]
 
         hitting_v = self.tip_delta + (vector or v())
@@ -969,16 +977,17 @@ class Pointed(Wielded):
         self.character_specific["stab_inertia_v"] = 6.25 * BASE_SIZE * character.agility * self.stab_modifier * \
             self.agility_modifier
 
-    def _skewer(self, character, victim):
+    def _skewer(self, character, victim: Character):
         # Bleed Bosses instead of skewering
         if not victim.drops_shields:
             self.cause_bleeding(victim)
             return
 
         self.kebab = victim
-        self.skewer_duration = self.max_skewer_duration = victim.hit_immunity * 2
+        self.skewer_duration = self._max_skewer_duration
         self.kebab_size = victim.size
 
+        self.kebab.set_state('skewered', self._max_skewer_duration)
         self.kebab.anchor(self.skewer_duration, weapon=self)
 
         # Anchor self and increase stamina
@@ -1145,7 +1154,7 @@ class Sword(Bladed, Pointed):
 
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
         if self._test_execution(victim):
-            self._perform_execution(victim)
+            self._perform_execution(victor, victim)
             return self.damage_range[1]
         stab = Pointed.deal_damage(self, vector, calculate_only=True)
         swing = Bladed.deal_damage(self, vector, calculate_only=True)
@@ -1260,8 +1269,8 @@ class Spear(Pointed):
 
         # Calculate damage range depending on weight and tier; longer range causes more damage,
         # Max damage is further increased by weight:
-        min_damage = int((70 + 0.85 * self.weight) * 1.08 ** (tip_material.tier - 1))
-        max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.3 * math.sqrt(shaft_len / 8)))
+        min_damage = 1.15*int((65 + 0.85 * self.weight) * 1.08 ** (tip_material.tier - 1))
+        max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.15 * math.sqrt(shaft_len / 8)))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
 
@@ -1376,7 +1385,7 @@ class Spear(Pointed):
                 character.bars.pop(self.prefer_slot, None)
 
             # Drop escaped or dead characters
-            if self.kebab.hp <= 0 or self.kebab.state not in DISABLED:
+            if self.kebab.hp <= 0:
                 self._drop_kebab()
 
         # Else: make sure nothing is attached
@@ -1566,7 +1575,7 @@ class Dagger(Short, Bladed):
 
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
         if not calculate_only and victim and self._test_execution(victim):
-            self._perform_execution(victim)
+            self._perform_execution(victor, victim)
             return self.damage_range[1]
         # Determine if stabbibg or swinging damage is dealt; swinging is always min damage
         stab = Pointed.deal_damage(self, vector, victim, victor, calculate_only=True)
@@ -1695,7 +1704,7 @@ class Dagger(Short, Bladed):
         if self.last_parry:
             arrow_v = v(self.last_parry.position) - v(character.position)
             if arrow_v.length_squared() != 0:
-                arrow_v.scale_to_length(character.hitbox[0].width)
+                arrow_v.scale_to_length(character.hitbox[0].width or BASE_SIZE)
             arrow_position = character.position + arrow_v
 
             arrow_surface = pygame.transform.rotate(self.active_arrow, self.last_angle)

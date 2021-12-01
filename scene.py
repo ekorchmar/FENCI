@@ -1,4 +1,6 @@
 # todo:
+#  Fix windows lag after pause
+#  Tutorial scene
 # After tech demo
 # todo:
 #  Store each completed level in progress/victory.json
@@ -648,7 +650,7 @@ class Scene:
         # Draw on-screen cards for characters and equipment
         if self.paused and not mouse_on_button:
 
-            if self.box.collidepoint(MouseV.instance.custom_pointer):
+            if self.box.collidepoint(MouseV.instance.v):
                 displayed = False
                 for character in self.characters:
 
@@ -820,7 +822,12 @@ class Scene:
             collision_quintet.append((weapon_1, weapon_owner, victim, victim_owner, contact_point))
             already_hit.extend([weapon_1, victim])
 
-        for character in filter(lambda x: not x.phasing, self.characters):  # Player weapons are iterated over first
+        # Player weapons are iterated over first
+        if self.player in self.characters and self.player != self.characters[0]:
+            oldindex = self.characters.index(self.player)
+            self.characters.insert(0, self.characters.pop(oldindex))
+
+        for character in filter(lambda x: not x.phasing, self.characters):
             # Check if disabled characters have a particle associated with them; if not, spawn one:
             if character.state in DISABLED and character.immune_timer <= 0:
                 has_particle = any(filter(
@@ -866,12 +873,8 @@ class Scene:
                             continue
 
                         # Skewered by weapon characters are not colliding with it neither with body nor weapons:
-                        try:
-                            kebab = weapon.kebab
-                            if foe == kebab:
-                                continue
-                        except AttributeError:
-                            pass
+                        if isinstance(weapon, Pointed) and foe == weapon.kebab:
+                            continue
 
                         for target_weapon in self.colliding_weapons[foe]:
 
@@ -926,8 +929,7 @@ class Scene:
                             not weapon.dangerous or
                             foe.immune_timer > 0 or
                             foe in set(already_hit) or
-                            foe.phasing or
-                            foe.anchor_weapon
+                            foe.ignores_collision()
                         ):
                             continue
 
@@ -3589,17 +3591,21 @@ class SkirmishScenehandler(SceneHandler):
         # If no custom loot drops are needed, pause monster spawning, and add a unpause countdown:
         self.spawn_enemies = False
         if not any((self.offer_main_hand, self.offer_off_hand)):
-            self.scene.particles.append(CountDown(
-                    self._start_spawning,
-                    {},
-                    colors["pause_popup"],
-                    position=self.scene.box.center[:],
-                    go_text="FIGHT!",
-                    ignore_pause=False
-                ))
+            self._spawn_countdown()
 
         # Save state of level to the disc:
-        self.save()
+        if any(self.player.slots[slot] for slot in self.player.slots):
+            self.save()
+
+    def _spawn_countdown(self):
+        self.scene.particles.append(CountDown(
+            self._start_spawning,
+            {},
+            colors["pause_popup"],
+            position=self.scene.box.center[:],
+            go_text="FIGHT!",
+            ignore_pause=False
+        ))
 
     def _start_spawning(self):
         self.spawn_enemies = True
@@ -3608,15 +3614,13 @@ class SkirmishScenehandler(SceneHandler):
 
     def execute(self) -> bool:
         # If no custom loot drops are needed, proceed as normal:
-        if not any((self.offer_main_hand, self.offer_off_hand)):
+        if self.spawn_enemies:
+            return super(SkirmishScenehandler, self).execute()
 
+        elif not any((self.offer_main_hand, self.offer_off_hand, self.scene.loot_overlay)):
             # Spawn enemies if there is no countdown to do so:
             if not any(countdown for countdown in self.scene.particles if isinstance(countdown, CountDown)):
-                self.spawn_enemies = True
-
-            return super(SkirmishScenehandler, self).execute()
-        else:
-            self.spawn_enemies = False
+                self._spawn_countdown()
 
         # Usual processing:
         self.fill_scene_progression()

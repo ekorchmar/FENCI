@@ -898,6 +898,10 @@ class Character:
         drawn_bars[bar], bar_rects[bar] = self.bars[bar].display(self.__dict__[bar])
 
     def set_state(self, state, duration):
+        # If character is skewered, ignore:
+        if self.anchor_weapon is not None:
+            return
+
         # Special state sounds:
         if state == 'jumping':
             play_sound('jump', 0.3 * self.size / BASE_SIZE)
@@ -1215,11 +1219,14 @@ class Character:
         if not viable_equipment:
             return False, "All equipment is broken!"
 
-        equipment = random.choice(viable_equipment)
+        # Equipment is more likely to be picked if it's less damaged (less likely to completely break)
+        break_likelihood = [item.durability for item in viable_equipment]
+
+        equipment = random.choices(viable_equipment, break_likelihood)[0]
         return True, equipment.damage()
 
     def ignores_collision(self) -> bool:
-        return self.state in AIRBORNE or self.phasing
+        return (self.state in AIRBORNE or self.phasing) and self.anchor_weapon is None
 
     def is_flying_meat(self) -> bool:
         return self.state in DISABLED

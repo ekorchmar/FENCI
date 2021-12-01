@@ -1150,6 +1150,9 @@ class Character:
             )
             self.bars['immune_timer'] = hurt_bar
 
+            # Make sure character now has at least 10% max stamina
+            self.stamina = max(self.stamina, self.max_stamina*0.1)
+
         self.hp -= damage
         return self.hp > 0, damage
 

@@ -1,5 +1,5 @@
 # todo:
-#  Fix windows lag after pause
+#  Test windows lag fix after pause
 #  Tutorial scene
 # After tech demo
 # todo:
@@ -262,7 +262,7 @@ class Scene:
                     continue
 
                 # Feed input to player character:
-                if char == self.player:
+                if char is self.player:
                     # Move:
                     char_direction = kb_move(movement)
                     speed_limit = 1.0
@@ -630,7 +630,7 @@ class Scene:
         expired_menus = []
         if self.menus:
             for menu in self.menus:
-                draw_groups['box'].extend(menu.display(mouse_v=MouseV.instance.v, active=menu == self.menus[-1]))
+                draw_groups['box'].extend(menu.display(mouse_v=MouseV.instance.v, active=menu is self.menus[-1]))
                 mouse_on_button = mouse_on_button or any(
                     button.rect.collidepoint(MouseV.instance.v) for button in menu.buttons_list
                 )
@@ -774,7 +774,7 @@ class Scene:
                     field.blit(state, state_rect)
 
                 # Draw aiming vector
-                elif self.player == character:
+                elif self.player is character:
                     pygame.draw.line(
                         field,
                         c(127, 127, 255),
@@ -831,7 +831,7 @@ class Scene:
             # Check if disabled characters have a particle associated with them; if not, spawn one:
             if character.state in DISABLED and character.immune_timer <= 0:
                 has_particle = any(filter(
-                    lambda x: isinstance(x, Stunned) and x.character == character,
+                    lambda x: isinstance(x, Stunned) and x.character is character,
                     self.particles
                 ))
                 if not has_particle:
@@ -873,7 +873,7 @@ class Scene:
                             continue
 
                         # Skewered by weapon characters are not colliding with it neither with body nor weapons:
-                        if isinstance(weapon, Pointed) and foe == weapon.kebab:
+                        if isinstance(weapon, Pointed) and foe is weapon.kebab:
                             continue
 
                         for target_weapon in self.colliding_weapons[foe]:
@@ -979,7 +979,7 @@ class Scene:
                     #  target is anchored to a weapon
                     #  meatbag is anchored to a weapon
                     if (
-                            meatbag == character or
+                            meatbag is character or
                             meatbag in set(already_hit) or
                             character in set(already_hit) or
                             character.ignores_collision() or
@@ -1028,11 +1028,11 @@ class Scene:
                             self.particles.append(spark)
 
                         # If player was hit or performed the hit, add small screenshake:
-                        if self.player == target:
+                        if self.player is target:
                             # Wielding lighter shield causes heavier screenshake:
                             self.shaker.add_shake(0.001 * damage * (10-shield.weight))
                             play_sound('shield', 0.01 * damage)
-                        elif self.player == owner:
+                        elif self.player is owner:
                             self.shaker.add_shake(0.0025 * damage)
                             play_sound('shield', 0.005 * damage)
 
@@ -1040,7 +1040,7 @@ class Scene:
                     self.splatter(point, target, actual_damage, weapon)
 
                     # Half shakeup for crits and Executions, quarter for everything else
-                    if owner == self.player:
+                    if owner is self.player:
                         if actual_damage == weapon.damage_range[1] or target.anchor_weapon is not None:
                             self.shaker.add_shake(0.005 * actual_damage)
                         else:
@@ -1054,7 +1054,7 @@ class Scene:
                             weapon.dangerous and
                             target.dangerous
                     ):
-                        enemy_weapon = target if self.player == owner else weapon
+                        enemy_weapon = target if self.player is owner else weapon
                         # Calculate the impact force
                         speed_impact = (weapon.tip_delta - target.tip_delta).length_squared() / \
                                        (9 * POKE_THRESHOLD * POKE_THRESHOLD)
@@ -1309,7 +1309,7 @@ class Scene:
                 blood = Spark(target.position, vector, attack_color=target.color, angle_spread=(-60, 60))
                 self.particles.append(blood)
 
-        if target == self.player:
+        if target is self.player:
             self.shaker.add_shake(damage*0.01)
 
     def undertake(self, character):
@@ -1353,7 +1353,7 @@ class Scene:
             end_theme()
 
         # If target was Player, increment player death count:
-        elif character == self.player:
+        elif character is self.player:
             self.player_deaths += 1
 
     def iterate(self):
@@ -1559,7 +1559,6 @@ class Scene:
             ))
 
         else:
-            self.pause_popups = None
             self.hard_unpause()
 
     def count_enemies_value(self):
@@ -1611,6 +1610,7 @@ class Scene:
         if pygame.mixer.music.get_busy():
             pygame.mixer.music.set_volume(MUSIC_VOLUME)
         self.paused = False
+        self.pause_popups = None
 
     def generate_menu_popup(self, menu_class, keywords=None):
         if keywords is None:
@@ -3162,7 +3162,7 @@ class SceneHandler:
             # Choose slot to generate piece of loot for:
             loot_classes = loot_by_slot[random.choices(population=loot_slots, weights=loot_slot_weights)[0]]
             # Prevent generating 3 of same class in a row:
-            if last_loot_classes[0] == last_loot_classes[1] in loot_classes:
+            if last_loot_classes[0] is last_loot_classes[1] in loot_classes:
                 loot_classes.remove(last_loot_classes[0])
             loot_class = random.choice(loot_classes)
 

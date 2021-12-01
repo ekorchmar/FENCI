@@ -489,7 +489,7 @@ class AI:
                 continue
 
             if all([
-                friend.ai.target == self.target,
+                friend.ai.target is self.target,
                 self.friends[friend]["health"] >= self.courage,
                 self.friends[friend]["distance"] <= self.enemies[self.target]["distance"] * 1.5
             ]):
@@ -560,7 +560,7 @@ class AI:
             elif (
                     self.character.facing_right ==
                     self.target.facing_right ==
-                    self.character.position.x < self.target.position.x
+                    (self.character.position.x < self.target.position.x)
             ):
                 violence = True
 
@@ -1177,7 +1177,7 @@ class AI:
                     if "ccw" in self.strategy_dict:
                         self.strategy_dict['ccw'] = not self.strategy_dict['ccw']
 
-                    if body == self.target and \
+                    if body is self.target and \
                             not (self.strategy == 'dogfight' and self.strategy_dict["stage"] == "hit"):
                         # Consider fleeing, then consider aggression
                         self.fight_or_flight(victim=self.character)
@@ -1199,7 +1199,7 @@ class AI:
             return
 
         # If victim is target, and it's dead, switch to waiting:
-        if victim == self.target and victim.hp <= 0:
+        if victim is self.target and victim.hp <= 0:
             self.set_strategy("wait", 6 - random.uniform(0, 2 * self.flexibility))
             return
 
@@ -1214,7 +1214,7 @@ class AI:
 
         if isinstance(victim, Character):
             # Less courage if we are hit
-            if victim == self.character:
+            if victim is self.character:
                 base_courage *= self.courage
             else:
                 # Far away is less impactful
@@ -1223,7 +1223,7 @@ class AI:
                 base_courage *= distance_mod
 
             # More courage if target is hit
-            if victim == self.target:
+            if victim is self.target:
                 base_courage += (1-base_courage) * 2
 
             victim_collision = victim.collision_group

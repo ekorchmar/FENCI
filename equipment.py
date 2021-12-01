@@ -505,7 +505,7 @@ class Wielded(Equipment):
             play_sound('drop', 0.5)
 
         # Reset place if not set or if dropping from backpack
-        if character.slots['backpack'] == self:
+        if character.slots['backpack'] is self:
             self.hilt_v = None
         self.reset(character)
         self.hilt_v = self.hilt_v or character.position
@@ -862,6 +862,15 @@ class Pointed(Wielded):
         if self.kebab:
             self.kebab.anchor_weapon = None
             self.kebab.anchor_timer = 0
+            self.particles.append(
+                Kicker(
+                    position=v(self.tip_v) + v(0, BASE_SIZE),
+                    damage_value=0,
+                    color=colors["lightning"],
+                    override_string='DROPPED',
+                    oscillate=False
+                )
+            )
         self.kebab = None
         self.skewer_duration = 0
         self.kebab_size = None
@@ -1389,7 +1398,7 @@ class Spear(Pointed):
                 self._drop_kebab()
 
         # Else: make sure nothing is attached
-        else:
+        elif self.kebab is not None:
             self._drop_kebab()
 
             # Pop own bar:
@@ -2492,7 +2501,7 @@ class Shield(OffHand):
         # lock other weapons
         for slot in character.weapon_slots:
 
-            if self == character.slots[slot]:
+            if self is character.slots[slot]:
                 continue
 
             weapon = character.slots[slot]

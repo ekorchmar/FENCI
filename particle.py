@@ -1,5 +1,4 @@
 # todo:
-#  Clampable particles flag
 
 from base_class import *
 
@@ -807,10 +806,7 @@ class EnemyDirection(Particle):
     clampable = True
 
     def __init__(self, player: Character, characters: list, size=BASE_SIZE*3//2):
-        self.surfaces = {
-            "right": ascii_draw(size, '▶', colors['lightning']),
-            "left": ascii_draw(size, '◀', colors['lightning'])
-        }
+        self.surface = ascii_draw(size, '▶', colors['lightning'])
 
         self.lifetime = 1
         self.player = player
@@ -829,10 +825,14 @@ class EnemyDirection(Particle):
             self.enemy = None
             self.distance2 = 0
 
-        for char in filter(
-                lambda x: x.collision_group != self.player.collision_group and x.position,
-                characters
-        ):
+        def enemy_filter(enemy):
+            return (
+                enemy.collision_group != self.player.collision_group and
+                enemy.position and
+                enemy.ai.target is self.player
+            )
+
+        for char in filter(enemy_filter, characters):
             if self.distance2 == 0 or (self.player.position - char.position).length_squared() < self.distance2:
                 self._set_enemy(char)
 
@@ -840,8 +840,8 @@ class EnemyDirection(Particle):
         if self.player.sees_enemies:
             return
 
-        direction = 'right' if (self.enemy.position - self.player.position).x > 0 else 'left'
-        surface = self.surfaces[direction].copy()
+        direction_angle = (self.enemy.position - self.player.position).as_polar()[1]
+        surface = pygame.transform.rotozoom(self.surface, -direction_angle, 1)
         surface.set_alpha(int(127 + 127 * math.sin(pygame.time.get_ticks() * 0.02)))
 
         # Rely on scene clamping to reposition own sprite to the edge

@@ -333,7 +333,14 @@
           "0": "OFF",
           "1": "8BIT"
         },
-        "music": "Music"
+        "music": "Music",
+        "music_states": {
+          "0": "OFF",
+          "1": "25%",
+          "2": "50%",
+          "3": "75%",
+          "4": "100%"
+        }
     }
   },
   "overlay_hint": {
@@ -390,7 +397,7 @@
     "swing": "Swing your axe to parry and damage enemies. Careful: stamina is limited!",
     "poke": "Run into enemies to poke them with pointed weapons. Plan your attacks: damage you deal scales with weapon speed.",
     "sword": "After parrying or landing a hit, weapons don't consume stamina for short period of time.",
-    "stab": "Press LEFT mouse button to stab at enemy with pointed weapons.",
+    "stab": "Press LEFT mouse button to stab at enemy with pointed weapons from a safe distance.",
     "shield": "Hold RIGHT mouse button to block enemy attacks and quickly restore stamina.",
     "bash": "Press RIGHT mouse button while running to bash enemies with your shield.",
     "dagger": "With dagger, you can press LEFT mouse button after hitting enemy weapon to roll through the enemy.",

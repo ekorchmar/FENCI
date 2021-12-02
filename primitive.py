@@ -583,7 +583,7 @@ def play_theme(filepath):
         pygame.mixer.music.unload()
 
     pygame.mixer.music.load(filepath)
-    pygame.mixer.music.set_volume(MUSIC_VOLUME)
+    pygame.mixer.music.set_volume(MUSIC_VOLUME*OPTIONS["music"]/4)
     pygame.mixer.music.play(loops=-1, fade_ms=1000)
 
 

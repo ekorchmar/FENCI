@@ -1,5 +1,4 @@
 # todo:
-#  Tutorial scene
 # After tech demo
 # todo:
 #  Store each completed level in progress/victory.json
@@ -826,7 +825,7 @@ class Scene:
             already_hit.extend([weapon_1, victim])
 
         # Player weapons are iterated over first
-        if self.player in self.characters and self.player != self.characters[0]:
+        if self.player in self.characters and self.player is not self.characters[0]:
             oldindex = self.characters.index(self.player)
             self.characters.insert(0, self.characters.pop(oldindex))
 
@@ -1320,7 +1319,7 @@ class Scene:
         character.hp = -1
 
         friends_alive = any(filter(
-            lambda x: x.collision_group == character.collision_group and x != character,
+            lambda x: x.collision_group == character.collision_group and x is not character,
             self.characters
         )
         )
@@ -1542,7 +1541,7 @@ class Scene:
 
             # Reduce theme music volume:
             if pygame.mixer.music.get_busy():
-                pygame.mixer.music.set_volume(0.2)
+                pygame.mixer.music.set_volume(0.2*OPTIONS["music"]/4)
 
         # Spawn countdown to unpause, unless it is already in scene particles:
         elif OPTIONS["unpause_countdown"] != 0 and not any(
@@ -1611,7 +1610,7 @@ class Scene:
     def hard_unpause(self):
         # Restore theme music volume:
         if pygame.mixer.music.get_busy():
-            pygame.mixer.music.set_volume(MUSIC_VOLUME)
+            pygame.mixer.music.set_volume(MUSIC_VOLUME*OPTIONS["music"]/4)
         self.paused = False
         self.pause_popups = None
 
@@ -2411,10 +2410,14 @@ class Options(Menu):
             OPTIONS["grab_mouse"] = True
             update_screen()
         elif key == "music":
-            if not OPTIONS["music"]:
+            if OPTIONS["music"] == 0:
                 end_theme()
-            elif SceneHandler.active.theme:
+            elif OPTIONS["music"] == 1 and SceneHandler.active.theme:
                 SceneHandler.active.play_theme()
+                pygame.mixer.music.set_volume(MUSIC_VOLUME*OPTIONS["music"] / 4)
+            else:
+                pygame.mixer.music.set_volume(MUSIC_VOLUME * OPTIONS["music"] / 4)
+
         elif key == 'sound':
             load_sound_profile(OPTIONS["sound"])
 
@@ -3461,7 +3464,7 @@ class SceneHandler:
             self.respawn_banner = None
 
     def hand_off_to(self, scene_handler, give_player=True):
-        if self != SceneHandler.active:
+        if self is not SceneHandler.active:
             raise ValueError(f"{self} is not the active scene handler.")
 
         # Fade all menus:
@@ -3764,6 +3767,7 @@ class MainMenuSceneHandler(SceneHandler):
 
 
 class TutorialSceneHandler(SceneHandler):
+    theme = 'blkrbt_desert3.ogg'
 
     def fill_scene_progression(self):
         bar_size = BASE_SIZE
@@ -3786,7 +3790,7 @@ class TutorialSceneHandler(SceneHandler):
             tier=0
         )
 
-        # Todo: Fill rest of stages
+        # Tutorial stages:
         self.stages = [
             # Move stage:
             {
@@ -4013,7 +4017,7 @@ class TutorialSceneHandler(SceneHandler):
 
     def _limit_stamina(self):
         self.player.stamina = 0
-        self.player.stamina_restoration *= 0.2
+        self.player.stamina_restoration *= 0.3
 
     def _break_weapon(self):
         for slot in self.player.slots:

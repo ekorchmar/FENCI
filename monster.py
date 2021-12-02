@@ -647,7 +647,7 @@ class AI:
 
         # Count friends and assess their state:
         for friend in filter(
-                lambda x: x != self.character and x.collision_group == self.character.collision_group,
+                lambda x: x is not self.character and x.collision_group == self.character.collision_group,
                 self.scene.characters
         ):
             weapon_slot = friend.weapon_slots[0]
@@ -689,7 +689,7 @@ class AI:
 
         # Assess distance to other characters. Use squares to avoid sqrt
         distances = dict()
-        for body in filter(lambda x: x != self.character, self.scene.characters):
+        for body in filter(lambda x: x is not self.character, self.scene.characters):
             # Consider hitboxes centers for simplicity
             minimal_distance = 0
             for own_rectangle in self.character.hitbox:

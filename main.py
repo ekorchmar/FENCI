@@ -1,9 +1,8 @@
 # todo:
-#  Credits in Main Menu and after beating Lvl4 Skirmish
-#  Saving and loading player state
-#  Hall of fame for beating lvl4 arena
 # After tech demo
 # todo:
+#  Credits in Main Menu and after beating Lvl4 Skirmish
+#  Hall of fame for beating lvl4 arena
 #  make ALL string constants come from language json
 #  seeded random
 #  Speedrun mode

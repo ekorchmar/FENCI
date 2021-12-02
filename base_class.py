@@ -524,6 +524,7 @@ class Equipment:
 
 
 class Nothing(Equipment):
+    instance = None
     held_position = v()
     default_angle = 0
     hides_hand = False
@@ -532,7 +533,15 @@ class Nothing(Equipment):
     def __bool__(self):
         return False
 
+    # Singleton class:
+    def __new__(cls):
+        if cls.instance is None:
+            return super().__new__(cls)
+        return cls.instance
+
     def __init__(self):
+        if self.__class__.instance is not None:
+            return
         super().__init__()
         self.last_angle = 0
         self.activation_offset = v()

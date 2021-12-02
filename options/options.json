@@ -4,6 +4,6 @@
   "red_blood": 1,
   "screenshake": 2,
   "unpause_countdown": 2,
-  "music": true,
+  "music": 2,
   "sound": 1
 }

@@ -916,7 +916,7 @@ class Pointed(Wielded):
         if not isinstance(self, (Swordbreaker, Katar)):
             for slot in character.weapon_slots:
 
-                if self != character.slots[slot] and not isinstance(character.slots[slot], (Swordbreaker, Katar)):
+                if self is not character.slots[slot] and not isinstance(character.slots[slot], (Swordbreaker, Katar)):
                     weapon = character.slots[slot]
 
                     # Pointed weapon holding kebabs are not locked
@@ -2963,7 +2963,7 @@ class Katar(Pointed, OffHand):
                 roll_tier(tier),
                 lambda x:
                     x.name not in Material.collections['plateless_bone'] and
-                    x != Material.registry[picked_blade_material]
+                    x is not Material.registry[picked_blade_material]
             )
 
         self.builder["constructor"]["guard"]["material"] = self.builder["constructor"]["guard"].get(

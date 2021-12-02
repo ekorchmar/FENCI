@@ -408,6 +408,13 @@ def mark_skirmish_progress(beaten_tier: int):
         json.dump(PROGRESS, progress_json)
 
 
+def tutorial_completed(state: bool):
+    PROGRESS["tutorial_completed"] = state
+
+    with open(os.path.join('progress', 'progress.json'), 'w') as progress_json:
+        json.dump(PROGRESS, progress_json)
+
+
 def wipe_save():
     save_state(dict())
 

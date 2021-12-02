@@ -288,6 +288,7 @@
   "menu": {
     "continue": "Continue",
     "campaign": "Campaign",
+    "tutorial": "Tutorial",
     "skirmish": "Arena",
     "unpause": "Continue",
     "options": "Options",
@@ -384,15 +385,20 @@
   },
   "lorem_ipsum": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et porta lectus, et cursus neque. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer magna odio, blandit at auctor nec, venenatis at ante. Maecenas tincidunt nisi urna, et elementum velit rutrum eget. Quisque massa nibh, porttitor sed ultrices suscipit, gravida et quam. Aenean sit amet cursus diam, vitae gravida dolor. Duis sit amet orci ut eros malesuada fringilla. Cras nec semper tellus, eget sagittis dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque dignissim bibendum orci eu tincidunt. Maecenas congue metus eget dui eleifend ullamcorper. Curabitur malesuada mauris sed augue convallis, eu suscipit metus gravida. Maecenas nec risus nec eros placerat malesuada sed in ante. Ut et felis ex. Etiam hendrerit metus bibendum cursus sagittis. Suspendisse potenti. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et porta lectus, et cursus neque. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer magna odio, blandit at auctor nec, venenatis at ante. Maecenas tincidunt nisi urna, et elementum velit rutrum eget. Quisque massa nibh, porttitor sed ultrices suscipit, gravida et quam. Aenean sit amet cursus diam, vitae gravida dolor. Duis sit amet orci ut eros malesuada fringilla. Cras nec semper tellus, eget sagittis dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque dignissim bibendum orci eu tincidunt. Maecenas congue metus eget dui eleifend ullamcorper. Curabitur malesuada mauris sed augue convallis, eu suscipit metus gravida. Maecenas nec risus nec eros placerat malesuada sed in ante. Ut et felis ex. Etiam hendrerit metus bibendum cursus sagittis. Suspendisse potenti.",
   "tutorial": {
-    "move": "Use WASD to move and mouse to aim your weapon. Press SPACE to turn around.",
-    "swing": "Swing your axe to damage enemies. Careful: it costs stamina!",
-    "poke": "Run into enemies to poke them with pointed weapons. Damage increases with speed.",
-    "stab": "Press LEFT mouse button to stab at enemy with your main hand weapon.",
+    "move": "Use WASD to move and mouse to aim your weapon. Press SPACE to turn around and run to the left.",
+    "inventory": "Swap your weapons with mouse WHEEL. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
+    "swing": "Swing your axe to parry and damage enemies. Careful: stamina is limited!",
+    "poke": "Run into enemies to poke them with pointed weapons. Plan your attacks: damage you deal scales with weapon speed.",
+    "sword": "After parrying or landing a hit, weapons don't consume stamina for short period of time.",
+    "stab": "Press LEFT mouse button to stab at enemy with pointed weapons.",
     "shield": "Hold RIGHT mouse button to block enemy attacks and quickly restore stamina.",
     "bash": "Press RIGHT mouse button while running to bash enemies with your shield.",
-    "dagger": "Press LEFT mouse button after parrying to roll through the enemy.",
-    "falchion": "Press LEFT mouse with falchion to roll in any direction.",
-    "spear": "Stab with the spear to skewer an enemy. Shake them off for additional damage.",
-    "katar": "Hold RIGHT mouse button to immobilize shielded enemy with a katar."
+    "dagger": "With dagger, you can press LEFT mouse button after hitting enemy weapon to roll through the enemy.",
+    "falchion": "Press LEFT mouse button with falchion to roll in any direction at any time. It is fun and costs no stamina.",
+    "spear1": "Stab with the spear to skewer an enemy. Shake them off to cause bleeding.",
+    "spear2": "Hold LEFT mouse button to hold spear closer to self, but it's best to carry a smaller weapon for close combat.",
+    "katar": "Hold RIGHT mouse button to immobilize an enemy with a katar and finish them with your main weapon. Works through shields!",
+    "completed": "TUTORIAL COMPLETED!",
+    "escape": "ESC TO PAUSE"
   }
 }

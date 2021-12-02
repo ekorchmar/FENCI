@@ -541,7 +541,7 @@ class Nothing(Equipment):
         self.dangerous = False
 
     def aim(self, hilt_placement, aiming_vector, character):
-        self.last_angle = aiming_vector.as_polar()[1]
+        self.last_angle = -aiming_vector.as_polar()[1]
 
     def activate(self, character, continuous_input):
         # todo: punch! stuns and displaces enemy, minimal damage
@@ -1098,7 +1098,7 @@ class Character:
             self.slots[other_slot].inertia_vector = v()
             self.slots[other_slot].activation_offset = v()
 
-        self.slots[slot].activate(self, continuous_input=continuous_input, **kwargs)
+        self.slots[slot].activate(character=self, continuous_input=continuous_input, **kwargs)
 
     def kill(self):
         """Drop a surface of self & equipment to be faded and deleted by handling scripts"""

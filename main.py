@@ -36,20 +36,7 @@ if __name__ == "__main__":
         print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
     # Scene Handler to start:
-    # SceneHandler.active = SkirmishScenehandler(1)
-    # SceneHandler.active = SceneHandler(
-    #     1,
-    #     [Orc],
-    #     monsters=[Elite(None, 2, Orc, 10)],
-    #     monster_total_cost=0,
-    #     loot_drops=0
-    # )
-    SceneHandler.active = MainMenuSceneHandler()
-
-    # Custom equipment (will not work in Main Menu)
-    # SceneHandler.active.scene.player.equip(Axe(BASE_SIZE, tier_target=2), 'main_hand')
-    # SceneHandler.active.scene.player.equip(Katar(BASE_SIZE, tier_target=2), 'off_hand')
-    # SceneHandler.active.scene.log_weapons()
+    SceneHandler.active = MainMenuSceneHandler() if PROGRESS["tutorial_completed"] else TutorialSceneHandler()
 
     while True:
         SceneHandler.active.execute()

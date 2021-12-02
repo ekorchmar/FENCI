@@ -251,6 +251,7 @@ class Humanoid(Character):
                         self.rolled_through.append(dodged)
 
 
+# AI classes
 class AI:
     _base_aggression = 2
 
@@ -1266,6 +1267,22 @@ class AI:
             self.character.use("off_hand", continuous_input=(offhand.activation_offset != v()))
 
 
+class DebugAI(AI):
+    def __init__(self, character):
+        super(DebugAI, self).__init__(character)
+
+    def _decide(self, initial):
+        self.set_strategy('wait', 100)
+
+    def _assess(self, scene):
+        self.scene = scene
+        pass
+
+    def execute(self):
+        return v(), None
+
+
+# Monster classes
 class Goblin(Humanoid):
     skirmish_spawn_rate = 5
     class_name = "Goblin"
@@ -1745,29 +1762,12 @@ class Orc(Humanoid):
         return Shield(size, tier_target=tier, equipment_dict=off_equipment_dict)
 
 
-class DebugGoblin(Goblin):
-    skirmish_spawn_rate = 0
-    class_name = "DebugGoblin"
-    debug = True
-
-    def __init__(self, *args, **kwargs):
-        super(DebugGoblin, self).__init__(*args, **kwargs)
-        self.max_speed = 0
-
-    def move(self, *args, **kwargs):
-        super(DebugGoblin, self).move(*args, **kwargs)
-        self.position = v(SCENE_BOUNDS.center)
-
-
-class DebugOrc(Orc):
-    skirmish_spawn_rate = 0
-    class_name = "DebugOrc"
-    debug = True
-
-    def __init__(self, *args, **kwargs):
-        super(DebugOrc, self).__init__(*args, **kwargs)
-        self.max_speed = 0
-
-    def move(self, *args, **kwargs):
-        super(DebugOrc, self).move(*args, **kwargs)
-        self.position = v(SCENE_BOUNDS.center)
+# Dummy creation
+def make_dummy(cls, *args, hp=None, **kwargs):
+    dummy = cls(*args, **kwargs)
+    dummy.ai = DebugAI(dummy)
+    dummy.remains_persistence = 0.1
+    dummy.weight = 1000
+    if hp is not None:
+        dummy.hp = dummy.max_hp = hp
+    return dummy

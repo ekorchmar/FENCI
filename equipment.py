@@ -1278,7 +1278,7 @@ class Spear(Pointed):
 
         # Calculate damage range depending on weight and tier; longer range causes more damage,
         # Max damage is further increased by weight:
-        min_damage = 1.15*int((65 + 0.85 * self.weight) * 1.08 ** (tip_material.tier - 1))
+        min_damage = int(1.15 * (65 + 0.85 * self.weight) * 1.08 ** (tip_material.tier - 1))
         max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.15 * math.sqrt(shaft_len / 8)))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()

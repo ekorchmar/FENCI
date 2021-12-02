@@ -1,4 +1,5 @@
 # todo:
+#  Nothing to singleton class
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -567,6 +568,7 @@ class Character:
     difficulty = 0
     has_blood = True
     remains_persistence = 1  # 0 to remain indefinitely in scene
+    theme = None
 
     # Logic:
     pct_cap = 0.15
@@ -1379,10 +1381,6 @@ class Character:
 class Particle:
     shakeable = False
     clampable = False
-
-    @staticmethod
-    def _monitor_decoy():
-        return True
 
     def __init__(self, position, lifetime, surface=None, rect=None):
         self.position = position[:]

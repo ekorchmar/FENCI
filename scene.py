@@ -1,5 +1,4 @@
 # todo:
-#  Test windows lag fix after pause
 #  Tutorial scene
 # After tech demo
 # todo:
@@ -2597,7 +2596,7 @@ class MainMenu(Menu):
                 text=[string['menu']['continue']],
                 rect=DEFAULT_BUTTON_RECT,
                 action=SceneHandler.active.load_save,
-                action_parameters=[SkirmishScenehandler],
+                action_parameters=[SkirmishSceneHandler],
                 kb_index=0
             ),
 
@@ -2680,7 +2679,7 @@ class MainMenu(Menu):
         )
 
     def _start_skirmish(self, tier):
-        self.scene.request_new_handler(scene_handler=SkirmishScenehandler, args=[tier])
+        self.scene.request_new_handler(scene_handler=SkirmishSceneHandler, args=[tier])
 
 
 class Victory(Menu):
@@ -2873,7 +2872,7 @@ class Defeat(Menu):
         defeat_banner = Banner(
             string['gameplay']['game_over'],
             BASE_SIZE * 2,
-            v(scene.box.center[:]) - v(0, scene.box.height//3),
+            v(scene.box.center) - v(0, scene.box.height//3),
             colors["game_over"],
             lifetime=6,
             animation_duration=3,
@@ -3527,7 +3526,7 @@ class SceneHandler:
         return
 
 
-class SkirmishScenehandler(SceneHandler):
+class SkirmishSceneHandler(SceneHandler):
     theme = 'blkrbt_stairs.ogg'
 
     def __init__(self, tier: int, *args, player=None, on_scren_enemies_value=(7, 12), **kwargs):
@@ -3580,7 +3579,7 @@ class SkirmishScenehandler(SceneHandler):
             self.next_level_options = {
                 "next_level_text": f"{string['menu']['difficulty']}: {tier+1}",
                 "next_level_action": self.scene.request_new_handler,
-                "next_level_parameters": [SkirmishScenehandler],
+                "next_level_parameters": [SkirmishSceneHandler],
                 "next_level_keywords": {
                     "kwargs": {
                         "tier": tier+1,
@@ -3617,7 +3616,7 @@ class SkirmishScenehandler(SceneHandler):
     def execute(self) -> bool:
         # If no custom loot drops are needed, proceed as normal:
         if self.spawn_enemies:
-            return super(SkirmishScenehandler, self).execute()
+            return super(SkirmishSceneHandler, self).execute()
 
         elif not any((self.offer_main_hand, self.offer_off_hand, self.scene.loot_overlay)):
             # Spawn enemies if there is no countdown to do so:
@@ -3698,7 +3697,7 @@ class SkirmishScenehandler(SceneHandler):
         return handler
 
     def _win(self):
-        super(SkirmishScenehandler, self)._win()
+        super(SkirmishSceneHandler, self)._win()
         mark_skirmish_progress(self.tier)
 
 
@@ -3763,3 +3762,101 @@ class MainMenuSceneHandler(SceneHandler):
 
     def load_save(self, cls):
         self.hand_off_to(cls.load())
+
+
+class TutorialSceneHandler(SceneHandler):
+
+    def __init__(self):
+        self.proceed_condition = None
+        super(TutorialSceneHandler, self).__init__(
+            pad_monster_classes=[],
+            monster_total_cost=0,
+            loot_drops=0,
+            tier=0
+        )
+
+        # Todo: list stages
+        self.stages = [
+            {
+                "player_equipment": {"main_hand": Sword(BASE_SIZE, tier_target=1)},
+                "text": string["tutorial"]["move"],
+                "dummies": [],
+                "positions": [],
+                "proceed_condition": lambda: (
+                        not self.player.facing_right and
+                        not v(self.player.position) == v(PLAYER_SPAWN) and
+                        not abs(self.player.slots['main_hand'].last_angle - Sword.default_angle) < 5
+                )
+            }
+
+        ]
+        self._tutorial_banner = None
+        self._tutorial_stage(**self.stages[0])
+
+    def _tutorial_stage(
+            self,
+            player_equipment: dict,
+            text: str,
+            dummies: list[Character],
+            positions: list[v],
+            proceed_condition
+    ):
+        self._tutorial_banner = Banner(
+            text,
+            BASE_SIZE * 2,
+            position=v(self.scene.box.midtop) + v(BASE_SIZE * 3//2, BASE_SIZE),
+            anchor='midtop',
+            color=colors["inventory_better"],
+            lifetime=2,
+            animation_duration=1,
+            animation='simple',
+            forced_tickdown=False
+        )
+        self.scene.particles.append(self._tutorial_banner)
+
+        for dummy, position in zip(dummies, positions):
+            self.scene.spawn(dummy, position)
+
+        for slot in self.player.slots:
+            if slot not in player_equipment:
+                player_equipment[slot] = Nothing()
+
+        for slot, equipment in player_equipment.items():
+            self.player.equip(equipment, slot)
+
+        self.scene.log_weapons()
+
+        self.proceed_condition = proceed_condition
+
+    def _next_stage(self):
+
+        if not self.stages and not self.scene.menus:
+            self._tutorial_banner.forced_tickdown = True
+            self._win()
+            return
+
+        # Reset scene:
+        self.proceed_condition = None
+        self.scene.dead_characters = []
+        self.scene.characters = [self.player]
+        self.player.position = v(PLAYER_SPAWN)
+
+        # Execute next stage:
+        self._tutorial_banner.forced_tickdown = True
+        self._tutorial_stage(**self.stages[0])
+
+    def execute(self) -> bool:
+
+        # Usual processing:
+        self.fill_scene_progression()
+        self.scene.iterate()
+        self._process_handover()
+
+        # Check if current condition is fulfilled
+        if self.proceed_condition is not None and self.proceed_condition():
+            # Clean completed stage
+            if self.stages:
+                del self.stages[0]
+                self._next_stage()
+
+        return False

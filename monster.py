@@ -515,7 +515,7 @@ class AI:
 
             # Test if target is shielded and character is not too eager:
             elif isinstance(self.target.shielded, Shield) and \
-                    random.uniform(0, self.aggression) > random.uniform(0, self.skill):
+                    random.uniform(0, self.aggression) < random.uniform(0, self.skill) * 0.5:
                 violence = False
 
             # Test if target "looks" healthier than we are, possibly chicken out

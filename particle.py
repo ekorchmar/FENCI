@@ -302,7 +302,7 @@ class AttackWarning(Particle):
         self.character = character
         self.position = relative_position
         self.cache = None
-        self.monitor = monitor or self._monitor_decoy
+        self.monitor = monitor or (lambda: True)
 
     def draw(self, pause=False):
         if self.cache and pause:
@@ -338,6 +338,7 @@ class Banner(Particle):
             tick_down=True,
             anchor='center',
             background=False,
+            forced_tickdown=None,
             **animation_options
     ):
         self.text = text
@@ -351,6 +352,7 @@ class Banner(Particle):
             self.surface = drawn_text
         self.lifetime = lifetime
         self.max_lifetime = lifetime
+        self.forced_tickdown = forced_tickdown
         self.tick_down = tick_down
 
         # Positioning and orientation
@@ -370,7 +372,7 @@ class Banner(Particle):
     def draw(self, pause=None):
 
         if pause is not None:
-            self.tick_down = not pause
+            self.tick_down = self.forced_tickdown if self.forced_tickdown is not None else not pause
 
         if self.tick_down or self.max_lifetime - self.lifetime < self.animation_duration:
             self.lifetime -= FPS_TICK
@@ -606,7 +608,7 @@ class MouseHint(Particle):
         self.max_lifetime = lifetime
         self.position = relative_position
         self.cache = None
-        self.monitor = monitor or self._monitor_decoy
+        self.monitor = monitor or (lambda: True)
 
     def draw(self, pause=False):
         if self.cache and pause:

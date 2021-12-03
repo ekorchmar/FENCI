@@ -79,7 +79,7 @@ class Remains:
         """Takes list of lists of three: surface, drawing rect, initial movement vector"""
         self.bounding_box = bounding_box
 
-        # Stop all free falling objects randomly in first seconds of animation
+        # Stop all free-falling objects randomly in first seconds of animation
         self.blitting_list = []
         for triple in blitting_list:
             if not triple:  # Some things may return nothing
@@ -814,7 +814,7 @@ class EnemyDirection(Particle):
         self.player = player
         self.enemy = None
         self.distance2 = 0
-        # Find closest enemy as character
+        # Find the closest enemy to character
         self.find_closest_enemy(characters)
 
     def _set_enemy(self, enemy: Character):

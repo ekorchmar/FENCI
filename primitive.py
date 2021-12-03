@@ -160,7 +160,7 @@ LOOT_OCCURRENCE_WEIGHTS = {
 
 # Sets of character and AI states
 DISABLED = {'flying', 'hurt', 'skewered'}
-AIRBORNE = {'flying', 'jumping'}
+AIRBORNE = {'flying', 'jumping', 'skewered'}
 IDLE = {'idle', 'blinking', 'idle_rare', 'exhausted'}
 
 PASSIVE_STRATEGY = {"unknown", "passive", "wait", "wander", "flee"}

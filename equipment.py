@@ -912,15 +912,17 @@ class Pointed(Wielded):
         dash_vector.from_polar((self.character_specific["abs_dash_speed"], -self.last_angle))
         character.speed += dash_vector
 
-        # Lock all other currently equipped equipment, unless we are using SB/Katar or equipment is SB/Katar
-        if not isinstance(self, (Swordbreaker, Katar)):
+        # Lock all other currently equipped equipment, unless we are using sidearm or another equipment is skewering
+        eq_skewering = False
+        if not isinstance(self, OffHand):
             for slot in character.weapon_slots:
 
-                if self is not character.slots[slot] and not isinstance(character.slots[slot], (Swordbreaker, Katar)):
-                    weapon = character.slots[slot]
+                weapon = character.slots[slot]
+                if self is not weapon and not isinstance(weapon, (Swordbreaker, Katar)):
 
-                    # Pointed weapon holding kebabs are not locked
+                    # Pointed weapon holding kebabs are not affected
                     if isinstance(weapon, Pointed) and weapon.kebab is not None:
+                        eq_skewering = True
                         continue
 
                     weapon.disabled = True
@@ -942,8 +944,8 @@ class Pointed(Wielded):
         self.in_use = True
         self.lock(angle=self.last_angle, duration=self._stab_duration, inertia=self.inertia_vector)
 
-        # Dash!
-        if dash_vector != v():
+        # Dash, if character is not skewering with any other weapon:
+        if dash_vector != v() and not eq_skewering:
             character.push(character.speed, self._stab_duration, state="active")
 
     def is_dangerous(self):
@@ -1221,7 +1223,7 @@ class Spear(Pointed):
             Material.pick(['wood', 'reed'], roll_tier(tier))
         )
 
-        # Create spear head:
+        # Create spearhead:
         self.builder["constructor"]["head"] = self.builder["constructor"].get("head", {})
         self.builder["constructor"]["head"]["str"] = self.builder["constructor"]["head"].get(
             "str", random.choice(parts_dict['spear']['heads'])
@@ -1422,7 +1424,7 @@ class Spear(Pointed):
 
         self._hold_back(character)
 
-        # Actual stab will be exececuted by .aim on release
+        # Actual stab will be exececuted by aim method on release
 
     def _hold_back(self, character):
         self.active_this_frame = True
@@ -1607,7 +1609,7 @@ class Dagger(Short, Bladed):
         super(Dagger, self).update_stats()
 
         self.damage_range = int(self.damage_range[0] * 0.8), int(self.damage_range[1] * 0.9)
-        # Roll cooldown depends reduced by hilt tier and increased by blade material weight
+        # Roll cooldown reduced by hilt tier and increased by blade material weight
         self.roll_window = math.sqrt(
             1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
             (1 + 0.1 * Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
@@ -2227,12 +2229,12 @@ class Falchion(Sword):
         self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
-        # Steal from swords, than increase damage range by 15%
+        # Steal from swords, then increase damage range by 15%
         super().update_stats()
         # Increase damage spread
         self.damage_range = int(self.damage_range[0] * 0.85 / 1.15), int(self.damage_range[1])
 
-        # Roll cooldown depends reduced by hilt tier and increased by blade material weight
+        # Roll cooldown reduced by hilt tier and increased by blade material weight
         self.roll_cooldown = math.sqrt(
             1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
             (1 + 0.1 * Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
@@ -3102,7 +3104,7 @@ class Katar(Pointed, OffHand):
             else:
                 dry_veins.append(bleeder)
         for bled_out in dry_veins:
-            self.stamina_from_bleed.pop(bled_out, None)
+            del self.stamina_from_bleed[bled_out]
         character.stamina = min(character.max_stamina, character.stamina + stamina_increment)
 
         # If not active:
@@ -3119,7 +3121,7 @@ class Katar(Pointed, OffHand):
             self.skewer_duration -= FPS_TICK
             self.speed_limit = 0
 
-            if self.kebab.hp <= 0 or self.kebab.state not in DISABLED:
+            if self.kebab.hp <= 0:
                 self._drop_kebab()
 
         Wielded.aim(self, hilt_placement, aiming_vector, character)

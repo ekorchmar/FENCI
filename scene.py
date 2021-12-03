@@ -356,7 +356,7 @@ class Scene:
                 result = self.loot_overlay.catch_index(number_keys.index(True))
                 self._from_loot_overlay(*result)
 
-        # Allow to drop weapons in pause or loot overlay:
+        # Allow dropping weapons in pause or loot overlay:
         if (
                 self.player and
                 (self.loot_overlay or self.paused) and
@@ -1412,7 +1412,7 @@ class Scene:
         else:
             box = self.field_rect
 
-        # If monster is Boss with a music theme, play it's theme:
+        # If monster is Boss with a music theme, play its theme:
         if OPTIONS["music"] and isinstance(monster, Boss) and monster.theme is not None:
             play_theme(os.path.join('music', monster.theme))
 
@@ -2274,7 +2274,7 @@ class Menu:
                 bottom - top + self.offset * 2
             )
 
-        # Draw background if asked to:
+        # Draw background if needed:
         self.background = s(self.rect.size, pygame.SRCALPHA)
         if background:
             self.background.fill(c(*colors["loot_card"], 127))
@@ -3264,9 +3264,9 @@ class SceneHandler:
 
         # 2. Affect the scene:
         # 2.1. Check and spawn monsters if needed
-        # Check if loot is queued to be spawned
+        # Test if loot is queued to be spawned
         if self.spawn_enemies and not any((self.loot_querried, self.scene.loot_overlay, self.scene.paused)):
-            # If player just picked up loot, spawn bunch of monsters:
+            # If player just picked up loot, spawn a bunch of monsters:
             if self.batch_spawn_after_loot:
                 self.batch_spawn()
             # If scene is empty and player is chainkilling spawning enemies, spawn bunch at once:
@@ -3370,7 +3370,6 @@ class SceneHandler:
             self.hand_off_to(self.scene.new_sh_hook)
 
     def _win(self):
-        # self.scene.menus.append(Victory(self.scene, **self.next_level_options))
         self.scene.generate_menu_popup(
             menu_class=Victory,
             keywords={
@@ -3411,7 +3410,7 @@ class SceneHandler:
             iteration_tick = lerp((0, FPS_TICK), tick_down_speed)
             self.spawn_timer -= iteration_tick if tick_down_speed == 1 else 2 * iteration_tick
 
-        # If there are less enemies than needed and no spawn is queued, queue one
+        # If there are fewer enemies than needed and no spawn is queued, queue one
         elif self.spawn_queued is None and present_enemies_value < current_on_scren_enemies and any(self.monsters):
 
             self.spawn_timer = current_spawn_delay
@@ -3510,7 +3509,7 @@ class SceneHandler:
 
     def play_theme(self):
         theme = self.theme
-        # If there is a Boss, pick it's theme instead
+        # If there is a Boss, pick its theme instead
         for monster in self.scene.characters:
             if isinstance(monster, Boss) and monster.theme is not None:
                 theme = monster.theme
@@ -3575,7 +3574,7 @@ class SkirmishSceneHandler(SceneHandler):
             **kwargs
         )
 
-        # Make sure Victory Screen has button to go to the next difficulty level
+        # Make sure Victory Screen has a button to go to the next difficulty level
         if tier < 4:
             self.next_level_options = {
                 "next_level_text": f"{string['menu']['difficulty']}: {tier + 1}",
@@ -3590,7 +3589,7 @@ class SkirmishSceneHandler(SceneHandler):
                 }
             }
 
-        # If no custom loot drops are needed, pause monster spawning, and add a unpause countdown:
+        # If no custom loot drops are needed, pause monster spawning, and add an unpause countdown:
         self.spawn_enemies = False
         if not any((self.offer_main_hand, self.offer_off_hand)):
             self._spawn_countdown()
@@ -3731,13 +3730,16 @@ class MainMenuSceneHandler(SceneHandler):
         )
 
         # Spawn MainMenu in the scene
-        # self.scene.menus.append(MainMenu(self.scene))
         self.scene.generate_menu_popup(
             menu_class=MainMenu,
             keywords={
                 "scene": self.scene
             }
         )
+
+        # If we start MMSH, that means Tutorial was completed or deliberately closed
+        if not PROGRESS["tutorial_completed"]:
+            tutorial_completed(True)
 
     def execute(self) -> bool:
         # Spawn a monster if less than N are present
@@ -3747,7 +3749,7 @@ class MainMenuSceneHandler(SceneHandler):
             new_challenger.collision_group = self.spawned_collision_group
             self.monsters.append(new_challenger)
             self.spawn_monster(force=True)
-            # Python is designed to to indefinetely extend integers, so there is no upper bound to catch exceptions for
+            # Python is designed to indefinetely extend integers, so there is no upper bound to catch exceptions for
             # Besides, increment is expected to be occuring once per dozen seconds, so it is not imaginable to reach
             # any kind of memory limit during time person stares at the menu.
             self.spawned_collision_group += 1
@@ -3806,25 +3808,6 @@ class TutorialSceneHandler(SceneHandler):
                         self.player.speed.x == -1.2 * POKE_THRESHOLD
                 ),
                 "preparation": self._teleport_left()
-            },
-
-            # Inventory stage:
-            {
-                "player_equipment":
-                    {
-                        "main_hand": Sword(BASE_SIZE, tier_target=1, roll_stats=False),
-                        "backpack": Sword(BASE_SIZE, tier_target=4, roll_stats=False)
-                    },
-                "text": string["tutorial"]["inventory"],
-                "dummies": [],
-                "positions": [],
-                "proceed_condition": lambda: (
-                    not self.scene.paused and
-                    not all((self.player.slots["backpack"], self.player.slots["main_hand"])) and
-                    not any(
-                            remains for remains in self.scene.particles
-                            if isinstance(remains, Remains) and remains.lifetime > 2
-                    ))
             },
 
             # Swing stage:
@@ -3989,6 +3972,25 @@ class TutorialSceneHandler(SceneHandler):
                         not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
                 ),
                 "preparation": self._cheat_katar
+            },
+
+            # Inventory stage:
+            {
+                "player_equipment":
+                    {
+                        "main_hand": Sword(BASE_SIZE, tier_target=1, roll_stats=False),
+                        "backpack": Sword(BASE_SIZE, tier_target=4, roll_stats=False)
+                    },
+                "text": string["tutorial"]["inventory"],
+                "dummies": [],
+                "positions": [],
+                "proceed_condition": lambda: (
+                        not self.scene.paused and
+                        not all((self.player.slots["backpack"], self.player.slots["main_hand"])) and
+                        not any(
+                            remains for remains in self.scene.particles
+                            if isinstance(remains, Remains)
+                        ))
             },
 
         ]

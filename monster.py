@@ -524,7 +524,7 @@ class AI:
                 violence = False
 
             # Decide if we enter aggressive state, based on game state. If decision is negative, repeat
-            # decision process for every ally, until positive conclusion is reached or we ran out of allies:
+            # decision process for every ally, until positive conclusion is reached, or if we ran out of allies:
             else:
                 violence = False
                 agression_chance = self.aggression * self.morale * self.character.stamina / self.character.max_stamina
@@ -576,7 +576,7 @@ class AI:
                 violence = False
 
             # Decide if we enter aggressive state, based on game state. If decision is negative, repeat
-            # decision process for every ally, until positive conclusion is reached or we ran out of allies:
+            # decision process for every ally, until positive conclusion is reached, or if we ran out of allies:
             else:
                 violence = False
                 agression_chance = self.aggression * self.morale * self.character.stamina / self.character.max_stamina
@@ -793,7 +793,7 @@ class AI:
                         self.strategy_timer = 0.2
 
                 elif self.character.stamina > self.stab_stamina_cost and self.in_stab_range():
-                    # Spawn warning and use it's lifetime as counter before the attack
+                    # Spawn warning and use its lifetime as counter before the attack
                     self.strategy_dict["warning"] = self.warn()
                     self.strategy_dict["timestamp"] = pygame.time.get_ticks()
 
@@ -902,7 +902,7 @@ class AI:
             if substrategy is None:
                 # First, make sure we are at desired distance from the target
                 # Distance is at least enemy reach, but not more than own reach
-                # May stay outside own reach if enemy reach is longer
+                # Character may stay outside own reach if enemy reach is longer
                 # corridor is 0.8a < d < 1.2a
                 desired_distance = max(self.effective_range(), self.enemies[self.target]["reach"], 1)
                 actual_distance = distances[self.target]
@@ -920,7 +920,7 @@ class AI:
                         substrategy = "circle"
                         self.strategy_dict["radius"] = distances[self.target]
                         self.strategy_dict["timer"] = 2 + random.uniform(0, self.flexibility)
-                        # Find closest ally; pick clockwise/ccw direction to move AWAY from ally
+                        # Find the closest ally; pick clockwise/ccw direction to move AWAY from ally
                         try:
                             closest_friend = sorted(self.friends.keys(), key=lambda x: self.friends[x]["distance"])[0]
                             ccw = ccw_triangle(
@@ -1329,7 +1329,7 @@ class Goblin(Humanoid):
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
                 gbm = Material.pick(["mineral"], tier, filter_func)
-            # Otherwise 30% for any metal, except mythril
+            # Otherwise, 30% for any metal, except mythril
             elif tier <= 2 and random.random() > 0.7:
                 gbm = Material.pick(["metal"], tier, filter_func)
             # Anything bone otherwise:
@@ -1580,7 +1580,7 @@ class Orc(Humanoid):
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
                 gbm = Material.pick(["mineral"], tier, filter_func)
-            # Otherwise any metal
+            # Otherwise, any metal
             else:
                 gbm = Material.pick(["metal"], tier, filter_func)
             return gbm

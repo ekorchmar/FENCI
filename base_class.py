@@ -1,5 +1,4 @@
 # todo:
-#  Nothing to singleton class
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -304,7 +303,7 @@ class Bar:
         # else:
         #    self.last_updated = pygame.time.get_ticks()
 
-        # Find closest corresponding image to requested
+        # Find the closest corresponding image to requested
         if value <= 0:
             index = 0
         elif value >= self.max_value:
@@ -764,7 +763,7 @@ class Character:
         # Tick down channel and execute task if needed:
         if self.channeling:
             # Disable aiming
-            new_target = None
+            new_target = v()
             self.channeling_timer -= FPS_TICK
 
             # Execute and despawn bar if timer is reached:
@@ -779,7 +778,7 @@ class Character:
         else:
             self.bars.pop("immune_timer", 0)
 
-        # Modify current face state time:(idle or in another state)
+        # Modify current face state time (idle or in another state):
         self.state_timer -= FPS_TICK
         self.visual_timer += FPS_TICK
 
@@ -800,11 +799,13 @@ class Character:
         self.breath()
 
         dangerous = False
+
+        # Aim held weapons:
         for weapon in self.weapon_slots:
 
             hilt_placement = v(self.position) + v(self.body_coordinates[weapon])
 
-            # Account for weapon held differently
+            # Account for weapons requiring special stances:
             if self.slots[weapon].held_position != v():
                 held_scale_down = self.size / BASE_SIZE
                 held_offset = v(
@@ -830,7 +831,7 @@ class Character:
                 offset_vector.x = offset_vector.x * 2
                 hilt_placement = pygame.math.Vector2(hilt_placement) + offset_vector
 
-            if new_target is not None:
+            if new_target != v():
                 aiming_vector = v(new_target) - hilt_placement
             else:  # Rotate to default angle
                 if self.ai is None:
@@ -1090,22 +1091,32 @@ class Character:
         if self.state in DISABLED or self.channeling:
             return
 
-        # Don't activate if any other weapon is in use - except Swordbreaker and Katar, as we want it to feel agile
+        # Test if we always activate:
+        always_active = False
+        try:
+            # If we are a Dagger ready to roll, break, as activation should always be allowed:
+            if self.slots[slot].last_parry is not None:
+                always_active = True
+        except AttributeError:
+            pass
+
+        try:
+            # If we are a Katar or Spear with a skewered enemy, activation should always be allowed:
+            if self.slots[slot].kebab is not None:
+                always_active = True
+        except AttributeError:
+            pass
+
+        # Don't activate if any other weapon is in use
         for other_slot in filter(
-                lambda x: self.slots[x] and (x != slot and self.slots[x].prevent_activation),
+                lambda x: self.slots[x] and x != slot and self.slots[x].prevent_activation,
                 self.weapon_slots
         ):
-            # If we are a Dagger ready to roll, break, as activation should always be allowed:
-            try:
-                if self.slots[slot].last_parry is not None:
-                    break
-            except AttributeError:
-                pass
+            if always_active:
+                break
 
             if self.slots[other_slot].in_use or self.slots[other_slot].activation_offset != v():
                 return
-            self.slots[other_slot].inertia_vector = v()
-            self.slots[other_slot].activation_offset = v()
 
         self.slots[slot].activate(character=self, continuous_input=continuous_input, **kwargs)
 
@@ -1240,7 +1251,7 @@ class Character:
         return True, equipment.damage()
 
     def ignores_collision(self) -> bool:
-        return (self.state in AIRBORNE or self.phasing) and self.anchor_weapon is None
+        return ((self.state in AIRBORNE and self.state not in DISABLED) or self.phasing) and self.anchor_weapon is None
 
     def is_flying_meat(self) -> bool:
         return self.state in DISABLED
@@ -1342,7 +1353,7 @@ class Character:
         self.push(vector, duration, 'active')
 
         # Lock weapons in same position
-        # Animating them would *look* cooler, but would also made the feel much clunkier
+        # Animating them would *look* cooler, but would also have made the feel much clunkier
         for slot in self.weapon_slots:
             weapon = self.slots[slot]
             if weapon:
@@ -1358,7 +1369,7 @@ class Character:
             cls.registry[cls.class_name] = cls
 
     def equip(self, armament, slot):
-        # Allow to update constants
+        # Allow updating constants
         armament.on_equip(self)
 
         # Equipping Nothing drops slot content
@@ -1382,7 +1393,7 @@ class Character:
             self.slots[slot], self.slots['backpack'] = armament, self.slots[slot]
             return Nothing()
 
-        # Otherwise equip over, drop original content
+        # Otherwise, equip over, drop original content
         self.slots[slot], drop = armament, self.slots[slot]
         return drop
 

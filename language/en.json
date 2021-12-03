@@ -393,7 +393,6 @@
   "lorem_ipsum": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et porta lectus, et cursus neque. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer magna odio, blandit at auctor nec, venenatis at ante. Maecenas tincidunt nisi urna, et elementum velit rutrum eget. Quisque massa nibh, porttitor sed ultrices suscipit, gravida et quam. Aenean sit amet cursus diam, vitae gravida dolor. Duis sit amet orci ut eros malesuada fringilla. Cras nec semper tellus, eget sagittis dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque dignissim bibendum orci eu tincidunt. Maecenas congue metus eget dui eleifend ullamcorper. Curabitur malesuada mauris sed augue convallis, eu suscipit metus gravida. Maecenas nec risus nec eros placerat malesuada sed in ante. Ut et felis ex. Etiam hendrerit metus bibendum cursus sagittis. Suspendisse potenti. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et porta lectus, et cursus neque. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer magna odio, blandit at auctor nec, venenatis at ante. Maecenas tincidunt nisi urna, et elementum velit rutrum eget. Quisque massa nibh, porttitor sed ultrices suscipit, gravida et quam. Aenean sit amet cursus diam, vitae gravida dolor. Duis sit amet orci ut eros malesuada fringilla. Cras nec semper tellus, eget sagittis dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque dignissim bibendum orci eu tincidunt. Maecenas congue metus eget dui eleifend ullamcorper. Curabitur malesuada mauris sed augue convallis, eu suscipit metus gravida. Maecenas nec risus nec eros placerat malesuada sed in ante. Ut et felis ex. Etiam hendrerit metus bibendum cursus sagittis. Suspendisse potenti.",
   "tutorial": {
     "move": "Use WASD to move and mouse to aim your weapon. Press SPACE to turn around and run to the left.",
-    "inventory": "Swap your weapons with mouse WHEEL. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
     "swing": "Swing your axe to parry and damage enemies. Careful: stamina is limited!",
     "poke": "Run into enemies to poke them with pointed weapons. Plan your attacks: damage you deal scales with weapon speed.",
     "sword": "After parrying or landing a hit, weapons don't consume stamina for short period of time.",
@@ -405,6 +404,7 @@
     "spear1": "Stab with the spear to skewer an enemy. Shake them off to cause bleeding.",
     "spear2": "Hold LEFT mouse button to hold spear closer to self, but it's best to carry a smaller weapon for close combat.",
     "katar": "Hold RIGHT mouse button to immobilize an enemy with a katar and finish them with your main weapon. Works through shields!",
+    "inventory": "Swap your weapons with mouse WHEEL. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
     "completed": "TUTORIAL COMPLETED!",
     "escape": "ESC TO PAUSE"
   }

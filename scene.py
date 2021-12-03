@@ -1,4 +1,5 @@
 # todo:
+#  Split options into submenus; add options for: SFX volume;
 # After tech demo
 # todo:
 #  Store each completed level in progress/victory.json
@@ -266,10 +267,11 @@ class Scene:
                     speed_limit = 1.0
 
                     # Use:
-                    for i in range(3):
-                        if MouseV.instance.mouse_state[i]:
-                            continuous = MouseV.instance.last_mouse_state[i]
-                            self.player.use(PLAYER_SLOTS[i], continuous)
+                    if not self.menus:
+                        for i in range(3):
+                            if MouseV.instance.mouse_state[i]:
+                                continuous = MouseV.instance.last_mouse_state[i]
+                                self.player.use(PLAYER_SLOTS[i], continuous)
 
                     # Aim:
                     aiming = self.pointer

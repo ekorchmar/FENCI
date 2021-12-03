@@ -866,7 +866,7 @@ class Pointed(Wielded):
                 Kicker(
                     position=v(self.tip_v) + v(0, BASE_SIZE),
                     damage_value=0,
-                    color=colors["lightning"],
+                    color=colors["inventory_description"],
                     override_string='DROPPED',
                     oscillate=False
                 )

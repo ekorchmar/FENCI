@@ -102,9 +102,8 @@ class Remains:
         output = []
         new_list = []
 
-        for quintuple in self.blitting_list:
-            # Unpack:
-            surface, rect, speed_v, time, decay_timer = quintuple
+        # Unpack:
+        for surface, rect, speed_v, time, decay_timer in self.blitting_list:
 
             # Modify:
             time -= FPS_TICK

@@ -1,4 +1,5 @@
 # todo:
+#  Limit fall time for disabled and airborne characters, add landed state
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -577,6 +578,7 @@ class Character:
     has_blood = True
     remains_persistence = 1  # 0 to remain indefinitely in scene
     theme = None
+    free_fall_range = 0.5, 1.2
 
     # Logic:
     pct_cap = 0.15
@@ -731,6 +733,13 @@ class Character:
         # Counter since last frame when character held dangerous weapon: affects stamina restoration
         self.since_dangerous_frame = 0
 
+        # Limit fall duration:
+        self.fall_duration = 0
+        self._roll_fall()
+
+    def _roll_fall(self):
+        self.fall_duration = random.uniform(*self.free_fall_range)
+
     def anchor(self, duration, position=None, weapon=None):
         self.speed = v()
         if position:
@@ -781,6 +790,11 @@ class Character:
         # Modify current face state time (idle or in another state):
         self.state_timer -= FPS_TICK
         self.visual_timer += FPS_TICK
+
+        # Process landing of flying characters
+        if self.state in DISABLED and self.state in AIRBORNE and self.state_timer < self.fall_duration:
+            self.speed.y = 0
+            self.set_state('hurt', self.state_timer)
 
         if self.state_timer <= 0 and self.state != 'idle':
             # If self was disabled and possessed by an AI, resasses situation:
@@ -917,6 +931,11 @@ class Character:
         # Special state sounds:
         if state == 'jumping':
             play_sound('jump', 0.3 * self.size / BASE_SIZE)
+
+        # Limit free fall duration:
+        if state in AIRBORNE and state in DISABLED:
+            self._roll_fall()
+            self.fall_duration = duration if duration < self.fall_duration else duration - self.fall_duration
 
         self.state = state
         self.state_timer = duration
@@ -1138,6 +1157,7 @@ class Character:
             remains_set.append((surf, rect, self.speed + nudge))
 
         for weapon in self.weapon_slots:
+            self.slots[weapon].reset(self)
             remains_set.append(self.slots[weapon].drop(self))
 
         return remains_set, self.remains_persistence

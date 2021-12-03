@@ -1,5 +1,4 @@
 # todo:
-#  Limit fall time for disabled and airborne characters, add landed state
 # after tech demo:
 # todo:
 #  ?? Compared surface for stat cards
@@ -369,7 +368,7 @@ class Equipment:
 
         self.prevent_regen = False
 
-    def reset(self, character):
+    def reset(self, character, reposition=True):
         pass
 
     def generate(self, tier=None):
@@ -503,9 +502,9 @@ class Equipment:
 
         # Pop all generated objects:
         for stat in ['loot_cards', 'character_specific', 'particles', 'trail_frames', 'wing_tips', 'wing_tips_v']:
-            own_stats.pop(stat, 0)
+            del own_stats[stat]
 
-        for key in [key for key, value in own_stats.items() if isinstance(value, (s, v, c))]:
+        for key in [key for key, value in own_stats.items() if isinstance(value, (s, v, c, Character, Equipment))]:
             own_stats.pop(key)
 
         # Modify constructor to use lists instead of colors:
@@ -559,7 +558,7 @@ class Nothing(Equipment):
     def lock(self, duration, angle=None, inertia=None):
         pass
 
-    def reset(self, character):
+    def reset(self, character, **kwargs):
         pass
 
     def description(self):
@@ -1157,7 +1156,7 @@ class Character:
             remains_set.append((surf, rect, self.speed + nudge))
 
         for weapon in self.weapon_slots:
-            self.slots[weapon].reset(self)
+            self.slots[weapon].reset(self, reposition=False)
             remains_set.append(self.slots[weapon].drop(self))
 
         return remains_set, self.remains_persistence
@@ -1210,7 +1209,7 @@ class Character:
 
         for slot in self.weapon_slots:
             weapon = self.slots[slot]
-            weapon.reset(self)
+            weapon.reset(self, )
             # Recalculate variables:
             weapon.on_equip(self)
             weapon.lock(0.2)
@@ -1289,7 +1288,7 @@ class Character:
 
         # Reset own weapons
         for slot in self.weapon_slots:
-            self.slots[slot].reset(self)
+            self.slots[slot].reset(self, )
 
         self.bleeding_intensity = 0
         self.bleeding_timer = 0

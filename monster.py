@@ -183,7 +183,7 @@ class Humanoid(Character):
         slot = backpack.prefer_slot
 
         self.slots["backpack"], self.slots[slot] = self.slots[slot], self.slots["backpack"]
-        self.slots[slot].reset(self)
+        self.slots[slot].reset(self, True)
 
         # Inform the scene:
         scene.log_weapons()

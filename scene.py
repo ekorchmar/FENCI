@@ -35,6 +35,7 @@ class Scene:
             decorative: bool = False,
             custom_surface: s = None
     ):
+        self.collide_this_frame = False
         self.timer = 0
         self.window = window
         self.box = bounds
@@ -484,7 +485,7 @@ class Scene:
                 dropped_item=dropped,
                 equip=False
             )
-        item.reset(self.player)
+        item.reset(self.player, reposition=True)
         self.log_weapons()
 
         # Show info banner:
@@ -831,6 +832,7 @@ class Scene:
             oldindex = self.characters.index(self.player)
             self.characters.insert(0, self.characters.pop(oldindex))
 
+        # Log all collisions
         for character in filter(lambda x: not x.phasing, self.characters):
             # Check if disabled characters have a particle associated with them; if not, spawn one:
             if character.state in DISABLED and character.immune_timer <= 0:
@@ -1381,8 +1383,11 @@ class Scene:
         # Iterate scene:
         self.update_input()
         self.draw()
-        if not (self.paused or self.loot_overlay):
+
+        # Collide only once each 2 frames:
+        if self.collide_this_frame and not (self.paused or self.loot_overlay):
             self.collide()
+        self.collide_this_frame = not self.collide_this_frame
 
         # Prevent losing mouse:
         pygame.event.set_grab(OPTIONS["grab_mouse"] and not self.paused and not self.menus)
@@ -3037,11 +3042,13 @@ class Player(Humanoid):
             for slot, eq in self.slots.items()
             if eq
         }
-        equipment_stats = {
-            slot: eq.drop_json()
-            for slot, eq in self.slots.items()
-            if eq
-        }
+
+        equipment_stats = dict()
+
+        for slot, eq in self.slots.items():
+            if eq:
+                eq.reset(self, reposition=False)
+                equipment_stats[slot] = eq.drop_json()
 
         player_json = {
             'species': self.species,
@@ -3354,7 +3361,12 @@ class SceneHandler:
             self.loot_querried,
             self.spawn_queued,
             self.scene.loot_overlay,
-            any(char for char in self.scene.characters if char.collision_group != self.player.collision_group)
+            any(char for char in self.scene.characters if char.collision_group != self.player.collision_group),
+            # Any non-persistent corpses
+            any(
+                corpse for corpse in self.scene.particles
+                if isinstance(corpse, Remains) and corpse.blitting_list[0][-1] is not None
+            )
         ])
 
         # Spawn victory menu

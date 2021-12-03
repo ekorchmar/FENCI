@@ -91,9 +91,10 @@ class Wielded(Equipment):
     prevent_activation = True
     destroys_shield = False
 
-    def reset(self, character):
-        self.last_angle = self.default_angle if character.facing_right else \
-            math.copysign(180, self.default_angle)-self.default_angle
+    def reset(self, character, reposition=True):
+        if reposition:
+            self.last_angle = self.default_angle if character.facing_right else \
+                math.copysign(180, self.default_angle)-self.default_angle
 
         self.angular_speed = 0
         self.in_use = False
@@ -507,7 +508,7 @@ class Wielded(Equipment):
         # Reset place if not set or if dropping from backpack
         if character.slots['backpack'] is self:
             self.hilt_v = None
-        self.reset(character)
+        self.reset(character, reposition=False)
         self.hilt_v = self.hilt_v or character.position
 
         # Surface and Rect are provided by .draw
@@ -830,8 +831,8 @@ class Bladed(Wielded):
             ))
             self.tip_delta = fake_tip_delta
 
-    def reset(self, character):
-        super(Bladed, self).reset(character)
+    def reset(self, character, reposition=True):
+        super(Bladed, self).reset(character, reposition)
         self.spin_remaining = 0
 
     def on_equip(self, character):
@@ -1442,14 +1443,15 @@ class Spear(Pointed):
             # Destroy shields on full charge
             self.destroys_shield = True
 
-    def reset(self, character):
+    def reset(self, character, reposition=True):
         super(Spear, self).reset(character)
 
         # Held position is dynamic:
-        self.absolute_demotion = 0
-        self.held_position = v()
-        self.active_this_frame = False
-        self.held_back_duration = 0
+        if reposition:
+            self.absolute_demotion = 0
+            self.held_position = v()
+            self.active_this_frame = False
+            self.held_back_duration = 0
 
         self._drop_kebab()
 
@@ -1680,8 +1682,8 @@ class Dagger(Short, Bladed):
 
         super(Dagger, self).activate(character, continuous_input)
 
-    def reset(self, character):
-        super(Dagger, self).reset(character)
+    def reset(self, character, reposition=True):
+        super(Dagger, self).reset(character, reposition)
         self.time_from_parry = 0
         self.last_parry = None
 
@@ -1995,8 +1997,8 @@ class Axe(Bladed):
         self.locked_from_activation = locked_from_activation
         super(Axe, self).lock(duration, angle, inertia)
 
-    def reset(self, character):
-        super(Axe, self).reset(character)
+    def reset(self, character, reposition=True):
+        super(Axe, self).reset(character, reposition)
         # Activation support
         self.charge_time = 0
         self.spins_charged = 0

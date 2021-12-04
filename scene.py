@@ -205,6 +205,7 @@ class Scene:
 
         # Debug:
         if debug:
+            self.menus.append(LootHelp())
             if self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
 
@@ -320,7 +321,7 @@ class Scene:
             self.loot_overlay.redraw_loot()
 
         # Process clicks and keypresses on loot overlay
-        elif self.loot_overlay:
+        elif self.loot_overlay and not self.menus:
             if self.loot_overlay.rect.collidepoint(MouseV.instance.v):
 
                 # Middle click closes overlay
@@ -2221,7 +2222,7 @@ class TNT:
 
 # All kinds of menus and menu-like objects
 class Menu:
-    """Stolen from BamboozleChess."""
+    _background_color = c(*colors["loot_card"], 127)
 
     def __init__(
             self,
@@ -2284,7 +2285,7 @@ class Menu:
         # Draw background if needed:
         self.background = s(self.rect.size, pygame.SRCALPHA)
         if background:
-            self.background.fill(c(*colors["loot_card"], 127))
+            self.background.fill(self._background_color)
             frame_surface(self.background, colors["inventory_text"])
         else:
             self.background.fill([0, 0, 0, 0])
@@ -2821,6 +2822,7 @@ class Victory(Menu):
             ),
             pygame.SRCALPHA
         )
+        total_title_surface.fill(self._background_color)
         frame_surface(total_title_surface, colors['inventory_text'])
         total_title_surface.blit(statement_surface, (BASE_SIZE, BASE_SIZE))
         total_title_surface.blit(killed_monsters_surface, (BASE_SIZE, BASE_SIZE * 2 + statement_surface.get_height()))
@@ -2938,6 +2940,29 @@ class Difficulty(Menu):
             reposition_buttons=(index + 1, 1),
             background=True,
             title_surface=title_surface
+        )
+
+
+class LootHelp(Menu):
+    _background_color = c(*colors["loot_card"], 255)
+
+    def __init__(self):
+        button_list = [Button(
+            text=[string["menu"]["ok"]],
+            rect=DEFAULT_BUTTON_RECT,
+            action=self.fade,
+            kb_index=0
+        )]
+
+        title = ascii_draw_rows(
+            BASE_SIZE, [(entry, colors["inventory_title"]) for entry in string["tutorial"]["loot_help"]]
+        )
+
+        super(LootHelp, self).__init__(
+            buttons_list=button_list,
+            background=True,
+            title_surface=title,
+            reposition_buttons=(1, 1)
         )
 
 
@@ -3341,12 +3366,18 @@ class SceneHandler:
             loot_label = random.choice(
                 string["gameplay"]["loot_label" if self.player.seen_loot_drops else "loot_label_first"]
             )
-            self.player.seen_loot_drops = True
 
             # Animate overlay from last dead monster:
             last_victim = self.scene.dead_characters[-1].position + self.scene.conversion_v
+
+            # Spawn explanation:
+            if not self.player.seen_loot_drops:
+                self.scene.menus.append(LootHelp())
             self.scene.loot_overlay = LootOverlay(loot_package, self.player, label=loot_label, appear_from=last_victim)
+
+            # Boolean toggles:
             self.loot_querried = False
+            self.player.seen_loot_drops = True
 
         # 2.4. Penalize and respawn dead player
         if self.player in self.scene.dead_characters:
@@ -3675,7 +3706,6 @@ class SkirmishSceneHandler(SceneHandler):
 
         # Loot label contains a hint if it's first in playthrough:
         loot_label = random.choice(string["gameplay"]["loot_label_arena"])
-        self.player.seen_loot_drops = True
 
         self.scene.loot_overlay = LootOverlay(
             loot_package,
@@ -3806,6 +3836,9 @@ class TutorialSceneHandler(SceneHandler):
             tier=0
         )
 
+        # "Kidnap" inventory UI:
+        self.player.inventory, self.stored_inventory = None, self.player.inventory
+
         # Tutorial stages:
         self.stages = [
             # Move stage:
@@ -3816,10 +3849,7 @@ class TutorialSceneHandler(SceneHandler):
                 "positions": [],
                 "proceed_condition": lambda: (
                         self.player.position.x < self.scene.box.width * 0.5 and
-                        not self.player.facing_right and
-                        not v(self.player.position) == v(PLAYER_SPAWN) and
-                        not abs(self.player.slots['main_hand'].last_angle - Sword.default_angle) < 5 and
-                        self.player.speed.x == -1.2 * POKE_THRESHOLD
+                        not self.player.facing_right
                 ),
                 "preparation": self._teleport_left()
             },
@@ -3945,30 +3975,8 @@ class TutorialSceneHandler(SceneHandler):
                 "proceed_condition": lambda: (
                     any(
                         x for x in self.scene.characters
-                        if x.bleeding_intensity == 0 and x.state == 'skewered' and x.anchor_weapon is None
+                        if x.bleeding_intensity > 0 and x.bleeding_timer < 0.1
                     )
-                )
-            },
-
-            # Spear 2 stage:
-            {
-                "player_equipment": {
-                    "main_hand": Spear(BASE_SIZE, tier_target=1),
-                    "backpack": Dagger(BASE_SIZE, tier_target=4)
-                },
-                "text": string["tutorial"]["spear2"],
-                "dummies": [make_dummy(Goblin, tier=1, position=None) for _ in range(3)],
-                "positions": [
-                    v(
-                        self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
-                    )
-                    for i
-                    in range(3)
-                ],
-                "proceed_condition": lambda: (
-                        len(self.scene.dead_characters) == 3 and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
                 )
             },
 
@@ -4004,7 +4012,69 @@ class TutorialSceneHandler(SceneHandler):
                         not any(
                             remains for remains in self.scene.particles
                             if isinstance(remains, Remains)
-                        ))
+                        )),
+                "preparation": self._restore_inventory
+            },
+
+            # Swordbreaker stage:
+            {
+                "player_equipment": {
+                    "main_hand": Sword(BASE_SIZE, tier_target=1),
+                    "off_hand": Swordbreaker(BASE_SIZE, tier_target=4)
+                },
+                "text": string["tutorial"]["breaker"],
+                "dummies": [make_dummy(Human, tier=1, position=None)],
+                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
+                "proceed_condition": lambda: (
+                        self.scene.dead_characters and
+                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
+                ),
+                "preparation": self._limit_stamina
+            },
+
+            # Weight stage:
+            {
+                "player_equipment":
+                    {
+                        "main_hand": Axe(BASE_SIZE, tier_target=1, roll_stats=False),
+                        "backpack": Dagger(BASE_SIZE, tier_target=4, roll_stats=False)
+                    },
+                "text": string["tutorial"]["weight"],
+                "dummies": [make_dummy(Goblin, tier=1, position=None) for _ in range(3)],
+                "positions": [
+                    v(
+                        self.scene.box.width - PLAYER_SPAWN[0],
+                        self.scene.box.height * (i + 1) / 4
+                    )
+                    for i
+                    in range(3)
+                    ],
+                "proceed_condition": lambda: (
+                        len(self.scene.dead_characters) == 3 and
+                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
+                    )
+            },
+
+            # Spear 2 stage:
+            {
+                "player_equipment": {
+                    "main_hand": Spear(BASE_SIZE, tier_target=1),
+                    "backpack": Dagger(BASE_SIZE, tier_target=4)
+                },
+                "text": string["tutorial"]["spear2"],
+                "dummies": [make_dummy(Goblin, tier=1, position=None) for _ in range(3)],
+                "positions": [
+                    v(
+                        self.scene.box.width - PLAYER_SPAWN[0],
+                        self.scene.box.height * (i + 1) / 4
+                    )
+                    for i
+                    in range(3)
+                ],
+                "proceed_condition": lambda: (
+                        len(self.scene.dead_characters) == 3 and
+                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
+                )
             },
 
         ]
@@ -4044,6 +4114,10 @@ class TutorialSceneHandler(SceneHandler):
             if isinstance(weapon, Katar):
                 weapon.character_specific["stamina_drain"] = 0
 
+    def _restore_inventory(self):
+        self.player.inventory = self.stored_inventory
+        self.scene.log_weapons()
+
     def _tutorial_stage(
             self,
             player_equipment: dict,
@@ -4053,6 +4127,7 @@ class TutorialSceneHandler(SceneHandler):
             proceed_condition,
             preparation=None
     ):
+        # Make sure player stamina restoration is normal for the stage
         self.player.stamina_restoration = self.saved_sp_restoration
 
         self._tutorial_banner = Banner(

@@ -502,7 +502,7 @@ class Equipment:
 
         # Pop all generated objects:
         for stat in ['loot_cards', 'character_specific', 'particles', 'trail_frames', 'wing_tips', 'wing_tips_v']:
-            del own_stats[stat]
+            own_stats.pop(stat, 0)
 
         for key in [key for key, value in own_stats.items() if isinstance(value, (s, v, c, Character, Equipment))]:
             own_stats.pop(key)

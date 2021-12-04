@@ -286,6 +286,7 @@
     }
   },
   "menu": {
+    "ok": "OK",
     "continue": "Continue",
     "campaign": "Campaign",
     "tutorial": "Tutorial",
@@ -393,19 +394,26 @@
   "lorem_ipsum": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et porta lectus, et cursus neque. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer magna odio, blandit at auctor nec, venenatis at ante. Maecenas tincidunt nisi urna, et elementum velit rutrum eget. Quisque massa nibh, porttitor sed ultrices suscipit, gravida et quam. Aenean sit amet cursus diam, vitae gravida dolor. Duis sit amet orci ut eros malesuada fringilla. Cras nec semper tellus, eget sagittis dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque dignissim bibendum orci eu tincidunt. Maecenas congue metus eget dui eleifend ullamcorper. Curabitur malesuada mauris sed augue convallis, eu suscipit metus gravida. Maecenas nec risus nec eros placerat malesuada sed in ante. Ut et felis ex. Etiam hendrerit metus bibendum cursus sagittis. Suspendisse potenti. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse et porta lectus, et cursus neque. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Integer magna odio, blandit at auctor nec, venenatis at ante. Maecenas tincidunt nisi urna, et elementum velit rutrum eget. Quisque massa nibh, porttitor sed ultrices suscipit, gravida et quam. Aenean sit amet cursus diam, vitae gravida dolor. Duis sit amet orci ut eros malesuada fringilla. Cras nec semper tellus, eget sagittis dui. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque dignissim bibendum orci eu tincidunt. Maecenas congue metus eget dui eleifend ullamcorper. Curabitur malesuada mauris sed augue convallis, eu suscipit metus gravida. Maecenas nec risus nec eros placerat malesuada sed in ante. Ut et felis ex. Etiam hendrerit metus bibendum cursus sagittis. Suspendisse potenti.",
   "tutorial": {
     "move": "Use WASD to move and mouse to aim your weapon. Press SPACE to turn around and run to the left.",
-    "swing": "Swing your axe to parry and damage enemies. Careful: stamina is limited!",
+    "swing": "Swing your axe to parry and damage enemies. Careful: stamina is limited, and takes time to regenerate!",
     "poke": "Run into enemies to poke them with pointed weapons. Plan your attacks: damage you deal scales with weapon speed.",
     "sword": "After parrying or landing a hit, weapons don't consume stamina for short period of time.",
     "stab": "Press LEFT mouse button to stab at enemy with pointed weapons from a safe distance.",
-    "shield": "Hold RIGHT mouse button to block enemy attacks and quickly restore stamina.",
+    "shield": "Hold RIGHT mouse button to hide behind the shield to block enemy attacks and quickly restore stamina.",
     "bash": "Press RIGHT mouse button while running to bash enemies with your shield.",
     "dagger": "With dagger, you can press LEFT mouse button after hitting enemy weapon to roll through the enemy.",
     "falchion": "Press LEFT mouse button with falchion to roll in any direction at any time. It is fun and costs no stamina.",
-    "spear1": "Stab with the spear to skewer an enemy. Shake them off to cause bleeding.",
-    "spear2": "Hold LEFT mouse button to hold spear closer to self, but it's best to carry a smaller weapon for close combat.",
+    "spear1": "Stab with LEFT mouse button with the spear to skewer an enemy. Shake them off to cause bleeding.",
+    "spear2": "Hold LEFT mouse button to hold spear closer to self, but it's best to switch to a smaller weapon for close combat.",
+    "breaker": "Hold SHIFT to lock your main hand weapon from aiming. This stops it from draining stamina, and you can still use your Swordbreaker",
     "katar": "Hold RIGHT mouse button to immobilize an enemy with a katar and finish them with your main weapon. Works through shields!",
-    "inventory": "Swap your weapons with mouse WHEEL. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
+    "inventory": "Your inventory is above playing field. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
+    "weight": "Heavier weapons deal more damage, but light ones are quicker to move and drain less stamina. Swap your weapons with mouse WHEEL.",
     "completed": "TUTORIAL COMPLETED!",
+    "loot_help": [
+      "Press LEFT mouse button on any item to equip it;",
+      "Press RIGHT mouse button to stash it in backpack;",
+      "Press MIDDLE mouse button to repair a random equipped item."
+    ],
     "escape": "ESC TO PAUSE"
   }
 }

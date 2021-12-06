@@ -741,12 +741,18 @@ class AI:
                 self.analyze(self.scene)
                 return self.execute()
 
-            # Parried? Switch to confront
-            if not isinstance(self.weapon, Axe):
-                parry = self.weapon.disabled
+            # Shields may disable weapons:
+            if isinstance(self.character.slots["off_hand"], Shield):
+                parry = self.weapon.disabled and not any((
+                    self.character.slots["off_hand"].active_last_frame,
+                    self.character.slots["off_hand"].active_this_frame
+                ))
             # Axes may be locked by charging up:
-            else:
+            elif isinstance(self.weapon, Axe):
                 parry = self.weapon.disabled and not self.weapon.locked_from_activation
+            # Parried? Switch to confront
+            else:
+                parry = self.weapon.disabled
 
             if parry:
                 self.strategy_dict["next"] = 'confront', 5 - random.uniform(0, 2 * self.flexibility)

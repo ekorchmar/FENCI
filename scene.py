@@ -363,6 +363,7 @@ class Scene:
         # Allow dropping weapons in pause or loot overlay:
         if (
                 self.player and
+                self.player.inventory and
                 (self.loot_overlay or self.paused) and
                 self.player.inventory.rect.collidepoint(MouseV.instance.v)
         ):

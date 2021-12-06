@@ -1293,6 +1293,14 @@ class Spear(Pointed):
 
         self.redraw_loot()
 
+    def _convert_fallback(self):
+        self.held_back_duration = self.absolute_demotion = 0
+        self.in_use = self.active_this_frame = self.active_this_frame = False
+        # Calculate supplement_v
+        supplement_v = self.held_position * -0.2 * FPS_TICK
+        self.held_position = v()
+        return supplement_v
+
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
 
         dealt_damage = super(Spear, self).deal_damage(v(), victim, victor, calculate_only)
@@ -1342,24 +1350,11 @@ class Spear(Pointed):
 
         # Reset held counters
         if self.disabled:
-            self.in_use = False
-            self.held_position = v()
-            self.held_back_duration = 0
-            self.active_this_frame = 0
+            self._convert_fallback()  # -> None
 
         elif self.held_position != v() and not self.active_this_frame and not self.disabled and not self.in_use:
             # Execute stab
-            self.held_back_duration = 0
-            self.absolute_demotion = 0
-
-            # Transfer held_position to activation_offset (supplemental_v does this)
-            # self.activation_offset += self.held_position
-            self.held_position = v()
-            self.in_use = False
-
-            # Calculate supplement_v
-            supplement_v = self.held_position * -0.2 * FPS_TICK
-            self._stab(character, supplement_v)
+            self._stab(character, self._convert_fallback())
 
         super(Spear, self).aim(hilt_placement, aiming_vector, character)
         self.active_this_frame = False

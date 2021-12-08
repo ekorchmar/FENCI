@@ -515,9 +515,9 @@ class AI:
                 violence = False
 
             # Test if target is shielded and character is not too eager:
-            elif isinstance(self.target.shielded, Shield) and \
-                    random.uniform(0, self.aggression) < random.uniform(0, self.skill) * 0.5:
-                violence = False
+            # elif isinstance(self.target.shielded, Shield) and \
+            #         random.uniform(0, self.aggression) < random.uniform(0, self.skill) * 0.5:
+            #     violence = False
 
             # Test if target "looks" healthier than we are, possibly chicken out
             elif self.perceived_health / self.enemies[self.target]["health"] < random.uniform(0, self.courage):
@@ -553,9 +553,9 @@ class AI:
                 violence = False
 
             # Test if target is shielded and self is not too eager:
-            elif isinstance(self.target.shielded, Shield) and \
-                    random.uniform(0, self.aggression) > random.uniform(0, self.skill):
-                violence = False
+            # elif isinstance(self.target.shielded, Shield) and \
+            #         random.uniform(0, self.aggression) > random.uniform(0, self.skill):
+            #     violence = False
 
             # Test if we are behind the target that faces same way:
             elif (
@@ -916,7 +916,7 @@ class AI:
                     # Roll for aggression, either prepare to charge or keep circling around target
                     agression_chance = self.aggression * self.morale * self.character.stamina /\
                         self.character.max_stamina
-                    if random.random() < agression_chance and not isinstance(self.target.shielded, Shield):
+                    if random.random() < agression_chance:  # and not isinstance(self.target.shielded, Shield):
                         self.strategy_dict["plan"] = "prepare"
                         substrategy = "prepare"
                         self.strategy_dict["timer"] = self.flexibility  # Keep attacks more or less predictable

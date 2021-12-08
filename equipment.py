@@ -1,4 +1,7 @@
 # todo:
+#  Rework shields to deal damage if parrying strikes right after equipping
+#  Add Knife: short offensive off-hand weapon that deals damage proportional to combo count
+#  tilt skewered enemy face slightly according to anchor_weapon.last_angle
 # After tech demo
 # todo:
 #  ?? Burning weapons
@@ -3110,9 +3113,13 @@ class Katar(Pointed, OffHand):
             self._drop_kebab()
 
         if self.kebab:
+            another_weapon = character.slots[character.weapon_slots[0]]
+            if isinstance(another_weapon, Dagger):
+                another_weapon = Nothing()
+
             grab_distance = max(
                 self.character_specific["grab_distance"],
-                character.hitbox[0].width*0.5 + self.kebab.hitbox[0].width*0.5 + BASE_SIZE * 0.5
+                (another_weapon.length if isinstance(another_weapon, Wielded) else 0) + 2*BASE_SIZE
             )
             self.activation_offset.scale_to_length(grab_distance)
             self.skewer_duration -= FPS_TICK

@@ -304,11 +304,8 @@ def lerp(values_range, progression):
 
 
 def random_point(v1: v, v2: v):
-    r_float = random.random()
     difference_v = v2 - v1
-
-    difference_v *= r_float
-
+    difference_v *= random.random()
     return v1 + difference_v
 
 
@@ -393,7 +390,7 @@ def draw_icon(size=64, output_file=None):
 
 
 def unfocused():
-    return not (pygame.mouse.get_focused() or pygame.mouse.get_focused())
+    return not pygame.mouse.get_focused()
 
 
 def save_state(state: dict):

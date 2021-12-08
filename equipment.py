@@ -1,5 +1,6 @@
 # todo:
-#  Rework shields to deal damage if parrying strikes right after equipping
+#  Add "parried" kicker
+#  update shield generation and loot card to accomodate for new logic
 #  Add Knife: short offensive off-hand weapon that deals damage proportional to combo count
 #  tilt skewered enemy face slightly according to anchor_weapon.last_angle
 # After tech demo
@@ -2295,6 +2296,7 @@ class OffHand(Wielded):
 
 
 class Shield(OffHand):
+    parry_window = 0.5
     aim_drain_modifier = 0
     class_name = "Shield"
     hitting_surface = "plate"
@@ -2536,7 +2538,7 @@ class Shield(OffHand):
             surface = pygame.transform.flip(surface, False, True)
 
         # Blocking shields are colored
-        if self.held_counter >= self.equip_time:
+        if self.equip_time+self.parry_window > self.held_counter >= self.equip_time:
             surface = tint(surface, self.color or character.attacks_color)
         # Bash-ready shields are colored and display an arrow in front of the character
         elif self.can_bash(character):
@@ -2573,7 +2575,7 @@ class Shield(OffHand):
         self.frame_counter = 0
         return surface, rect
 
-    def block(self, character, damage, vector, weapon: Wielded = None, offender=None):
+    def block(self, character, damage, vector, weapon: Wielded = None, offender=None) -> (v, int):
 
         # Determine how much stamina would a full block require
         character.stamina -= damage * self.stamina_drain
@@ -2603,6 +2605,21 @@ class Shield(OffHand):
 
             # Return full damage and force
             return vector, damage
+
+        # Spawn sparks from shield
+        for _ in range(random.randint(7, 10)):
+            spark = Spark(
+                position=self.hilt_v,
+                weapon=self,
+                vector=-vector / 2,
+                attack_color=self.color,
+                angle_spread=(-45, 45)
+            )
+            self.particles.append(spark)
+
+        # If inside a parry window, return own damage as negative value to tell Scene to deal damage to attacker:
+        if self.held_counter < self.equip_time+self.parry_window:
+            return v(), -self.damage_range[1]
 
         # Cause character movement by reduced force:
         # The more damage was blocked, the higher the pushback

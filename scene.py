@@ -1014,25 +1014,10 @@ class Scene:
                         weapon=weapon,
                         offender=owner
                     )
-                    if not survived:
-                        self.undertake(target)
-                    # Cause FOF reaction in bots
-                    elif actual_damage > 0:
-                        play_sound('hurt', actual_damage * 0.01)
-                        self.alert_ai(target)
 
-                    elif isinstance(target.shielded, Shield):
+                    # Shield effects:
+                    if isinstance(target.shielded, Shield) and actual_damage == 0:
                         shield = target.shielded
-                        # Spawn sparks from shield
-                        for _ in range(random.randint(7, 10)):
-                            spark = Spark(
-                                position=point,
-                                weapon=shield,
-                                vector=weapon.tip_delta / 2,
-                                attack_color=shield.color,
-                                angle_spread=(-45, 45)
-                            )
-                            self.particles.append(spark)
 
                         # If player was hit or performed the hit, add small screenshake:
                         if self.player is target:
@@ -1042,6 +1027,30 @@ class Scene:
                         elif self.player is owner:
                             self.shaker.add_shake(0.0025 * damage)
                             play_sound('shield', 0.005 * damage)
+
+                    # If actual damage is below zero, apply it back to attacker
+                    elif actual_damage < 0:
+                        opponent_survived, opponent_actual_damage = owner.hurt(
+                            damage=-actual_damage,
+                            vector=-weapon.tip_delta,
+                            weapon=target.shielded,
+                            offender=target,
+                            deflectable=False
+                        )
+                        if not opponent_survived:
+                            self.undertake(owner)
+                        elif opponent_actual_damage > 0:
+                            play_sound('hurt', opponent_actual_damage * 0.01)
+                            self.alert_ai(owner)
+
+                        self.splatter(weapon.hilt_v, owner, opponent_actual_damage, opponent.shielded)
+
+                    elif not survived:
+                        self.undertake(target)
+                    # Cause FOF reaction in bots
+                    elif actual_damage > 0:
+                        play_sound('hurt', actual_damage * 0.01)
+                        self.alert_ai(target)
 
                     # Spawn kicker and blood:
                     self.splatter(point, target, actual_damage, weapon)
@@ -1266,7 +1275,7 @@ class Scene:
             character.wall_collision_v = v()
 
     def splatter(self, point, target, damage, weapon=None):
-        if damage == 0:
+        if damage <= 0:
             return
 
         # Modify combo counter, if it's here:

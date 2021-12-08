@@ -35,7 +35,11 @@ if __name__ == "__main__":
         print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
     # Scene Handler to start:
-    SceneHandler.active = MainMenuSceneHandler() if PROGRESS["tutorial_completed"] else TutorialSceneHandler()
+    # SceneHandler.active = MainMenuSceneHandler() if PROGRESS["tutorial_completed"] else TutorialSceneHandler()
+    a = SceneHandler(1, [Goblin])
+    SceneHandler.active = a
+    a.player.equip(Sword(size=BASE_SIZE, tier_target=1), 'main_hand')
+    a.player.equip(Shield(size=BASE_SIZE, tier_target=1), 'off_hand')
 
     while True:
         SceneHandler.active.execute()

@@ -47,7 +47,7 @@
       }
     }
   },
-  "penitent shiv": {
+  "sacrificial dagger": {
     "class": "Dagger",
     "tier": 0,
     "constructor": {
@@ -129,6 +129,22 @@
         "str": "═-",
         "material": "nickel",
         "color": [202, 201, 200, 255]
+      }
+    }
+  },
+  "prison shiv":{
+    "class": "Knife",
+    "tier": 0,
+    "constructor": {
+      "handle": {
+        "str": "-}",
+        "material": "rags",
+        "color": [91, 65, 36, 255]
+      },
+      "blade": {
+        "str": "≡>",
+        "material": "pig iron",
+        "color": [104, 43, 22, 255]
       }
     }
   }

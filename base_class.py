@@ -1102,9 +1102,6 @@ class Character:
                     weapon.lock(time, angle=weapon.last_angle)
                     weapon.disabled = True
 
-                if weapon:
-                    weapon.held_counter = 0
-
     def use(self, slot, continuous_input, **kwargs):
         if self.state in DISABLED or self.channeling:
             return
@@ -1165,6 +1162,10 @@ class Character:
         """Reduces HP and pushes self in target direction; returns Boolean, True if character survived the attack"""
         if deflectable and self.shielded:
             vector, damage = self.shielded.block(self, damage, vector, weapon, offender)
+
+            # If shield parried, return it outside:
+            if damage < 0:
+                return True, damage
 
         if weapon:
             # Scale vector down depending on character weight:
@@ -1475,7 +1476,17 @@ class Card:
 
 class LootCard(Card):
     stats_order = [
-        "DAMAGE", "LENGTH", "WEIGHT", "SPEED", "DRAIN", "USE TIME", "ROLL DELAY", "BLEED", "ROLL WINDOW", "FULL CHARGE"
+        "DAMAGE",
+        "LENGTH",
+        "WEIGHT",
+        "SPEED",
+        "DRAIN",
+        "DEFLECT TIME",
+        "ROLL DELAY",
+        "BLEED",
+        "ROLL WINDOW",
+        "FULL CHARGE",
+        "COOLDOWN"
     ]
 
     def __init__(self, equipment, compare_to: [None, Equipment] = None):

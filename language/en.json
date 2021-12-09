@@ -158,10 +158,11 @@
     "Shield can't protect you from the back. Don't get surrounded.",
     "Initiating fight with a shield bash into a group of enemies is great way to scatter them.",
     "Heavier Shields deal more damage with bash and are more efficient at blocking damage.",
-    "Lighter Shields have longer bash range and are faster to pick up.",
-    "Shield damage potential is not to be underestimated. Enemies take additional damage from being thrown into a wall.",
+    "Lighter Shields have longer bash range and are deflect damage for longer.",
+    "Shield bash is not to be underestimated. Enemies take additional damage from being thrown into a wall.",
     "Lighter shields have high DRAIN stat and convert more blocked damage in stamina loss.",
     "Shield bash restores more stamina on successful hit than it costs.",
+    "Lifting a shield right before enemy attacks deflects damage back to them.",
 
     "Swords are simple, deal a lot of damage and are a reliable tool in most situations.",
     "Long and heavy swords are very powerful, but require strict discipline with stamina management.",
@@ -202,7 +203,11 @@
     "Heavy Katars cause heavier bleeding, but light ones allow you to hold enemies for much longer. Use accordingly.",
     "Katar stab costs very little stamina and restores stamina on each successful hit. Keep up the aggression.",
     "Use your main weapons on enemies you hold with Katar for maximum damage. Warning: might be considered a war crime.",
-    "Alternating Katar stabs with your main weapon hits is perfect way to steadily ramp up critical damage while regenerating stamina."
+    "Alternating Katar stabs with your main weapon hits is perfect way to steadily ramp up critical damage while regenerating stamina.",
+
+    "Knife is a purely offensive option for your off-hand slot. Are you sure you wouldn't want a Shield instead?",
+    "Knife starts extremely underwhelming, but becomes increasingly strong with each successful hit.",
+    "Knife can't protect you in a sticky situation, so make sure you can rely on your main weapon to keep you safe."
   ],
   "gameplay": {
     "paused": "PAUSED",
@@ -407,13 +412,15 @@
     "breaker": "Hold SHIFT to lock your main hand weapon from aiming. This stops it from draining stamina, and you can still use your Swordbreaker",
     "katar": "Hold RIGHT mouse button to immobilize an enemy with a katar and finish them with your main weapon. Works through shields!",
     "inventory": "Your inventory is above playing field. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
-    "weight": "Heavier weapons deal more damage, but light ones are quicker to move and drain less stamina. Swap your weapons with mouse WHEEL.",
+    "weight": "Heavier weapons deal more damage, but light ones are faster to move and drain less stamina. Swap your weapons with mouse WHEEL.",
+    "knife": "Successful hits with any weapon increase your combo counter. Knives capitalize on it, growing in damage and attack speed.",
     "completed": "TUTORIAL COMPLETED!",
     "loot_help": [
       "Press LEFT mouse button on any item to equip it;",
       "Press RIGHT mouse button to stash it in backpack;",
       "Press MIDDLE mouse button to repair a random equipped item."
     ],
-    "escape": "ESC TO PAUSE"
+    "escape": "ESC TO PAUSE",
+    "skip": "F TO SKIP"
   }
 }

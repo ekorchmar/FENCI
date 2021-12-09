@@ -1,6 +1,4 @@
 # todo:
-#  Rework shields to deal damage if parrying strikes right after equipping
-#  Add Knife: short offensive off-hand weapon that deals damage proportional to combo count
 #  tilt skewered enemy face slightly according to anchor_weapon.last_angle
 # After tech demo
 # todo:
@@ -93,6 +91,7 @@ class Wielded(Equipment):
     hand_rotation = 0
     prevent_activation = True
     destroys_shield = False
+    ignores_shield = False
 
     def reset(self, character, reposition=True):
         if reposition:
@@ -2291,6 +2290,7 @@ class Falchion(Sword):
 
 
 class OffHand(Wielded):
+    aim_drain_modifier = 0.0
     prefer_slot = "off_hand"
 
 
@@ -2302,8 +2302,10 @@ class Shield(OffHand):
     max_tilt = 45
     return_time = 0.4
     hides_hand = True
-    upside = ["Hold action button to block", "Activate while running to bash"]
+    upside = ["Hold action button to block", "Activate while running to bash", "Time block to deflect enemy attack"]
     downside = ["Low damage", "Can't block from behind"]
+    parry_window = 0.5
+    equip_time = 0.3
 
     _rehit_immune = 0.4
     _grace_period = 0.3
@@ -2316,7 +2318,6 @@ class Shield(OffHand):
         self.held_counter = 0
         self.active_this_frame = False
         self.active_last_frame = False
-        self.equip_time = 1  # updated by .generate
         super().__init__(size, *args, **kwargs)
         # Make sure damage is constant
         self.damage_range = self.damage_range[0], self.damage_range[0]
@@ -2408,18 +2409,22 @@ class Shield(OffHand):
         plate_material = Material.registry[self.builder["constructor"]["plate"]["material"]]
         frame_material = Material.registry[self.builder["constructor"]["frame"]["material"]]
 
-        self.weight = 3 + plate_material.weight * 3 + frame_material.weight * 1.0
+        self.weight = 3 + plate_material.weight * 3 + frame_material.weight
         self.tier = int((plate_material.tier + frame_material.tier)/2)
 
         # Determines dash distance, depends on frame tier:
         self.agility_modifier = 0.2 + 0.2 * frame_material.tier
         # Determines how much damage is converted into stamina loss; reduced by plate weight
         self.stamina_drain = 1 + ((1 - 0.1 * self.weight) / math.sqrt(1.2))
+
         # Increased by weight, reduced by tier
-        self.equip_time = 0.1 * self.weight / math.sqrt(1 + 0.1 * self.tier)
+        # self.equip_time = 0.1 * self.weight / math.sqrt(1 + 0.1 * self.tier)
+
+        # Reduced by weight
+        self.parry_window = lerp((0.3, 1.5), (1-self.weight*0.1))
 
         if self.roll_stats:
-            self.equip_time = triangle_roll(self.equip_time, 0.07)
+            self.parry_window = triangle_roll(self.parry_window, 0.07)
         # Damage is constant, modified by weight and tier
         damage = round(self.weight**2 * (1+0.1*self.tier) / 1.5 + 5*self.tier)
         self.damage_range = damage, damage
@@ -2536,7 +2541,7 @@ class Shield(OffHand):
             surface = pygame.transform.flip(surface, False, True)
 
         # Blocking shields are colored
-        if self.held_counter >= self.equip_time:
+        if self.equip_time+self.parry_window > self.held_counter >= self.equip_time:
             surface = tint(surface, self.color or character.attacks_color)
         # Bash-ready shields are colored and display an arrow in front of the character
         elif self.can_bash(character):
@@ -2573,7 +2578,7 @@ class Shield(OffHand):
         self.frame_counter = 0
         return surface, rect
 
-    def block(self, character, damage, vector, weapon: Wielded = None, offender=None):
+    def block(self, character, damage, vector, weapon: Wielded = None, offender=None) -> (v, int):
 
         # Determine how much stamina would a full block require
         character.stamina -= damage * self.stamina_drain
@@ -2582,7 +2587,7 @@ class Shield(OffHand):
 
         # Fully charged Spears and Spinning Axes can destroy shields
         if weapon:
-            block_failed = block_failed or weapon.destroys_shield
+            block_failed = block_failed or weapon.destroys_shield or weapon.ignores_shield
 
         # Prevent protecting from back attacks, unless character is moving
         if offender:
@@ -2590,19 +2595,38 @@ class Shield(OffHand):
                     ((character.position.x > offender.position.x) == character.facing_right and not character.ramming)
 
         if block_failed:
+
+            ignored = False
             # Displace self by enemy weapon delta
             if weapon:
                 self.activation_offset += weapon.tip_delta
+                ignored = weapon.ignores_shield
 
             # Spawn a kicker and queue destruction if held by AI:
             self.active_this_frame = self.active_last_frame = False
-            self.queue_destroy = character.drops_shields
+            self.queue_destroy = character.drops_shields and not ignored
             self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
             if self.queue_destroy:
                 character.bars.pop(self.prefer_slot)
 
             # Return full damage and force
             return vector, damage
+
+        # Spawn sparks from shield
+        for _ in range(random.randint(7, 10)):
+            spark = Spark(
+                position=self.hilt_v,
+                weapon=self,
+                vector=-vector / 2,
+                attack_color=self.color,
+                angle_spread=(-45, 45)
+            )
+            self.particles.append(spark)
+
+        # If inside a parry window, return own damage as negative value to tell Scene to deal damage to attacker:
+        if character.ai is None and self.held_counter < self.equip_time+self.parry_window:
+            self._kicker("DEFLECT!", character)
+            return v(), -self.damage_range[1]
 
         # Cause character movement by reduced force:
         # The more damage was blocked, the higher the pushback
@@ -2680,13 +2704,13 @@ class Shield(OffHand):
         # Remove damage spread
         stats_dict["DAMAGE"]["text"] = f'{self.damage_range[0]}'
 
-        stats_dict["USE TIME"] = {
-            "value": self.equip_time,
-            "text": f'{self.equip_time:.2f}'
+        stats_dict["DEFLECT TIME"] = {
+            "value": self.parry_window,
+            "text": f'{self.parry_window:.2f}'
         }
 
-        if "USE TIME" in comparison_dict:
-            stats_dict["USE TIME"]["evaluation"] = comparison_dict["USE TIME"]["value"] - self.equip_time
+        if "DEFLECT TIME" in comparison_dict:
+            stats_dict["DEFLECT TIME"]["evaluation"] = comparison_dict["DEFLECT TIME"]["value"] - self.parry_window
 
         return stats_dict
 
@@ -3218,3 +3242,217 @@ class Katar(Pointed, OffHand):
         )
         self.activation_offset.scale_to_length(grab_distance)
         self.inertia_vector = v()
+
+
+class Knife(Pointed, OffHand):
+    default_angle = -30
+    class_name = "Knife"
+    max_tilt = 85
+    stab_modifier = 1.2
+    return_time = 0.05
+    held_position = v(-15, 5)
+    stab_dash_modifier = 0
+    stab_cost = 0.2
+    can_parry = False
+    combo_cutoff = 15
+    upside = [
+        "Activate to stab enemy",
+        f"More effective with combo (up to {combo_cutoff}x)",
+        "Ignores shields"
+    ]
+    downside = [
+        "No swing attacks",
+        "Can't parry"
+        "Delay between activations"
+    ]
+    prevent_activation = False
+    ignores_shield = True
+
+    def __init__(self, *args, **kwargs):
+        self.activation_rest_time = 0
+        self._activation_cooldown = 0
+        self.combo_cutoff = Knife.combo_cutoff
+        super(Knife, self).__init__(*args, **kwargs)
+
+    def generate(self, tier=None):
+        # Fill missing parts of self.builder on the go:
+        self.builder["constructor"] = self.builder.get("constructor", {})
+        self.builder["tier"] = self.builder.get("tier", tier)
+
+        # Use this for calculations from now on
+        tier = self.builder["tier"]
+
+        self.builder["class"] = "Knife"
+
+        # Create a blade:
+        self.builder["constructor"]["blade"] = self.builder["constructor"].get("blade", {})
+        self.builder["constructor"]["blade"]["str"] = self.builder["constructor"]["blade"].get(
+            "str", random.choice(parts_dict['katar']['blades'])
+
+        )
+        self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
+            "material", Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
+        )
+
+        # Create a handle
+        self.builder["constructor"]["handle"] = self.builder["constructor"].get("handle", {})
+        self.builder["constructor"]["handle"]["str"] = self.builder["constructor"]["handle"].get(
+            "str", random.choice(parts_dict['dagger']['hilts'])
+        )
+
+        def new_hilt_material():
+            # Use same material as blade in 20% cases
+            picked_blade_material = self.builder["constructor"]["blade"]["material"]
+
+            if random.random() < 0.2:
+                return picked_blade_material
+            else:
+                return Material.pick(
+                    ['wood', 'bone', 'leather', 'cloth'],
+                    roll_tier(tier)
+                )
+
+        self.builder["constructor"]["handle"]["material"] = self.builder["constructor"]["handle"].get(
+            "material",
+            new_hilt_material()
+        )
+
+        # Generate colors:
+        self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
+            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+        )
+
+        def new_guard_color():
+            if "color" in self.builder["constructor"]['handle']:
+                return
+
+            if 'painted' in set(self.builder["constructor"]['handle'].get("tags", [])):
+                return paint()
+
+            # 25%, paint the handle
+            if Material.registry[self.builder["constructor"]['handle']["material"]].physics in PAINTABLE and \
+                    random.random() < 0.25:
+                self.builder["constructor"]['handle']['tags'] = ['painted']
+                return paint()
+
+            # Generate usual material color
+            return Material.registry[self.builder["constructor"]['handle']["material"]].generate()
+
+        self.builder["constructor"]['handle']["color"] = self.builder["constructor"]['handle'].get(
+            "color", new_guard_color()
+        )
+
+        handle_str = self.builder["constructor"]["handle"]["str"]
+        blade_str = self.builder["constructor"]["blade"]["str"]
+        handle_material = self.builder["constructor"]["handle"]["color"]
+        blade_material = self.builder["constructor"]["blade"]["color"]
+
+        self.surface = ascii_draws(
+            self.font_size,
+            (
+                (handle_str, handle_material),
+                (blade_str, blade_material)
+            )
+        )
+
+        # Hold between 1st and second handle character -- offset exactly 1 character
+        self.hilt = self.surface.get_width() / len(handle_str + blade_str), self.surface.get_height() * 0.5
+
+        # Dagger tip coordinate relative to handle -- offset 1.25 character_positions
+        self.length = self.surface.get_width() - self.hilt[0] * 1.25
+
+        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+
+    def update_stats(self):
+        super(Knife, self).update_stats()
+        handle = Material.registry[self.builder["constructor"]["handle"]["material"]]
+        blade = Material.registry[self.builder["constructor"]["blade"]["material"]]
+
+        # Generate stats according to Material.registry
+        self.weight = 0.5*handle.weight + 1.5 * blade.weight
+        self.tier = int((handle.tier+blade.tier)*0.5)
+
+        # Static
+        self.agility_modifier = 2
+        self.stamina_drain = 0
+
+        # Calculate damage range depending on weight and tier:
+        min_damage = int((15 + 0.7 * self.weight) * 1.12 ** (self.tier - 1))
+        max_damage = int(min_damage * 1.5 * (4-self.weight) * 1.12 ** (blade.tier - 1))
+        self.damage_range = min_damage, max_damage
+
+        # Depends on total weight
+        self._activation_cooldown = 0.4*(math.sqrt(self.weight) + (1.4 - 0.1*handle.tier)**2)
+        if self.roll_stats:
+            self._activation_cooldown = triangle_roll(self._activation_cooldown, 0.07)
+
+        self.redraw_loot()
+
+    def show_stats(self, compare_to=None):
+        stats_dict: dict = super().show_stats(compare_to=compare_to)
+
+        del stats_dict['SPEED']
+
+        if compare_to is not None:
+            comparison_dict = compare_to.show_stats()
+        else:
+            comparison_dict = dict()
+
+        stats_dict["COOLDOWN"] = {
+            "value": self._activation_cooldown,
+            "text": f'{self._activation_cooldown:.2f}-0.1s'
+        }
+
+        if "COOLDOWN" in comparison_dict:
+            stats_dict["COOLDOWN"]["evaluation"] = comparison_dict["COOLDOWN"]["value"] - self._activation_cooldown
+
+        return stats_dict
+
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+        if victor and victor.ai is None and victor.combo_counter:
+            progress = victor.combo_counter.counter/self.combo_cutoff
+            damage = round(lerp(self.damage_range, progress))
+            return damage
+        else:
+            return self.damage_range[0]
+
+    def aim(self, hilt_placement, aiming_vector, character):
+        # Work with activation cooldown:
+        if self.activation_rest_time > 0:
+            self.activation_rest_time -= FPS_TICK
+            if self.prefer_slot in character.bars:
+                character.__dict__[self.prefer_slot] = self.activation_rest_time
+
+        # Spawn bar and set cooldown for activation:
+        elif self.activation_offset != v():
+            if character and character.ai is None and character.combo_counter:
+                self.activation_rest_time = max(
+                    self._activation_cooldown * (1 - character.combo_counter.counter / self.combo_cutoff),
+                    0.1
+                )
+            else:
+                self.activation_rest_time = self._activation_cooldown
+
+            self.activation_rest_time += self.return_time + self._stab_duration
+
+            character.bars[self.prefer_slot] = Bar(
+                max_value=self.activation_rest_time,
+                fill_color=self.color or character.attacks_color,
+                **character.weapon_bar_options
+            )
+            character.__dict__[self.prefer_slot] = self.activation_rest_time
+
+        # Remove bar once cooldown is over:
+        else:
+            character.bars.pop(self.prefer_slot, None)
+
+        super(Knife, self).aim(hilt_placement, aiming_vector, character)
+
+    def activate(self, character, continuous_input):
+        if self.activation_rest_time > 0:
+            return
+
+        Pointed.activate(self, character, continuous_input)
+
+    def is_dangerous(self):
+        return super().is_dangerous() and self.in_use

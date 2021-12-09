@@ -3265,7 +3265,6 @@ class Knife(Pointed, OffHand):
         "Can't parry"
         "Delay between activations"
     ]
-    hand_rotation = 90
     prevent_activation = False
     ignores_shield = True
 

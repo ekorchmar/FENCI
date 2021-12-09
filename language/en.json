@@ -412,8 +412,8 @@
     "breaker": "Hold SHIFT to lock your main hand weapon from aiming. This stops it from draining stamina, and you can still use your Swordbreaker",
     "katar": "Hold RIGHT mouse button to immobilize an enemy with a katar and finish them with your main weapon. Works through shields!",
     "inventory": "Your inventory is above playing field. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
-    "weight": "Heavier weapons deal more damage, but light ones are quicker to move and drain less stamina. Swap your weapons with mouse WHEEL.",
-    "knife": "Successful hits increase your combo counter. Knives capitalize on it, growing in damage and attack speed.",
+    "weight": "Heavier weapons deal more damage, but light ones are faster to move and drain less stamina. Swap your weapons with mouse WHEEL.",
+    "knife": "Successful hits with any weapon increase your combo counter. Knives capitalize on it, growing in damage and attack speed.",
     "completed": "TUTORIAL COMPLETED!",
     "loot_help": [
       "Press LEFT mouse button on any item to equip it;",

@@ -670,7 +670,7 @@ class Scene:
                             break
 
         # In both pause and loot overlay, if mouse is hovering over inventory rects, show loot cards
-        if self.player and (
+        if self.player and self.player.inventory and (
                 any((self.paused, self.loot_overlay)) and
                 self.player.inventory.rect.collidepoint(MouseV.instance.v)
         ):
@@ -4124,6 +4124,7 @@ class TutorialSceneHandler(SceneHandler):
     def _limit_stamina(self):
         self.player.stamina = 0
         self.player.stamina_restoration *= 0.3
+        self.player.since_dangerous_frame = -60
 
     def _break_weapon(self):
         for slot in self.player.slots:
@@ -4219,7 +4220,6 @@ class TutorialSceneHandler(SceneHandler):
         self._tutorial_stage(**self.stages[0])
 
     def execute(self) -> bool:
-        print(self.scene.combo_counter)
         # Usual processing:
         self.scene.iterate()
         self._process_handover()

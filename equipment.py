@@ -1,6 +1,4 @@
 # todo:
-#  Add "parried" kicker
-#  update shield generation and loot card to accomodate for new logic
 #  Add Knife: short offensive off-hand weapon that deals damage proportional to combo count
 #  tilt skewered enemy face slightly according to anchor_weapon.last_angle
 # After tech demo
@@ -2296,7 +2294,6 @@ class OffHand(Wielded):
 
 
 class Shield(OffHand):
-    parry_window = 0.5
     aim_drain_modifier = 0
     class_name = "Shield"
     hitting_surface = "plate"
@@ -2304,8 +2301,10 @@ class Shield(OffHand):
     max_tilt = 45
     return_time = 0.4
     hides_hand = True
-    upside = ["Hold action button to block", "Activate while running to bash"]
+    upside = ["Hold action button to block", "Activate while running to bash", "Time block to deflect enemy attack"]
     downside = ["Low damage", "Can't block from behind"]
+    parry_window = 0.5
+    equip_time = 0.3
 
     _rehit_immune = 0.4
     _grace_period = 0.3
@@ -2410,18 +2409,24 @@ class Shield(OffHand):
         plate_material = Material.registry[self.builder["constructor"]["plate"]["material"]]
         frame_material = Material.registry[self.builder["constructor"]["frame"]["material"]]
 
-        self.weight = 3 + plate_material.weight * 3 + frame_material.weight * 1.0
+        self.weight = 3 + plate_material.weight * 3 + frame_material.weight
         self.tier = int((plate_material.tier + frame_material.tier)/2)
 
         # Determines dash distance, depends on frame tier:
         self.agility_modifier = 0.2 + 0.2 * frame_material.tier
         # Determines how much damage is converted into stamina loss; reduced by plate weight
         self.stamina_drain = 1 + ((1 - 0.1 * self.weight) / math.sqrt(1.2))
+
         # Increased by weight, reduced by tier
-        self.equip_time = 0.1 * self.weight / math.sqrt(1 + 0.1 * self.tier)
+        # self.equip_time = 0.1 * self.weight / math.sqrt(1 + 0.1 * self.tier)
+
+        # Reduced by weight
+        weight_class = 1 - (self.weight - 4)/5
+        self.parry_window = lerp((0.3, 1.5), (1-self.weight*0.1))
+        print(self.weight, weight_class, self.parry_window)
 
         if self.roll_stats:
-            self.equip_time = triangle_roll(self.equip_time, 0.07)
+            self.parry_window = triangle_roll(self.parry_window, 0.07)
         # Damage is constant, modified by weight and tier
         damage = round(self.weight**2 * (1+0.1*self.tier) / 1.5 + 5*self.tier)
         self.damage_range = damage, damage
@@ -2619,6 +2624,7 @@ class Shield(OffHand):
 
         # If inside a parry window, return own damage as negative value to tell Scene to deal damage to attacker:
         if self.held_counter < self.equip_time+self.parry_window:
+            self._kicker("DEFLECT!", character)
             return v(), -self.damage_range[1]
 
         # Cause character movement by reduced force:
@@ -2697,13 +2703,13 @@ class Shield(OffHand):
         # Remove damage spread
         stats_dict["DAMAGE"]["text"] = f'{self.damage_range[0]}'
 
-        stats_dict["USE TIME"] = {
-            "value": self.equip_time,
-            "text": f'{self.equip_time:.2f}'
+        stats_dict["DEFLECT TIME"] = {
+            "value": self.parry_window,
+            "text": f'{self.parry_window:.2f}'
         }
 
-        if "USE TIME" in comparison_dict:
-            stats_dict["USE TIME"]["evaluation"] = comparison_dict["USE TIME"]["value"] - self.equip_time
+        if "DEFLECT TIME" in comparison_dict:
+            stats_dict["DEFLECT TIME"]["evaluation"] = comparison_dict["DEFLECT TIME"]["value"] - self.parry_window
 
         return stats_dict
 

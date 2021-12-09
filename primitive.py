@@ -637,7 +637,7 @@ def morph_equipment(char):
             continue
 
         weapon.builder = {}
-        weapon.generate(weapon.font_size, tier=random.randint(1, 4))
+        weapon.generate(tier=random.randint(1, 4))
         weapon.update_stats()
         weapon.redraw_loot()
 

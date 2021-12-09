@@ -1476,7 +1476,16 @@ class Card:
 
 class LootCard(Card):
     stats_order = [
-        "DAMAGE", "LENGTH", "WEIGHT", "SPEED", "DRAIN", "USE TIME", "ROLL DELAY", "BLEED", "ROLL WINDOW", "FULL CHARGE"
+        "DAMAGE",
+        "LENGTH",
+        "WEIGHT",
+        "SPEED",
+        "DRAIN",
+        "DEFLECT TIME",
+        "ROLL DELAY",
+        "BLEED",
+        "ROLL WINDOW",
+        "FULL CHARGE"
     ]
 
     def __init__(self, equipment, compare_to: [None, Equipment] = None):

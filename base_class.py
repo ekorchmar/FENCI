@@ -1485,7 +1485,8 @@ class LootCard(Card):
         "ROLL DELAY",
         "BLEED",
         "ROLL WINDOW",
-        "FULL CHARGE"
+        "FULL CHARGE",
+        "COOLDOWN"
     ]
 
     def __init__(self, equipment, compare_to: [None, Equipment] = None):

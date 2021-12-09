@@ -74,10 +74,9 @@ class Scene:
             self.characters.extend(enemies)
 
         # Create a combo counter and stats for player
-        self.combo_counter = None if self.player is None else ComboCounter(
-            scene=self,
-            position=v(self.box.topright) + v(-BASE_SIZE * 2.5, BASE_SIZE * 2)
-        )
+        self.combo_counter = None
+        self.introduce_combo()
+
         self.max_combo = 0
         self.player_deaths = 0
         self.player_damage = 0
@@ -134,6 +133,16 @@ class Scene:
         # Create own shaker for camera shake:
         self.shaker = Shaker()
         self.shake_v = v()
+
+    def introduce_combo(self):
+        if self.player is None:
+            self.combo_counter = None
+        else:
+            self.combo_counter = ComboCounter(
+                scene=self,
+                position=v(self.box.topright) + v(-BASE_SIZE * 2.5, BASE_SIZE * 2)
+            )
+            self.player.combo_counter = self.combo_counter
 
     def log_weapons(self):
         for character in self.characters:
@@ -205,31 +214,11 @@ class Scene:
 
         # Debug:
         if debug:
-            self.menus.append(LootHelp())
-            if self.player and self.player in self.characters:
+            if isinstance(SceneHandler.active, TutorialSceneHandler) and not self.menus:
+                SceneHandler.active.next_stage()
+
+            elif self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
-
-                # Test saving/unsaving
-                # SceneHandler.active.save()
-                # print('saved!')
-
-            #    self.explosion(self.player.position, max_distance=10 * BASE_SIZE,
-            #                   collision_group=self.player.collision_group)
-
-            # for boss in filter(lambda x: isinstance(x, Boss), self.characters):
-            #     boss.ai.start_summon()
-
-            # play_sound(random.choice(list(SOUND.keys())), 1.0)
-            # play_sound('landing', 1)
-            # print("No debug action set at the moment.")
-            # morph_equipment(self.player)
-            # random_frenzy(self, 'charge')
-            # self.player.equip_basic()
-            # self.log_weapons()
-            # self.menus.append(Defeat(self))
-            # self.shaker.add_shake(1.0)
-            # if self.player.sees_enemies:
-            #    aneurysm(random.choice([char for char in self.characters if char != self.player]), self)
 
         # Normal input processing:
         if not self.paused and not self.loot_overlay:
@@ -3013,6 +3002,9 @@ class Player(Humanoid):
         new_parameters[2] = c(colors['sp_special'])
         self.sp_passive = Bar(*new_parameters)
 
+        # Set by scene:
+        self.combo_counter = None
+
     def push(self, vector, time, state='flying', affect_player=False, **kwargs):
         # Player character is more resilient to pushback
         if affect_player and state in DISABLED:
@@ -3038,7 +3030,7 @@ class Player(Humanoid):
             off_hand_lst = list(
                 filter(
                     lambda x:
-                    artifacts[x]["class"] in {"Shield", "Swordbreaker", "Katar"} and
+                    artifacts[x]["class"] in {"Shield", "Swordbreaker", "Katar", "Knife"} and
                     artifacts[x]["tier"] == 0,
                     artifacts
                 )
@@ -3828,11 +3820,16 @@ class TutorialSceneHandler(SceneHandler):
     def fill_scene_progression(self):
         bar_size = BASE_SIZE
         items = {
-                "esc_reminder": Indicator(ascii_draw(
-                    BASE_SIZE,
-                    string["tutorial"]["escape"],
-                    colors["inventory_title"]
-                ))
+            "esc_reminder": Indicator(ascii_draw(
+                BASE_SIZE,
+                string["tutorial"]["escape"],
+                colors["inventory_title"]
+            )),
+            "skip_reminder": Indicator(ascii_draw(
+                BASE_SIZE,
+                string["tutorial"]["skip"],
+                colors["inventory_title"]
+            ))
             }
         self.scene.progression = ProgressionBars(items, font_size=bar_size)
 
@@ -4087,6 +4084,19 @@ class TutorialSceneHandler(SceneHandler):
                 )
             },
 
+            # Knife and Combo stage:
+            {
+                "player_equipment": {"off_hand": Knife(BASE_SIZE, tier_target=1)},
+                "text": string["tutorial"]["knife"],
+                "dummies": [make_dummy(Human, tier=1, position=None, hp=300)],
+                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
+                "proceed_condition": lambda: (
+                        self.scene.dead_characters and
+                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
+                ),
+                "preparation": self._knife_stage
+            },
+
         ]
 
         # Disable scene elements:
@@ -4127,6 +4137,11 @@ class TutorialSceneHandler(SceneHandler):
     def _restore_inventory(self):
         self.player.inventory = self.stored_inventory
         self.scene.log_weapons()
+
+    def _knife_stage(self):
+        self.scene.introduce_combo()
+        knife = self.player.slots["off_hand"]
+        knife.combo_cutoff = 5
 
     def _tutorial_stage(
             self,
@@ -4171,7 +4186,10 @@ class TutorialSceneHandler(SceneHandler):
         if preparation is not None:
             preparation()
 
-    def _next_stage(self):
+    def next_stage(self):
+
+        if self.stages:
+            del self.stages[0]
 
         # Reset scene:
         self.proceed_condition = None
@@ -4201,20 +4219,19 @@ class TutorialSceneHandler(SceneHandler):
         self._tutorial_stage(**self.stages[0])
 
     def execute(self) -> bool:
-
+        print(self.scene.combo_counter)
         # Usual processing:
         self.scene.iterate()
         self._process_handover()
 
         # Make sure indicators are visible
-        self.scene.progression.update([True])
+        self.scene.progression.update([True, True])
 
         # Check if current condition is fulfilled
         if self.proceed_condition is not None and self.proceed_condition():
             # Clean completed stage
             if self.stages:
-                del self.stages[0]
-                self._next_stage()
+                self.next_stage()
 
         return False
 

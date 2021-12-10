@@ -2305,7 +2305,7 @@ class Shield(OffHand):
     upside = ["Hold action button to block", "Activate while running to bash", "Time block to deflect enemy attack"]
     downside = ["Low damage", "Can't block from behind"]
     parry_window = 0.5
-    equip_time = 0.3
+    equip_time = 0.15
 
     _rehit_immune = 0.4
     _grace_period = 0.3
@@ -2451,25 +2451,7 @@ class Shield(OffHand):
 
         # Player characters may activate shields instantly when running; also causes bash attack
         if self.can_bash(character) and not continuous_input:
-            play_sound('ram', 1)
-            character.stamina *= 0.5
-
-            self.held_counter = self.equip_time
-            self.in_use = True
-            character.shielded = self
-
-            bash_intensity = 1.5*character.speed.length()*(1+self.agility_modifier)
-            bash_angle = -self.last_angle
-
-            bash_vector = v()
-            bash_vector.from_polar((bash_intensity, bash_angle))
-
-            character.push(bash_vector, 0.5, 'bashing')
-            self.inertia_vector = v(self.character_specific["x_component"], 0)
-            self.activation_offset = v(
-                character.body_coordinates["main_hand"][0] - character.body_coordinates["off_hand"][0],
-                0
-            )
+            self._bash(character)
             return
 
         # Instantly activate if grace period is applied:
@@ -2520,6 +2502,28 @@ class Shield(OffHand):
                     angle = math.copysign(180, weapon.default_angle) - weapon.default_angle
                 weapon.lock(angle=angle, duration=lock_time)
 
+    def _bash(self, character):
+        play_sound('ram', 1)
+        character.stamina *= 0.5
+
+        self.held_counter = self.equip_time
+        self.in_use = True
+        character.shielded = self
+
+        bash_intensity = 1.5 * character.speed.length() * (1 + self.agility_modifier)
+        bash_angle = -self.last_angle
+
+        bash_vector = v()
+        bash_vector.from_polar((bash_intensity, bash_angle))
+
+        character.push(bash_vector, 0.5, 'bashing')
+        self.inertia_vector = v(self.character_specific["x_component"], 0)
+        self.activation_offset = v(
+            character.body_coordinates["main_hand"][0] - character.body_coordinates["off_hand"][0],
+            0
+        )
+        return
+
     def on_equip(self, character):
         super(Shield, self).on_equip(character)
         self.character_specific['x_component'] = (character.body_coordinates["main_hand"][0] -
@@ -2561,7 +2565,7 @@ class Shield(OffHand):
             return surface, rect, [[arrow_surface, arrow_rect]]
 
         # Leave trails during shield bash:
-        elif character.ramming:
+        if character.ramming:
             if self.frame_counter < 3:
                 self.frame_counter += 1
             else:
@@ -2624,9 +2628,18 @@ class Shield(OffHand):
             self.particles.append(spark)
 
         # If inside a parry window, return own damage as negative value to tell Scene to deal damage to attacker:
-        if character.ai is None and self.held_counter < self.equip_time+self.parry_window:
-            self._kicker("DEFLECT!", character)
-            return v(), -self.damage_range[1]
+        # if offender character.ai is None and self.held_counter < self.equip_time+self.parry_window:
+        #    self._kicker("DEFLECT!", character)
+        #    return v(), -self.damage_range[1]
+
+        # If inside a parry window, immediately bash attacker:
+        if offender and character.ai is None and self.held_counter < self.equip_time + self.parry_window:
+            # Aim shield towards offender:
+            offender_v = v(offender.position) - v(character.position)
+            phi = -offender_v.as_polar()[1]
+            self.last_angle = phi
+            character.speed.from_polar((POKE_THRESHOLD, phi))
+            self._bash(character)
 
         # Cause character movement by reduced force:
         # The more damage was blocked, the higher the pushback
@@ -2640,7 +2653,7 @@ class Shield(OffHand):
             calculated_impact=blowback
         )
 
-        kicker_text = 'BLOCKED!'
+        kicker_text = 'DEFLECTED!' if character.ramming else 'BLOCKED!'
 
         # Deal additional stamina damage to attacker:
         if offender:
@@ -3254,7 +3267,7 @@ class Knife(Pointed, OffHand):
     stab_dash_modifier = 0
     stab_cost = 0.2
     can_parry = False
-    combo_cutoff = 15
+    combo_cutoff = 25
     upside = [
         "Activate to stab enemy",
         f"More effective with combo (up to {combo_cutoff}x)",
@@ -3400,7 +3413,7 @@ class Knife(Pointed, OffHand):
 
         stats_dict["COOLDOWN"] = {
             "value": self._activation_cooldown,
-            "text": f'{self._activation_cooldown:.2f}-0.1s'
+            "text": f'{self._activation_cooldown:.1f}-{self._activation_cooldown*0.5:.1f}s'
         }
 
         if "COOLDOWN" in comparison_dict:
@@ -3426,10 +3439,8 @@ class Knife(Pointed, OffHand):
         # Spawn bar and set cooldown for activation:
         elif self.activation_offset != v():
             if character and character.ai is None and character.combo_counter:
-                self.activation_rest_time = max(
-                    self._activation_cooldown * (1 - character.combo_counter.counter / self.combo_cutoff),
-                    0.1
-                )
+                self.activation_rest_time = self._activation_cooldown *\
+                                            (1 - 0.5*character.combo_counter.counter / self.combo_cutoff)
             else:
                 self.activation_rest_time = self._activation_cooldown
 

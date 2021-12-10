@@ -872,7 +872,7 @@ class Character:
         # Modify hitboxes in special cases:
         if self.ramming:
             # Increase main hitbox:
-            self.hitbox[0].inflate_ip(self.hitbox[0].width*1.3, self.hitbox[0].height*1.3)
+            self.hitbox[0].inflate_ip(0, self.hitbox[0].height*1.2)
 
         # elif self.phasing:
             # Disable hitboxes
@@ -1118,6 +1118,13 @@ class Character:
         try:
             # If we are a Katar or Spear with a skewered enemy, activation should always be allowed:
             if self.slots[slot].kebab is not None:
+                always_active = True
+        except AttributeError:
+            pass
+
+        try:
+            # If we are a Shield, activation should always be allowed:
+            if self.slots[slot].parry_window and self.slots[slot].activation_offset != v():
                 always_active = True
         except AttributeError:
             pass

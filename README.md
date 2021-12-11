@@ -1,8 +1,10 @@
+VERSION: 0.2
+
 This is a working technical demo version of a game I'm still developing. Bugreports and suggestions are welcome.
 
 This demo features:
 
-- 8 weapon classes with innumerable randomly generated items
+- 9 weapon classes with innumerable randomly generated items
 
 - 4 playable Arena-style levels with increasing enemy stats, aggression and loot quality
 
@@ -16,9 +18,8 @@ In the future releases you can expect:
 
 - Unique bosses with special abilities
 
-- Ranged weapons, like bows and magic wands
+- Ranged weapons, including bows and magic wands
 
 Known issues this release:
-- Game crashes if paused in first stages of tutorial
-- Parrying a held back spear causes it to roll back indefinitely
-- It is possible to grab enemy with Katar outside of reach of main hand Falchion
+- Shield visually moves away if used while flipping character
+- It is possible for small enemies to move close enough to arena border to be out of reach of shorter weapons

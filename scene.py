@@ -1017,7 +1017,7 @@ class Scene:
                             self.shaker.add_shake(0.0025 * damage)
                             play_sound('shield', 0.005 * damage)
 
-                    # If actual damage is below zero, apply it back to attacker
+                    # If actual damage is below zero, apply it back to attacker (For Buckler?)
                     elif actual_damage < 0:
                         opponent_survived, opponent_actual_damage = owner.hurt(
                             damage=-actual_damage,

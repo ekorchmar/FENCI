@@ -3291,7 +3291,7 @@ class SceneHandler:
             value = lerp(self.on_scren_enemies_value_range, self.relative_progression)
 
         # Stop if monster backlog is empty
-        while self.monsters and self.scene.count_enemies_value() < value:
+        while self.monsters and not isinstance(self.monsters[-1], Boss) and self.scene.count_enemies_value() < value:
             self.spawn_monster(force=True)
 
     def execute(self) -> bool:
@@ -3458,7 +3458,13 @@ class SceneHandler:
             self.spawn_timer -= iteration_tick if tick_down_speed == 1 else 2 * iteration_tick
 
         # If there are fewer enemies than needed and no spawn is queued, queue one
-        elif self.spawn_queued is None and present_enemies_value < current_on_scren_enemies and any(self.monsters):
+        elif self.spawn_queued is None and present_enemies_value < current_on_scren_enemies and self.monsters:
+
+            # If next monsters is boss, wait until scene is clear from same team characters:
+            next_monster = self.monsters[-1]
+            if isinstance(next_monster, Boss) and any(char for char in self.scene.characters
+                                                      if next_monster.collision_group == char.collision_group):
+                return
 
             self.spawn_timer = current_spawn_delay
 

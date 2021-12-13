@@ -4,7 +4,6 @@
 # todo:
 #  ?? Burning weapons
 #  ?? Mace: activateable main hand weapon, copies falchion activation, increases collision damage to hit characters
-#  ?? Knife: offhand weapon that deals crit damage to airborne, disabled or turned away characters
 #  Add hats: armor, that passively changes stats of characters. Can be light, magic or heavy
 #  activateable axes and maces
 #  If mace is channeled, slowly spin up, ignoring limitations and aiming angle
@@ -3439,8 +3438,8 @@ class Knife(Pointed, OffHand):
         # Spawn bar and set cooldown for activation:
         elif self.activation_offset != v():
             if character and character.ai is None and character.combo_counter:
-                self.activation_rest_time = self._activation_cooldown *\
-                                            (1 - 0.5*character.combo_counter.counter / self.combo_cutoff)
+                progress = character.combo_counter.counter / self.combo_cutoff
+                self.activation_rest_time = lerp((self._activation_cooldown, 0.5*self._activation_cooldown), progress)
             else:
                 self.activation_rest_time = self._activation_cooldown
 

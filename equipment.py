@@ -2505,7 +2505,7 @@ class Shield(OffHand):
         play_sound('ram', 1)
         character.stamina *= 0.5
 
-        self.held_counter = self.equip_time
+        self.held_counter = self.equip_time + self.parry_window
         self.in_use = True
         character.shielded = self
 
@@ -2722,7 +2722,7 @@ class Shield(OffHand):
         }
 
         if "DEFLECT TIME" in comparison_dict:
-            stats_dict["DEFLECT TIME"]["evaluation"] = comparison_dict["DEFLECT TIME"]["value"] - self.parry_window
+            stats_dict["DEFLECT TIME"]["evaluation"] = self.parry_window - comparison_dict["DEFLECT TIME"]["value"]
 
         return stats_dict
 
@@ -2914,12 +2914,13 @@ class Katar(Pointed, OffHand):
     class_name = "Katar"
     max_tilt = 85
     default_angle = 0
-    stab_modifier = 1.2
+    stab_modifier = 0.8
     aim_drain_modifier = 0.0
     return_time = 0.2
     held_position = v(-15, 5)
     stab_dash_modifier = 0
     stab_cost = 0.25
+    _stab_duration = 0.3
     upside = [
         "Activate to stab and bleed enemy",
         "Hold activation to immobilize enemy",
@@ -2932,6 +2933,7 @@ class Katar(Pointed, OffHand):
     hand_rotation = 90
     prevent_activation = False
     _activation_cooldown = 0.8
+    _skewer_actuation = 0.2
 
     def __init__(self, *args, **kwargs):
         super(Katar, self).__init__(*args, **kwargs)
@@ -3149,13 +3151,9 @@ class Katar(Pointed, OffHand):
             self._drop_kebab()
 
         if self.kebab:
-            another_weapon = character.slots[character.weapon_slots[0]]
-            if isinstance(another_weapon, Dagger):
-                another_weapon = Nothing()
-
-            grab_distance = max(
+            grab_distance = min(
                 self.character_specific["grab_distance"],
-                (another_weapon.length if isinstance(another_weapon, Wielded) else 0) + 2*BASE_SIZE
+                self.kebab.hitbox[0].width * 0.5 + BASE_SIZE
             )
             self.activation_offset.scale_to_length(grab_distance)
             self.skewer_duration -= FPS_TICK
@@ -3204,7 +3202,7 @@ class Katar(Pointed, OffHand):
 
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
         # Important: pierces shields if grab is occuring!
-        if victim and isinstance(victim.shielded, Equipment) and self.active_last_frame and self.held_duration > 0.1:
+        if victim and isinstance(victim.shielded, Shield) and self.held_duration > self._skewer_actuation:
             victim.shielded = None
 
         dealt_damage = super(Katar, self).deal_damage(vector, victim, victor, calculate_only)
@@ -3219,15 +3217,14 @@ class Katar(Pointed, OffHand):
                 self.in_use,
                 not self.kebab,
                 0 < dealt_damage < victim.hp,
-                self.active_last_frame
+                self.active_last_frame,
+                self.held_duration > self._skewer_actuation
         ]):
             self._skewer(victor, victim)
 
-        self.cause_bleeding(victim)
+        if not victim.shielded:
+            self.cause_bleeding(victim)
         return dealt_damage
-
-    def _drop_kebab(self):
-        super(Katar, self)._drop_kebab()
 
     def on_equip(self, character):
         # Reset:
@@ -3248,9 +3245,9 @@ class Katar(Pointed, OffHand):
     def _skewer(self, character, victim):
         self.cause_bleeding(victim, skip_kicker=True)
         super(Katar, self)._skewer(character, victim)
-        grab_distance = max(
+        grab_distance = min(
             self.character_specific["grab_distance"],
-            character.hitbox[0].width * 0.5 + victim.hitbox[0].width * 0.5 + BASE_SIZE * 0.5
+            victim.hitbox[0].width * 0.5 + BASE_SIZE
         )
         self.activation_offset.scale_to_length(grab_distance)
         self.inertia_vector = v()
@@ -3274,7 +3271,7 @@ class Knife(Pointed, OffHand):
     ]
     downside = [
         "No swing attacks",
-        "Can't parry"
+        "Can't parry",
         "Delay between activations"
     ]
     prevent_activation = False

@@ -791,7 +791,12 @@ class Character:
         self.visual_timer += FPS_TICK
 
         # Process landing of flying characters
-        if self.state in DISABLED and self.state in AIRBORNE and self.state_timer < self.fall_duration:
+        if (
+                self.state in DISABLED and
+                self.state in AIRBORNE and
+                self.state_timer < self.fall_duration and
+                not (self.anchor_point or self.anchor_weapon)
+        ):
             self.speed.y = 0
             self.set_state('hurt', self.state_timer)
 
@@ -948,9 +953,8 @@ class Character:
         if self.channeling:
             direction_v = v()
 
-        # If character is anchored, reduce timer
+        # If character is anchored, adjust position
         if self.anchor_timer > 0:
-            self.anchor_timer -= FPS_TICK
             if self.anchor_weapon:
                 self.position = v(self.anchor_weapon.tip_v)
             else:
@@ -1236,6 +1240,10 @@ class Character:
             for slot in self.weapon_slots:
                 if self.slots[slot].activation_offset != v():
                     return
+
+        # Prevent weapons from moving:
+        for slot in self.weapon_slots:
+            self.slots[slot].inertia_vector = v()
 
         self.set_state("channeling", duration)
 

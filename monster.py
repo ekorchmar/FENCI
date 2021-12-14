@@ -110,6 +110,19 @@ class Humanoid(Character):
         modified_center.y += oscillation_y
         face_rect = face_pick.get_rect(center=modified_center)
 
+        # If skewered on a weapon, tilt slightly towards the weapon:
+        if self.anchor_weapon and self.anchor_timer > 0:
+            if 90 >= self.anchor_weapon.last_angle > 0:
+                tilt_angle = -15
+            elif 90 < self.anchor_weapon.last_angle:
+                tilt_angle = 15
+            elif -90 <= self.anchor_weapon.last_angle:
+                tilt_angle = 15
+            else:
+                tilt_angle = -15
+
+            face_pick = pygame.transform.rotate(face_pick, tilt_angle)
+
         if self.immune_timer > 0:
             transparent_face = face_pick.copy()
             transparency = int(127 + 127 * math.sin(pygame.time.get_ticks() * 0.02))

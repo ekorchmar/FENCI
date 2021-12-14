@@ -154,6 +154,7 @@
     "You can destroy enemy shields by overwhelming it with attacks. However, this approach will quickly exhaust your stamina.",
     "If you have multiple roll-granting weapons, you may change direction while rolling. Is it useful? Probably not, but it is fun to do.",
     "Short weapons like Daggers and Katars are painfully ineffective once you get surrounded.",
+    "Your weapons don't consume stamina for short period after landing a hit. You can chain this time to quickly cleave through a group of enemies with a heavy Sword.",
 
     "Shield can't protect you from the back. Don't get surrounded.",
     "Initiating fight with a shield bash into a group of enemies is great way to scatter them.",
@@ -174,13 +175,13 @@
     "Daggers have very short swinging range and modest damage, but offer best tactical options.",
     "Even accidental parry with a dagger will allow you to roll through your foes. Always look out for options!",
     "Daggers provide constant, consistent damage when swung, with a flashy finisher in stabbing attack.",
-    "A Sword or an Axe will leave you without stamina after two swings, while Dagger will take you to the finish line with half a stamina bar.",
+    "A Sword or an Axe will leave you without stamina after two swings, while Dagger will take you to the finish line with just half a stamina bar.",
     "Dagger makes a good back-up for a heavier weapon. Light weapons are quick to pull out of a your backpack.",
 
-    "Spears are extremely powerful if you can keep your distance from your enemies.",
-    "Even a powerful spear will perform poorly if you are swarmed by enemies. Keep a backup dagger.",
-    "When skewering an enemy, best options are to stab them with your second weapon or to launch them into a wall.",
-    "Holding activation button for spear will not increase your stab damage, but is useful to reposition or break shields.",
+    "Spears are extremely powerful in duels or if you can keep your distance from your enemies.",
+    "Even a powerful spear will perform poorly if you are swarmed by enemies. Keep a backup Falchion.",
+    "When skewering an enemy on a Spear, best options are to stab them with your second weapon or to launch them into a wall.",
+    "Holding activation button for Spear will not increase your stab damage, but is useful to reposition it or to break shields.",
 
     "Swordbreakers offer you same mobility as Daggers, so you may want to avoid this combination. If you hate having fun.",
     "Swordbreakers will briefly increase stamina restoration on any parry or hit, but it's still possible to run dry.",
@@ -203,11 +204,14 @@
     "Heavy Katars cause heavier bleeding, but light ones allow you to hold enemies for much longer. Use accordingly.",
     "Katar stab costs very little stamina and restores stamina on each successful hit. Keep up the aggression.",
     "Use your main weapons on enemies you hold with Katar for maximum damage. Warning: might be considered a war crime.",
-    "Alternating Katar stabs with your main weapon hits is perfect way to steadily ramp up critical damage while regenerating stamina.",
+    "Alternating Katar stabs with your main weapon hits is perfect way to steadily ramp up damage while regenerating stamina.",
 
     "Knife is a purely offensive option for your off-hand slot. Are you sure you wouldn't want a Shield instead?",
     "Knife starts extremely underwhelming, but becomes increasingly strong with each successful hit.",
-    "Knife can't protect you in a sticky situation, so make sure you can rely on your main weapon to keep you safe."
+    "Knife can't protect you in a sticky situation, so make sure you can rely on your main weapon to keep you safe.",
+    "If your combo counter is interrupted, your Knife becomes a liability. Make sure to have another off-hand option with you.",
+    "Knives may look like they have absolutely no defensive application, but killing your enemies is the ultimate defense.",
+    "Heavier knives are more consistent at low combo, but lighter knives outgrow them quickly at higher counts."
   ],
   "gameplay": {
     "paused": "PAUSED",

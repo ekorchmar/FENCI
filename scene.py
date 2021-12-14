@@ -874,16 +874,13 @@ class Scene:
 
                         for target_weapon in self.colliding_weapons[foe]:
 
-                            # Not all weapons can parry
-                            if not weapon.can_parry:
-                                continue
-
                             # 1 Frame = 1 hit
                             if (
                                     target_weapon in set(already_hit) or
                                     target_weapon.disabled or
                                     not target_weapon.hitbox() or
                                     not weapon.can_parry or
+                                    not target_weapon.can_parry or
                                     foe.state in DISABLED
                             ):
                                 continue

@@ -1,9 +1,10 @@
 # todo:
 
-from base_class import *
+import base_class as b
+from primitive import *
 
 
-class Kicker(Particle):
+class Kicker(b.Particle):
     shakeable = True
     clampable = True
 
@@ -152,7 +153,7 @@ class Remains:
         return output
 
 
-class Spark(Particle):
+class Spark(b.Particle):
     shakeable = True
 
     def __init__(
@@ -213,7 +214,7 @@ class Spark(Particle):
         return draw
 
 
-class Droplet(Particle):
+class Droplet(b.Particle):
     shakeable = True
 
     def __init__(self, position, character, lifetime=REMAINS_SCREENTIME/4, size=0.5, spawn_delay=None):
@@ -282,7 +283,7 @@ class Droplet(Particle):
         return surface, rect
 
 
-class AttackWarning(Particle):
+class AttackWarning(b.Particle):
     shakeable = True
     clampable = True
 
@@ -320,7 +321,7 @@ class AttackWarning(Particle):
         return surface, rect
 
 
-class Banner(Particle):
+class Banner(b.Particle):
     shakeable = False
     _max_angle = 10
     _min_angle = 15
@@ -477,7 +478,7 @@ class Banner(Particle):
         return surface, rect
 
 
-class Stunned(Particle):
+class Stunned(b.Particle):
     shakeable = True
 
     def __init__(
@@ -514,7 +515,7 @@ class Stunned(Particle):
         return surface, rect
 
 
-class SpeechBubble(Particle):
+class SpeechBubble(b.Particle):
     shakeable = True
     clampable = True
 
@@ -537,7 +538,7 @@ class SpeechBubble(Particle):
         self.box = box
 
         # Add initial shake
-        self.shaker = Shaker()
+        self.shaker = b.Shaker()
         self.shaker.add_shake(character.size/BASE_SIZE)
 
     def draw(self, pause=False):
@@ -557,7 +558,7 @@ class SpeechBubble(Particle):
         return surface, rect
 
 
-class DustCloud(Particle):
+class DustCloud(b.Particle):
     shakeable = True
 
     def __init__(self, spawn_rect: r, color=c(colors["dust"]), max_size=BASE_SIZE*2, lifetime=0.5, max_opacity=200):
@@ -588,7 +589,7 @@ class DustCloud(Particle):
         return surface, rect
 
 
-class MouseHint(Particle):
+class MouseHint(b.Particle):
     shakeable = False
 
     def __init__(
@@ -626,7 +627,7 @@ class MouseHint(Particle):
         return surface, rect
 
 
-class CountDown(Particle):
+class CountDown(b.Particle):
     shakeable = False
 
     def __init__(
@@ -735,7 +736,7 @@ class LootOverlayHelp:
         return [hint.draw(pause=False) for hint in self.particles]
 
 
-class ComboCounter(Particle):
+class ComboCounter(b.Particle):
     shakeable = False
     _max_intensity = BASE_SIZE // 4
     _max_shake = 20
@@ -746,7 +747,7 @@ class ComboCounter(Particle):
         self.lifetime = 1
 
         # Shake:
-        self.shaker = Shaker(fading=False, max_shake=self._max_intensity)
+        self.shaker = b.Shaker(fading=False, max_shake=self._max_intensity)
         self.shake_v = v()
 
         # Banner options:
@@ -802,11 +803,11 @@ class ComboCounter(Particle):
         return surface, rect
 
 
-class EnemyDirection(Particle):
+class EnemyDirection(b.Particle):
     shakeable = False
     clampable = True
 
-    def __init__(self, player: Character, characters: list, size=BASE_SIZE*3//2):
+    def __init__(self, player: b.Character, characters: list, size=BASE_SIZE*3//2):
         self.surface = ascii_draw(size, '▶', colors['lightning'])
 
         self.lifetime = 1
@@ -816,7 +817,7 @@ class EnemyDirection(Particle):
         # Find the closest enemy to character
         self.find_closest_enemy(characters)
 
-    def _set_enemy(self, enemy: Character):
+    def _set_enemy(self, enemy: b.Character):
         self.enemy = enemy
         self.distance2 = (self.player.position - enemy.position).length_squared()
 

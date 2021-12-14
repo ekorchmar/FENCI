@@ -1777,3 +1777,99 @@ class StatCard(Card):
 
         # Draw frame
         frame_surface(self.surface, colors["inventory_text"])
+
+
+class Inventory:
+    slots_order = 'main_hand', 'off_hand', 'hat', 'backpack'
+
+    def __init__(
+            self,
+            character: Character,
+            rectangle: r = INVENTORY_SPACE,
+            bg_color=colors["base"],
+            foreground=DISPLAY_COLOR
+    ):
+        self.rect = rectangle
+        self.character = character
+        self.slot_rects = {}
+
+        # Create basic surface:
+        self.base = s(size=rectangle.size)
+        self.base.fill(foreground)
+
+        # Create spaces for inventory slots
+        slot_x = 0
+        for slot in self.slots_order:
+            # Prepare rectangle for the weapon:
+            slot_rect = r(slot_x, 0, self.rect.width // 4, self.rect.height)
+            self.slot_rects[slot] = slot_rect
+
+            # Write name of the slot
+            slot_name_surf = ascii_draw(BASE_SIZE // 2, string["slot_names"][slot], colors["inventory_text"])
+            slot_name_rect = slot_name_surf.get_rect(right=slot_x + slot_rect.width, top=0)
+            self.base.blit(slot_name_surf, slot_name_rect)
+
+            # Offset next rectangle
+            slot_x += slot_rect.width
+
+            # Draw a line along the right border
+            pygame.draw.line(
+                self.base,
+                bg_color,
+                v(slot_x, 0),
+                v(slot_x, self.rect.height),
+                BASE_SIZE // 6
+            )
+
+        # Form content on surface
+        self.surface = None
+        self.bars = {}
+        self.update()
+
+    def update(self):
+        surface = self.base.copy()
+        for slot in self.slots_order:
+
+            content = self.character.slots[slot]
+            if not content:
+                continue
+
+            #  1. Get a portrait of each weapon from each of character slots
+            portrait = content.portrait(rect=self.slot_rects[slot])
+            surface.blit(portrait, self.slot_rects[slot])
+
+            # 2. Form a durability bar (backpacked equipment can not be damaged, so no bar displayed)
+            if not slot == 'backpack':
+                color = colors["inventory_durability"] if content.durability > 1 else colors["inventory_broken"]
+
+                durability = Bar(
+                    size=BASE_SIZE,
+                    width=content.max_durability,
+                    max_value=content.max_durability,
+                    fill_color=color,
+                    base_color=color,
+                    show_number=False,
+                    style=' ♥♡ ' if content.durability > 0 else ' ✖✖ ',
+                    predetermined=content.durability
+                )
+                bar_surf, bar_rect = durability.display(content.durability)
+                bar_left = (self.slot_rects[slot].width - bar_rect.width) // 2
+                bar_rect.move_ip(bar_left + self.slot_rects[slot].left, BASE_SIZE // 2 + 3)
+                surface.blit(bar_surf, bar_rect)
+
+            # 3. Write down weapon class and tier
+            class_string = f'{content.builder["class"]}'
+            class_surf = ascii_draw(BASE_SIZE // 2, class_string, colors["inventory_text"])
+            class_rect = class_surf.get_rect(left=self.slot_rects[slot].left + BASE_SIZE // 2)
+
+            tier_string = f'{string["tier"]} {content.tier}'
+            tier_surf = ascii_draw(BASE_SIZE // 2, tier_string, colors["inventory_text"])
+            tier_rect = tier_surf.get_rect(bottomright=self.slot_rects[slot].bottomright)
+
+            surface.blit(tier_surf, tier_rect)
+            surface.blit(class_surf, class_rect)
+
+        self.surface = surface
+
+    def draw(self):
+        return self.surface, self.rect

@@ -14,12 +14,17 @@
 #  sparks in inventory when weapon is damaged
 #  Dialogues
 
-from particle import *
-from boss import *
+import base_class as b
+import particle as pt
+import equipment as eq
+import boss as bs
+import menu as mn
+import handler as hd
+from primitive import *
 
 # Display FPS counters(initial state):
-fps_querried_time = 1000
-fps_count = ascii_draw(40, '0', (255, 255, 0))
+_fps_querried_time = 1000
+_fps_count = ascii_draw(40, '0', (255, 255, 0))
 
 
 # Scene class draws everything and processess game physics
@@ -108,7 +113,7 @@ class Scene:
 
         # Store damage kickers and other particles
         self.particles = []
-        self.enemy_direction = None if self.player is None else EnemyDirection(self.player, self.characters)
+        self.enemy_direction = None if self.player is None else pt.EnemyDirection(self.player, self.characters)
 
         # Store display for level progress:
         self.progression = progression
@@ -119,7 +124,7 @@ class Scene:
         self.draw_helper = False
         self.draw_group_append = []
 
-        # Boss HP bar and name:
+        # bs.Boss HP bar and name:
         self.boss_bar = None
         self.boss_bar_center = None
         self.boss_name = None
@@ -131,14 +136,14 @@ class Scene:
         self.new_sh_hook = None
 
         # Create own shaker for camera shake:
-        self.shaker = Shaker()
+        self.shaker = b.Shaker()
         self.shake_v = v()
 
     def introduce_combo(self):
         if self.player is None:
             self.combo_counter = None
         else:
-            self.combo_counter = ComboCounter(
+            self.combo_counter = pt.ComboCounter(
                 scene=self,
                 position=v(self.box.topright) + v(-BASE_SIZE * 2.5, BASE_SIZE * 2)
             )
@@ -172,8 +177,8 @@ class Scene:
     def update_input(self):
 
         # Convert mouse target:
-        self.pointer = MouseV.instance.get_v(self.conversion_v)
-        MouseV.instance.remember(self.pointer)
+        self.pointer = b.MouseV.instance.get_v(self.conversion_v)
+        b.MouseV.instance.remember(self.pointer)
 
         spacebar, debug, wheel, escape = False, False, False, False
         number_keys = [False] * 9
@@ -203,7 +208,7 @@ class Scene:
                 for index_key in NUMBER_CODES:
                     number_keys[index_key[0]] = (event.key == index_key[1])
 
-        MouseV.instance.update_buttons()
+        b.MouseV.instance.update_buttons()
         keyboard = pygame.key.get_pressed()
 
         # Digest held buttons input:
@@ -214,8 +219,8 @@ class Scene:
 
         # Debug:
         if debug:
-            if isinstance(SceneHandler.active, TutorialSceneHandler) and not self.menus:
-                SceneHandler.active.next_stage()
+            if isinstance(hd.SceneHandler.active, hd.TutorialSceneHandler) and not self.menus:
+                hd.SceneHandler.active.next_stage()
 
             elif self.player and self.player in self.characters:
                 self.echo(self.player, "Let's make some noise!", colors["lightning"])
@@ -260,8 +265,8 @@ class Scene:
                     # Use:
                     if not self.menus:
                         for i in range(3):
-                            if MouseV.instance.mouse_state[i]:
-                                continuous = MouseV.instance.last_mouse_state[i]
+                            if b.MouseV.instance.mouse_state[i]:
+                                continuous = b.MouseV.instance.last_mouse_state[i]
                                 self.player.use(PLAYER_SLOTS[i], continuous)
 
                     # Aim:
@@ -288,7 +293,7 @@ class Scene:
 
                         # Spawn dust clouds
                         for _ in range(int(char.weight * 0.02)):
-                            self.particles.append(DustCloud(random.choice(char.hitbox)))
+                            self.particles.append(pt.DustCloud(random.choice(char.hitbox)))
                 except KeyError:
                     continue
             self.character_states = new_character_states
@@ -296,8 +301,8 @@ class Scene:
             # Spawn blood particles for continiously bleeding characters
             for bleeding_character in filter(lambda x: x.bleeding_timer > 0, self.characters):
                 # On average, 10 droplets per second
-                if isinstance(bleeding_character, Character) and random.random() < 10 * FPS_TICK:
-                    droplet = Droplet(
+                if isinstance(bleeding_character, b.Character) and random.random() < 10 * FPS_TICK:
+                    droplet = pt.Droplet(
                         position=v(bleeding_character.position),
                         character=bleeding_character,
                         spawn_delay=0
@@ -311,10 +316,10 @@ class Scene:
 
         # Process clicks and keypresses on loot overlay
         elif self.loot_overlay and not self.menus:
-            if self.loot_overlay.rect.collidepoint(MouseV.instance.v):
+            if self.loot_overlay.rect.collidepoint(b.MouseV.instance.v):
 
                 # Middle click closes overlay
-                if MouseV.instance.mouse_state[1]:
+                if b.MouseV.instance.mouse_state[1]:
                     self._close_and_repair()
 
                 else:
@@ -322,9 +327,9 @@ class Scene:
                     self.draw_helper = True
 
                     # Pass mouse click to loot overlay:
-                    result = self.loot_overlay.catch(MouseV.instance.v, MouseV.instance.mouse_state)
+                    result = self.loot_overlay.catch(b.MouseV.instance.v, b.MouseV.instance.mouse_state)
                     # Prevent accidental mouse holds
-                    if all(result) and MouseV.instance.input_changed():
+                    if all(result) and b.MouseV.instance.input_changed():
                         self._from_loot_overlay(*result)
 
                     # If any loot cards are moused over and there is a valid comparison, draw a loot card nearby
@@ -354,7 +359,7 @@ class Scene:
                 self.player and
                 self.player.inventory and
                 (self.loot_overlay or self.paused) and
-                self.player.inventory.rect.collidepoint(MouseV.instance.v)
+                self.player.inventory.rect.collidepoint(b.MouseV.instance.v)
         ):
 
             # Can't drop last damaging weapon:
@@ -363,12 +368,12 @@ class Scene:
                 self.player.weapon_slots + ['backpack']
             ))) > 1
 
-            if not_last_weapon and self.held_mouse is None and MouseV.instance.mouse_state[0]:
+            if not_last_weapon and self.held_mouse is None and b.MouseV.instance.mouse_state[0]:
 
                 # Spawn a held_mouse object that will drop from inventory
                 for slot in self.player.inventory.slot_rects:
 
-                    modified_target = MouseV.instance.get_v(
+                    modified_target = b.MouseV.instance.get_v(
                         start_v=(self.player.inventory.rect.left, self.player.inventory.rect.top))
 
                     if (
@@ -387,7 +392,7 @@ class Scene:
 
         # Handle procession and deletion of HeldMouse object:
         if self.held_mouse is not None:
-            if not MouseV.instance.mouse_state[0] or self.held_mouse.hold():
+            if not b.MouseV.instance.mouse_state[0] or self.held_mouse.hold():
                 self.held_mouse = None
 
         # Handle most recent displayed menu:
@@ -395,8 +400,8 @@ class Scene:
             # Set cursor shape:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-            if MouseV.instance.mouse_state[0] and not MouseV.instance.last_mouse_state[0]:
-                self.menus[-1].collide_button(MouseV.instance.v)
+            if b.MouseV.instance.mouse_state[0] and not b.MouseV.instance.last_mouse_state[0]:
+                self.menus[-1].collide_button(b.MouseV.instance.v)
 
             elif any(number_keys):
                 self.menus[-1].index_button(number_keys.index(True))
@@ -414,8 +419,8 @@ class Scene:
             # Set cursor shape:
             pygame.mouse.set_system_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
-            if MouseV.instance.mouse_state[0] and not MouseV.instance.last_mouse_state[0]:
-                self.pause_popups.collide_button(MouseV.instance.v)
+            if b.MouseV.instance.mouse_state[0] and not b.MouseV.instance.last_mouse_state[0]:
+                self.pause_popups.collide_button(b.MouseV.instance.v)
 
             elif any(number_keys):
                 self.pause_popups.index_button(number_keys.index(True))
@@ -520,7 +525,7 @@ class Scene:
                 if character.hitbox and character.rolling > 0 or character.ramming:
                     # Spawn on average 10/s for standard size:
                     if random.random() < 10 * FPS_TICK * character.size / BASE_SIZE:
-                        self.particles.append(DustCloud(random.choice(character.hitbox)))
+                        self.particles.append(pt.DustCloud(random.choice(character.hitbox)))
             except AttributeError:
                 pass
 
@@ -548,7 +553,7 @@ class Scene:
         for particle in self.particles:
 
             # Remains are returning lists of tuples:
-            if isinstance(particle, Remains):
+            if isinstance(particle, pt.Remains):
                 drawn_remains = particle.draw(pause=self.paused)
                 draw_groups["field"].extend(drawn_remains)
 
@@ -564,7 +569,7 @@ class Scene:
                         rect.clamp_ip(fov_rect)
                     draw_groups[canvas].append(drawn)
 
-                    # If particle is outside bounds and not a Banner, despawn it
+                    # If particle is outside bounds and not a pt.Banner, despawn it
                     # Commented: causes more headache than performance boost
                     # if not (drawn[1].colliderect(fov_rect) and not particle.shakeable):
                     #    print(f"Warning: despawning {particle} out of bounds")
@@ -590,13 +595,13 @@ class Scene:
                 drawn = ui.draw()
                 draw_groups['box'].append((drawn[0], v(drawn[1][:2]) - ui_shake))
 
-        # Draw Boss bar:
+        # Draw bs.Boss bar:
         if self.boss_bar is not None:
             # Draw boss banner:
             draw_groups['box'].append(self.boss_name.draw())
 
             # Animate boss HP bar appearance:
-            boss = [char for char in self.characters if isinstance(char, Boss)][0]
+            boss = [char for char in self.characters if isinstance(char, bs.Boss)][0]
             bar, rect = self.boss_bar.display(boss.hp)
             bar.set_alpha(int(lerp(
                 values_range=(0, 255),
@@ -608,7 +613,7 @@ class Scene:
 
         # Draw pause surfaces
         if self.pause_popups:
-            pause_ensemble = self.pause_popups.display(MouseV.instance.v, active=not bool(self.menus))
+            pause_ensemble = self.pause_popups.display(b.MouseV.instance.v, active=not bool(self.menus))
             if pause_ensemble:
                 draw_groups['box'].extend(pause_ensemble)
             else:
@@ -626,9 +631,9 @@ class Scene:
         expired_menus = []
         if self.menus:
             for menu in self.menus:
-                draw_groups['box'].extend(menu.display(mouse_v=MouseV.instance.v, active=menu is self.menus[-1]))
+                draw_groups['box'].extend(menu.display(mouse_v=b.MouseV.instance.v, active=menu is self.menus[-1]))
                 mouse_on_button = mouse_on_button or any(
-                    button.rect.collidepoint(MouseV.instance.v) for button in menu.buttons_list
+                    button.rect.collidepoint(b.MouseV.instance.v) for button in menu.buttons_list
                 )
                 if not menu.buttons_list and not menu.decoration_objects:
                     expired_menus.append(menu)
@@ -640,13 +645,13 @@ class Scene:
         # Unless any of the buttons are moused over in menus or pause popup:
         if self.pause_popups:
             mouse_on_button = mouse_on_button or any(
-                button.rect.collidepoint(MouseV.instance.v) for button in self.pause_popups.buttons_list
+                button.rect.collidepoint(b.MouseV.instance.v) for button in self.pause_popups.buttons_list
             )
 
         # Draw on-screen cards for characters and equipment
         if self.paused and not mouse_on_button:
 
-            if self.box.collidepoint(MouseV.instance.v):
+            if self.box.collidepoint(b.MouseV.instance.v):
                 displayed = False
                 for character in self.characters:
 
@@ -654,8 +659,8 @@ class Scene:
                         break
 
                     for equipment in character.drawn_equipment:
-                        if character.drawn_equipment[equipment].collidepoint(MouseV.instance.custom_pointer):
-                            draw_groups['box'].append(equipment.loot_cards[None].draw(position=MouseV.instance.v))
+                        if character.drawn_equipment[equipment].collidepoint(b.MouseV.instance.custom_pointer):
+                            draw_groups['box'].append(equipment.loot_cards[None].draw(position=b.MouseV.instance.v))
                             displayed = True
                             break
 
@@ -664,17 +669,17 @@ class Scene:
 
                     # If no equipment overlaps, try to display statcard instead:
                     for rect in character.hitbox:
-                        if rect.collidepoint(MouseV.instance.custom_pointer):
-                            draw_groups['box'].append(character.stat_cards[None].draw(position=MouseV.instance.v))
+                        if rect.collidepoint(b.MouseV.instance.custom_pointer):
+                            draw_groups['box'].append(character.stat_cards[None].draw(position=b.MouseV.instance.v))
                             displayed = True
                             break
 
         # In both pause and loot overlay, if mouse is hovering over inventory rects, show loot cards
         if self.player and self.player.inventory and (
                 any((self.paused, self.loot_overlay)) and
-                self.player.inventory.rect.collidepoint(MouseV.instance.v)
+                self.player.inventory.rect.collidepoint(b.MouseV.instance.v)
         ):
-            mouse_in_inv = v(MouseV.instance.v) - v(self.player.inventory.rect.left, self.player.inventory.rect.top)
+            mouse_in_inv = v(b.MouseV.instance.v) - v(self.player.inventory.rect.left, self.player.inventory.rect.top)
             for slot in self.player.inventory.slot_rects:
                 if self.player.inventory.slot_rects[slot].collidepoint(mouse_in_inv):
                     armament = self.player.slots[slot]
@@ -695,16 +700,16 @@ class Scene:
                             compare_armament = self.player.slots['backpack']
 
                     if compare_armament not in armament.loot_cards:
-                        armament.loot_cards[compare_armament] = LootCard(armament, compare_to=compare_armament)
+                        armament.loot_cards[compare_armament] = b.LootCard(armament, compare_to=compare_armament)
 
                     draw_groups['box'].append(armament.loot_cards[compare_armament].draw(
-                        position=MouseV.instance.v,
+                        position=b.MouseV.instance.v,
                         draw_compared=True
                     ))
 
         # Draw held mouse if exists
         if self.held_mouse is not None:
-            draw_groups['box'].append(self.held_mouse.draw(MouseV.instance.v))
+            draw_groups['box'].append(self.held_mouse.draw(b.MouseV.instance.v))
 
         if self.draw_group_append:
             draw_groups['box'].extend(self.draw_group_append)
@@ -778,14 +783,14 @@ class Scene:
                         self.pointer
                     )
 
-                global fps_querried_time
-                global fps_count
+                global _fps_querried_time
+                global _fps_count
 
-                fps_querried_time += CLOCK.get_time()
-                if fps_querried_time >= 1000:
-                    fps_count = ascii_draw(40, str(int(CLOCK.get_fps())), (255, 255, 0))
-                    fps_querried_time = 0
-                field.blit(fps_count, fov_rect)
+                _fps_querried_time += CLOCK.get_time()
+                if _fps_querried_time >= 1000:
+                    _fps_count = ascii_draw(40, str(int(CLOCK.get_fps())), (255, 255, 0))
+                    _fps_querried_time = 0
+                field.blit(_fps_count, fov_rect)
 
                 # Add timer:
                 time_surf = ascii_draw(BASE_SIZE, f"{self.timer:.3f}", (127, 255, 127))
@@ -828,11 +833,11 @@ class Scene:
             # Check if disabled characters have a particle associated with them; if not, spawn one:
             if character.state in DISABLED and character.immune_timer <= 0:
                 has_particle = any(filter(
-                    lambda x: isinstance(x, Stunned) and x.character is character,
+                    lambda x: isinstance(x, pt.Stunned) and x.character is character,
                     self.particles
                 ))
                 if not has_particle:
-                    self.particles.append(Stunned(character))
+                    self.particles.append(pt.Stunned(character))
 
             if character in set(already_hit) or character.ignores_collision():
                 continue
@@ -851,7 +856,7 @@ class Scene:
                             weapon.disabled or
                             not weapon.hitbox() or
                             weapon in set(already_hit) or
-                            (isinstance(weapon, Pointed) and weapon.kebab)
+                            (isinstance(weapon, eq.Pointed) and weapon.kebab)
                     ):
                         continue
                     weapon_cleared = False
@@ -869,7 +874,7 @@ class Scene:
                             continue
 
                         # Skewered by weapon characters are not colliding with it neither with body nor weapons:
-                        if isinstance(weapon, Pointed) and foe is weapon.kebab:
+                        if isinstance(weapon, eq.Pointed) and foe is weapon.kebab:
                             continue
 
                         for target_weapon in self.colliding_weapons[foe]:
@@ -949,7 +954,7 @@ class Scene:
 
                                 # Swords and axes should also attempt to intersect with full hitbox length:
                                 clipped_line = rectangle.clipline(weapon.hitbox())
-                                if isinstance(weapon, Bladed) and clipped_line:
+                                if isinstance(weapon, eq.Bladed) and clipped_line:
                                     weapon_cleared = True
                                     log_collision(weapon, character, foe, foe, clipped_line[0])
                                     break
@@ -990,8 +995,8 @@ class Scene:
         for weapon, owner, target, opponent, point in collision_quintet:
 
             # Process weapon hits
-            if isinstance(weapon, Wielded):
-                if isinstance(target, Character):
+            if isinstance(weapon, eq.Wielded):
+                if isinstance(target, b.Character):
                     collision_v = target.speed + weapon.tip_delta
                     damage = round(weapon.deal_damage(vector=collision_v, victim=target, victor=owner))
                     survived, actual_damage = opponent.hurt(
@@ -1002,7 +1007,7 @@ class Scene:
                     )
 
                     # Shield effects:
-                    if isinstance(target.shielded, Shield) and actual_damage == 0:
+                    if isinstance(target.shielded, eq.Shield) and actual_damage == 0:
                         shield = target.shielded
 
                         # If player was hit or performed the hit, add small screenshake:
@@ -1048,7 +1053,7 @@ class Scene:
                         else:
                             self.shaker.add_shake(0.0025 * actual_damage)
 
-                elif isinstance(target, Wielded):
+                elif isinstance(target, eq.Wielded):
                     # If player is participating and both weapons are dangerous, shake the scene:
                     if (
                             OPTIONS["screenshake"] and
@@ -1070,7 +1075,7 @@ class Scene:
                     # Spawn sparks
                     for hitting_weapon in {weapon, target}:
                         for _ in range(random.randint(2, 3)):
-                            spark = Spark(
+                            spark = pt.Spark(
                                 position=point,
                                 weapon=hitting_weapon,
                                 vector=hitting_weapon.tip_delta / 2,
@@ -1081,7 +1086,7 @@ class Scene:
                     raise ValueError(f"What are we hitting again? {target}")
 
             # Process body checks
-            elif isinstance(weapon, Character) and isinstance(target, Character):
+            elif isinstance(weapon, b.Character) and isinstance(target, b.Character):
                 # Reorder colliding agents if target is ramming:
                 if target.ramming:
                     weapon, owner, target, opponent = target, opponent, weapon, owner
@@ -1116,7 +1121,7 @@ class Scene:
                     self.shaker.add_shake(1.0)
 
                     for _ in range(random.randint(5, 7)):
-                        spark = Spark(
+                        spark = pt.Spark(
                             position=point,
                             weapon=shield,
                             vector=v(weapon.speed[:]),
@@ -1274,7 +1279,7 @@ class Scene:
                 self.max_combo = max(self.combo_counter.counter, self.max_combo)
 
         # Spawn kicker
-        kicker = Kicker(
+        kicker = pt.Kicker(
             point,
             damage,
             color=colors["dmg_kicker"],
@@ -1286,17 +1291,17 @@ class Scene:
         if target.has_blood and not OPTIONS["red_blood"] == 2:
             # Spawn a blood particle 50% of the time for each 7 damage suffered
             # Spawn 1 instantly always:
-            first_blood = Droplet(point, target, spawn_delay=0)
+            first_blood = pt.Droplet(point, target, spawn_delay=0)
             self.particles.append(first_blood)
 
             for _ in range(int(damage // 7)):
                 if random.random() > 0.5:
                     continue
 
-                blood = Droplet(point, target)
+                blood = pt.Droplet(point, target)
                 self.particles.append(blood)
         else:
-            # Spawn Sparks of body color
+            # Spawn pt.Sparks of body color
             for _ in range(int(damage // 7)):
                 if random.random() > 0.5:
                     continue
@@ -1309,7 +1314,7 @@ class Scene:
                         2 * POKE_THRESHOLD,
                         random.uniform(-180, 180)
                     ))
-                blood = Spark(target.position, vector, attack_color=target.color, angle_spread=(-60, 60))
+                blood = pt.Spark(target.position, vector, attack_color=target.color, angle_spread=(-60, 60))
                 self.particles.append(blood)
 
         if target is self.player:
@@ -1340,7 +1345,7 @@ class Scene:
         if character.collision_group != 0:
             self.enemies_count_on_death.append(self.count_enemies_value())
 
-        self.particles.append(Remains(
+        self.particles.append(pt.Remains(
             *character.kill(),
             bounding_box=self.field_rect,
             particle_dump=self.particles
@@ -1349,7 +1354,7 @@ class Scene:
         self.alert_ai(character)
 
         # If target was a Boss, remove hp bar and stop music:
-        if isinstance(character, Boss):
+        if isinstance(character, bs.Boss):
             play_sound('loot', 1)
             self.boss_bar = None
             self.boss_name.tick_down = True
@@ -1403,7 +1408,7 @@ class Scene:
 
         else:
             # Unpause music:
-            if OPTIONS["music"] and SceneHandler.active.theme and not pygame.mixer.music.get_busy():
+            if OPTIONS["music"] and hd.SceneHandler.active.theme and not pygame.mixer.music.get_busy():
                 pygame.mixer.music.unpause()
 
     def spawn(self, monster, position_v=None):
@@ -1416,12 +1421,12 @@ class Scene:
         else:
             box = self.field_rect
 
-        # If monster is Boss with a music theme, play its theme:
-        if OPTIONS["music"] and isinstance(monster, Boss) and monster.theme is not None:
+        # If monster is bs.Boss with a music theme, play its theme:
+        if OPTIONS["music"] and isinstance(monster, bs.Boss) and monster.theme is not None:
             play_theme(os.path.join('music', monster.theme))
 
-        # If monster is Boss, spawn an HP bar
-        if isinstance(monster, Boss):
+        # If monster is bs.Boss, spawn an HP bar
+        if isinstance(monster, bs.Boss):
             self._add_boss_bar(monster)
 
         # High agility and flexibility monsters may roll in instead of jumping
@@ -1535,7 +1540,7 @@ class Scene:
 
         if not self.paused:
             # Pause instantly
-            self.pause_popups = PauseEnsemble(self)
+            self.pause_popups = mn.PauseEnsemble(self)
             self.paused = True
 
             # Update stat cards for every character
@@ -1551,10 +1556,10 @@ class Scene:
         elif OPTIONS["unpause_countdown"] != 0 and not any(
                 True
                 for countdown in self.particles
-                if isinstance(countdown, CountDown) and countdown.action == self.hard_unpause
+                if isinstance(countdown, pt.CountDown) and countdown.action == self.hard_unpause
         ):
             self.pause_popups.fade()
-            self.particles.append(CountDown(
+            self.particles.append(pt.CountDown(
                 self.hard_unpause,
                 {},
                 colors["pause_popup"],
@@ -1583,7 +1588,7 @@ class Scene:
     def item_drop(self, character, dropped_item, slot=None, equip=True):
         # Animate remains
         if dropped_item:
-            self.particles.append(Remains(
+            self.particles.append(pt.Remains(
                 [dropped_item.drop(character)],
                 persistence=1,
                 bounding_box=self.box,
@@ -1592,7 +1597,7 @@ class Scene:
 
         # Equip nothing in slot if it was occupied:
         if equip:
-            character.equip(Nothing(), slot or dropped_item.preferred_slot)
+            character.equip(b.Nothing(), slot or dropped_item.preferred_slot)
 
         self.log_weapons()
 
@@ -1602,7 +1607,7 @@ class Scene:
         offset = v(4 * BASE_SIZE if x_position < self.box.center[0] else -4 * BASE_SIZE, -3 * BASE_SIZE)
 
         self.particles.append(
-            SpeechBubble(
+            pt.SpeechBubble(
                 offset,
                 c(color),
                 character,
@@ -1652,7 +1657,7 @@ class Scene:
         for _ in range(random.randint(7, 12)):
             spark_v = v()
             spark_v.from_polar((3 * base_pushback, random.uniform(-180, 180)))
-            spark = Spark(
+            spark = pt.Spark(
                 position=epicenter[:],
                 weapon=None,
                 vector=spark_v,
@@ -1660,7 +1665,7 @@ class Scene:
             )
             self.particles.append(spark)
 
-    def monster_summon(self, summoner: Character, monsters: list):
+    def monster_summon(self, summoner: b.Character, monsters: list):
 
         for monster in monsters:
             # Set minions difficulty to 0
@@ -1669,7 +1674,7 @@ class Scene:
 
             self.spawn(monster)
 
-    def _add_boss_bar(self, boss: Boss, font_size=BASE_SIZE, offset=BASE_SIZE // 2):
+    def _add_boss_bar(self, boss: bs.Boss, font_size=BASE_SIZE, offset=BASE_SIZE // 2):
         # Calculate character size:
         test_surface = ascii_draw(font_size, '█', (255, 255, 255))
 
@@ -1681,7 +1686,7 @@ class Scene:
             test_surface.get_height()
         ).move(*self.box.topleft)
 
-        self.boss_bar = Bar(
+        self.boss_bar = b.Bar(
             size=font_size,
             width=boss_bar_rect.width // test_surface.get_width(),
             fill_color=c(*colors['enemy']['hp_color'], 100),
@@ -1690,8 +1695,8 @@ class Scene:
             style="{– }"
         )
 
-        # Add Banner with Boss name:
-        self.boss_name = Banner(
+        # Add pt.Banner with bs.Boss name:
+        self.boss_name = pt.Banner(
             text=boss.name.upper(),
             size=font_size * 3 // 2,
             position=v(self.box.width // 2, self.box.top + offset + font_size // 2),
@@ -1707,7 +1712,7 @@ class Scene:
     def report(self, report, color):
         # Spawn report banner
         report_position = WINDOW_SIZE[0] // 2, self.box.bottom - BASE_SIZE
-        report_banner = Banner(
+        report_banner = pt.Banner(
             report,
             BASE_SIZE,
             report_position,
@@ -1720,108 +1725,12 @@ class Scene:
         self.particles.append(report_banner)
 
 
-# Supplemental UI elements
-class Inventory:
-    slots_order = 'main_hand', 'off_hand', 'hat', 'backpack'
-
-    def __init__(
-            self,
-            character: Character,
-            rectangle: r = INVENTORY_SPACE,
-            bg_color=colors["base"],
-            foreground=DISPLAY_COLOR
-    ):
-        self.rect = rectangle
-        self.character = character
-        self.slot_rects = {}
-
-        # Create basic surface:
-        self.base = s(size=rectangle.size)
-        self.base.fill(foreground)
-
-        # Create spaces for inventory slots
-        slot_x = 0
-        for slot in self.slots_order:
-            # Prepare rectangle for the weapon:
-            slot_rect = r(slot_x, 0, self.rect.width // 4, self.rect.height)
-            self.slot_rects[slot] = slot_rect
-
-            # Write name of the slot
-            slot_name_surf = ascii_draw(BASE_SIZE // 2, string["slot_names"][slot], colors["inventory_text"])
-            slot_name_rect = slot_name_surf.get_rect(right=slot_x + slot_rect.width, top=0)
-            self.base.blit(slot_name_surf, slot_name_rect)
-
-            # Offset next rectangle
-            slot_x += slot_rect.width
-
-            # Draw a line along the right border
-            pygame.draw.line(
-                self.base,
-                bg_color,
-                v(slot_x, 0),
-                v(slot_x, self.rect.height),
-                BASE_SIZE // 6
-            )
-
-        # Form content on surface
-        self.surface = None
-        self.bars = {}
-        self.update()
-
-    def update(self):
-        surface = self.base.copy()
-        for slot in self.slots_order:
-
-            content = self.character.slots[slot]
-            if not content:
-                continue
-
-            #  1. Get a portrait of each weapon from each of character slots
-            portrait = content.portrait(rect=self.slot_rects[slot])
-            surface.blit(portrait, self.slot_rects[slot])
-
-            # 2. Form a durability bar (backpacked equipment can not be damaged, so no bar displayed)
-            if not slot == 'backpack':
-                color = colors["inventory_durability"] if content.durability > 1 else colors["inventory_broken"]
-
-                durability = Bar(
-                    size=BASE_SIZE,
-                    width=content.max_durability,
-                    max_value=content.max_durability,
-                    fill_color=color,
-                    base_color=color,
-                    show_number=False,
-                    style=' ♥♡ ' if content.durability > 0 else ' ✖✖ ',
-                    predetermined=content.durability
-                )
-                bar_surf, bar_rect = durability.display(content.durability)
-                bar_left = (self.slot_rects[slot].width - bar_rect.width) // 2
-                bar_rect.move_ip(bar_left + self.slot_rects[slot].left, BASE_SIZE // 2 + 3)
-                surface.blit(bar_surf, bar_rect)
-
-            # 3. Write down weapon class and tier
-            class_string = f'{content.builder["class"]}'
-            class_surf = ascii_draw(BASE_SIZE // 2, class_string, colors["inventory_text"])
-            class_rect = class_surf.get_rect(left=self.slot_rects[slot].left + BASE_SIZE // 2)
-
-            tier_string = f'{string["tier"]} {content.tier}'
-            tier_surf = ascii_draw(BASE_SIZE // 2, tier_string, colors["inventory_text"])
-            tier_rect = tier_surf.get_rect(bottomright=self.slot_rects[slot].bottomright)
-
-            surface.blit(tier_surf, tier_rect)
-            surface.blit(class_surf, class_rect)
-
-        self.surface = surface
-
-    def draw(self):
-        return self.surface, self.rect
-
-
+# Supplemental scene UI elements
 class LootOverlay:
     def __init__(
             self,
             loot_list: list,
-            character: Character,
+            character: b.Character,
             rect: r = LOOT_SPACE,
             label_size: int = BASE_SIZE * 3 // 2,
             label: str = 'LOOT TIME!',
@@ -1858,7 +1767,7 @@ class LootOverlay:
         frame_surface(self.surface, colors["inventory_text"])
 
         # Display help:
-        self.helper = LootOverlayHelp()
+        self.helper = pt.LootOverlayHelp()
 
         # Play sound:
         if sound:
@@ -1880,7 +1789,7 @@ class LootOverlay:
             if self.character and self.character.slots[loot.prefer_slot]:
                 compare_to = self.character.slots[loot.prefer_slot]
                 if compare_to not in loot.loot_cards:
-                    loot.loot_cards[compare_to] = LootCard(loot, compare_to)
+                    loot.loot_cards[compare_to] = b.LootCard(loot, compare_to)
             else:
                 compare_to = None
 
@@ -2019,7 +1928,7 @@ class ProgressionBars:
         self.content = content
 
         # Initiate:
-        default_values = [(0 if isinstance(element, Bar) else False) for element in self.content]
+        default_values = [(0 if isinstance(element, b.Bar) else False) for element in self.content]
         self.update(default_values)
 
     def update(self, values: list):
@@ -2030,7 +1939,7 @@ class ProgressionBars:
         for i, (name, graphic) in enumerate(self.content.items()):
             value = values[i]
 
-            if isinstance(graphic, Bar):
+            if isinstance(graphic, b.Bar):
                 surface, rect = graphic.display(value)
                 rect.right, rect.top = x, y
                 self.surface.blit(surface, rect)
@@ -2105,2145 +2014,3 @@ class HeldMouse:
 
         self.held_timer += FPS_TICK
         return False
-
-
-class Button:
-    def __init__(
-            self,
-            text: list,
-            rect: r,
-            action,
-            action_parameters: list = None,
-            action_keywords: dict = None,
-            size: int = BASE_SIZE,
-            mouse_over_text: list = None,
-            kb_index: int = None
-    ):
-        # Basis:
-        self.text = text
-        self.mouse_over_text = mouse_over_text or self.text
-        self.action = action
-        self.action_parameters = action_parameters or list()
-        self.action_keywords = action_keywords or dict()
-
-        # Activation handles:
-        self.disabled = False
-        self.rect = rect
-        self.kb_index = kb_index
-
-        # Create surfaces:
-        # Text content:
-        text_surface = ascii_draw_rows(size, [[row, colors["inventory_text"]] for row in self.text])
-        text_rect = text_surface.get_rect(center=v(self.rect.center) - v(self.rect.topleft))
-        text_surface_moused = ascii_draw_rows(size, [[row, colors["inventory_text"]] for row in self.mouse_over_text])
-        text_moused_rect = text_surface_moused.get_rect(center=v(self.rect.center) - v(self.rect.topleft))
-        disabled_surface = ascii_draw_rows(size, [[row, colors["inventory_description"]] for row in self.text])
-
-        # Unmoused:
-        self.surface = s(rect.size, pygame.SRCALPHA)
-        self.surface.fill(c(colors["loot_card"]))
-        frame_surface(self.surface, colors["inventory_text"])
-        self.surface.blit(text_surface, text_rect)
-
-        # If index is specified, add it to unmoused surface:
-        if kb_index is not None:
-            index_surface = ascii_draw(size * 2 // 3, NUMBER_LABELS[kb_index], colors["inventory_title"])
-            self.surface.blit(index_surface, (BASE_SIZE // 2, BASE_SIZE // 2))
-
-        # Moused:
-        self.moused_over_surface = self.surface.copy()
-        self.moused_over_surface.fill(c(colors["inventory_description"]))
-        frame_surface(self.moused_over_surface, colors["inventory_text"])
-        self.moused_over_surface.blit(text_surface_moused, text_moused_rect)
-
-        # Disabled
-        self.disabled_surface = self.surface.copy()
-        self.disabled_surface.fill(c(colors["loot_card"]))
-        frame_surface(self.disabled_surface, colors["inventory_text"])
-        self.disabled_surface.blit(disabled_surface, text_rect)
-
-    def draw(self, moused_over: bool):
-        if self.disabled:
-            return self.disabled_surface, self.rect
-        return self.moused_over_surface if moused_over else self.surface, self.rect
-
-    def activate(self):
-        play_sound('button', 0.5)
-        if self.disabled:
-            return
-        self.action(*self.action_parameters, **self.action_keywords)
-
-
-class TNT:
-    def __init__(self):
-        self.banners = []
-        self.box = SceneHandler.active.scene.box
-        self.update_banners()
-
-    def update_banners(self):
-        # Info strings options:
-        info_string = {
-            "size": BASE_SIZE * 2 // 3,
-            "max_width": self.box.width - BASE_SIZE * 2,
-            "lifetime": 0.6,
-            "animation_duration": 0.3,
-            "tick_down": False,
-            "animation": 'simple',
-            "anchor": 'bottomleft'
-        }
-
-        # Trivia string at the bottom, greyed out
-        trivia_bottomleft = (self.box.left + BASE_SIZE, self.box.bottom - BASE_SIZE)
-        trivia_banner = Banner(
-            text=f"{string['gameplay']['trivia_label']}: {random.choice(string['trivia'])}",
-            position=trivia_bottomleft,
-            color=colors["inventory_description"],
-            **info_string
-        )
-
-        # Tip string above trivia string
-        trivia_banner_top = trivia_banner.surface.get_rect(bottomleft=trivia_bottomleft).top
-        tip_banner = Banner(
-            text=f"{string['gameplay']['tip_label']}: {random.choice(string['tips'])}",
-            position=(self.box.left + BASE_SIZE, trivia_banner_top - BASE_SIZE // 2),
-            color=colors["inventory_text"],
-            **info_string
-        )
-
-        self.banners = [tip_banner, trivia_banner]
-
-    def draw(self, pause):
-        return [banner.draw(pause) for banner in self.banners]
-
-
-# All kinds of menus and menu-like objects
-class Menu:
-    _background_color = c(*colors["loot_card"], 127)
-
-    def __init__(
-            self,
-            buttons_list: list,
-            rect: r = None,
-            decoration_objects: list = None,
-            background: bool = False,
-            offset: int = BASE_SIZE,
-            reposition_buttons: tuple = None,
-            escape_button_index: int = None,
-            title_surface: s = None,
-            add_tnt: bool = False
-    ):
-
-        # Remember position and contents:
-        self.title = title_surface
-        self.rect = rect
-        self.buttons_list = buttons_list
-        self.dimensions = reposition_buttons
-        self.offset = offset
-        self.decoration_objects = decoration_objects or list()
-        self.fading = False
-        self.exhausted = False
-
-        # Remember which button is meant to be escape (unless specified, use max index):
-        self.escape_button_index = escape_button_index if escape_button_index is not None else \
-            max(button.kb_index for button in self.buttons_list)
-
-        if reposition_buttons is not None:
-            self.reorder_buttons(self.dimensions)
-
-        if self.rect is None:
-            # Form a new rect in middle of screen
-            # Find bounds of rect by buttons and title surface
-            left, right, top, bottom = None, None, None, None
-            for button in buttons_list:
-                if left is None or left > button.rect.left:
-                    left = button.rect.left
-                if top is None or top > button.rect.top:
-                    top = button.rect.top
-                if right is None or right < button.rect.right:
-                    right = button.rect.right
-                if bottom is None or bottom < button.rect.bottom:
-                    bottom = button.rect.bottom
-
-            # Recalculate for title:
-            if self.title is not None:
-                top -= self.title.get_height() + self.offset
-                if self.title.get_width() > right - left:
-                    left = (WINDOW_SIZE[0] - self.title.get_width()) // 2
-                    right = left + self.title.get_width()
-
-            self.rect = r(
-                left - self.offset,
-                top - self.offset,
-                right - left + self.offset * 2,
-                bottom - top + self.offset * 2
-            )
-
-        # Draw background if needed:
-        self.background = s(self.rect.size, pygame.SRCALPHA)
-        if background:
-            self.background.fill(self._background_color)
-            frame_surface(self.background, colors["inventory_text"])
-        else:
-            self.background.fill([0, 0, 0, 0])
-
-        # Add tip and trivia if needed:
-        self.tnt = TNT() if add_tnt else None
-
-        # Modify rect if it is not supplied
-        if self.title:
-            title_rect = self.title.get_rect(midtop=(self.rect.width // 2, self.offset))
-            self.background.blit(self.title, title_rect)
-
-    def reorder_buttons(self, dimensions):
-        rows, columns = dimensions
-
-        # Find initial corner and size to place buttons
-        # Assume all buttons to have same height
-        column_height = rows * self.offset + self.buttons_list[0].rect.height * rows
-        title_height = self.title.get_height() + self.offset if self.title else 0
-        column_height += title_height
-
-        # Work with max button width
-        button_max_width = max(button.rect.width for button in self.buttons_list)
-        column_width = columns * self.offset + columns * button_max_width
-
-        buttons_box = r(0, 0, column_width, column_height)
-        buttons_box.center = v(self.rect.center) - v(self.offset // 2, self.offset // 2) if self.rect \
-            else (WINDOW_SIZE[0] // 2, WINDOW_SIZE[1] // 2)
-
-        # Place buttons in new box:
-        button_in_row = 1
-        top = buttons_box.top + self.offset + title_height
-        left = buttons_box.left + self.offset
-
-        for button in self.buttons_list:
-            if button.rect.topleft != (0, 0):
-                continue
-
-            # Prevent modifying default mutable rect
-            button.rect = button.rect.copy()
-            button.rect.topleft = left, top
-            top += button.rect.height + self.offset
-            button_in_row += 1
-
-            if button_in_row > rows:
-                left += button_max_width + self.offset
-                top = buttons_box.top + self.offset + title_height
-                button_in_row = 1
-
-    def display(self, mouse_v, active=True):
-        draw_order = list()
-
-        # Draw background first
-        if not self.fading:
-            draw_order.append((self.background, self.rect))
-
-        # Draw buttons:
-        for button in self.buttons_list:
-            draw_order.append(button.draw(active and bool(button.rect.collidepoint(mouse_v))))
-
-        # Decorate:
-        for banner in self.decoration_objects:
-            draw_order.append(banner.draw(not self.fading))
-
-            # Despawn dead banners:
-            if banner.lifetime < 0:
-                self.decoration_objects.remove(banner)
-
-        # Add Tips and Trivia if available:
-        if self.tnt:
-            draw_order.extend(self.tnt.draw(not self.fading))
-
-        # Check if menu is still to be drawn:
-        self.check_exhaustion()
-
-        return draw_order
-
-    def check_exhaustion(self):
-        self.exhausted = not any((
-            not self.fading,
-            self.buttons_list,
-            self.decoration_objects,
-            (self.tnt.banners[0].lifetime > 0) if self.tnt else False
-        ))
-
-    def collide_button(self, mouse_v):
-        """Perform button action for given x, y"""
-        for button in self.buttons_list:
-            if button.rect.collidepoint(mouse_v):
-                self.process(button)
-                break
-
-    def index_button(self, index):
-        for button in self.buttons_list:
-            if button.kb_index == index:
-                self.process(button)
-                break
-
-    def process(self, button):
-        button.activate()
-        if self.tnt and not self.fading:
-            self.tnt.update_banners()
-
-    def fade(self):
-        """Remove all buttons, cause all banners to fade"""
-        self.buttons_list = []
-        self.fading = True
-
-
-class Options(Menu):
-    def fade(self):
-        # Write options dict to json file
-        with open(os.path.join('options', 'options.json'), 'w') as options_json:
-            json.dump(OPTIONS, options_json, sort_keys=False, indent=2)
-        super(Options, self).fade()
-
-    def toggle(self, key):
-        # Toggle an option and cause redrawing all buttons
-        if isinstance(OPTIONS[key], bool):
-            OPTIONS[key] = not OPTIONS[key]
-        else:
-            # Get possible options count from localization file
-            options_count = len(string['menu']['option_contents'][key + '_states'])
-            OPTIONS[key] = (OPTIONS[key] + 1) % options_count
-        self.redraw()
-
-        # Special scripts:
-        if key == 'fullscreen':
-            # Windowed mode grabs mouse by default
-            OPTIONS["grab_mouse"] = True
-            update_screen()
-        elif key == "music":
-            if OPTIONS["music"] == 0:
-                end_theme()
-            elif OPTIONS["music"] == 1 and SceneHandler.active.theme:
-                SceneHandler.active.play_theme()
-                pygame.mixer.music.set_volume(MUSIC_VOLUME*OPTIONS["music"] / 4)
-            else:
-                pygame.mixer.music.set_volume(MUSIC_VOLUME * OPTIONS["music"] / 4)
-
-        elif key == 'sound':
-            load_sound_profile(OPTIONS["sound"])
-
-    def generate_buttons(self):
-        button_rect = DEFAULT_BUTTON_RECT.copy()
-        button_rect.width *= 2
-        buttons_list = []
-        i = 0
-        for key in OPTIONS:
-            if isinstance(OPTIONS[key], bool):
-                option_state_text = string['menu']['option_contents']["bool"]["True" if OPTIONS[key] else "False"]
-            else:
-                option_state_text = string['menu']['option_contents'][key + '_states'][str(OPTIONS[key])]
-
-            button_text = f"{string['menu']['option_contents'][key]}: {option_state_text}"
-
-            buttons_list.append(Button(
-                text=[button_text],
-                action=self.toggle,
-                action_keywords={'key': key},
-                rect=button_rect,
-                kb_index=i
-            ))
-            i += 1
-
-            # Disable certain options conditionally:
-            if OPTIONS["fullscreen"] and key == 'grab_mouse':
-                buttons_list[-1].disabled = True
-
-        # Add close button
-        buttons_list.append(Button(
-            text=[string["menu"]["back"]],
-            action=self.fade,
-            rect=button_rect,
-            kb_index=i
-        ))
-
-        return buttons_list
-
-    def __init__(self):
-        super(Options, self).__init__(
-            self.generate_buttons(),
-            reposition_buttons=(4, 2),
-            background=True,
-            title_surface=ascii_draw(BASE_SIZE * 2, string["menu"]["options"].upper(), colors["inventory_title"])
-        )
-
-    def redraw(self):
-        self.buttons_list = self.generate_buttons()
-        self.reorder_buttons(self.dimensions)
-
-
-class RUSureMenu(Menu):
-    def __init__(
-            self,
-            confirm_text,
-            action,
-            action_parameters=None,
-            action_keywords=None,
-            title=string["menu"]["confirm_exit"]
-    ):
-        title_surface = ascii_draw(BASE_SIZE, title, colors["inventory_title"])
-        button_rect = DEFAULT_BUTTON_RECT.copy()
-        button_rect.width *= 2
-
-        button_list = [
-            Button(
-                text=[confirm_text],
-                action=action,
-                action_parameters=action_parameters,
-                action_keywords=action_keywords,
-                kb_index=0,
-                rect=button_rect
-            ),
-            Button(
-                text=[string["menu"]["back"]],
-                action=self.fade,
-                kb_index=1,
-                rect=button_rect
-            )
-        ]
-
-        super(RUSureMenu, self).__init__(
-            button_list,
-            reposition_buttons=(2, 1),
-            background=True,
-            title_surface=title_surface,
-            escape_button_index=1
-        )
-
-
-class PauseEnsemble(Menu):
-    def __init__(self, scene):
-        # Unpause button:
-        unpause_rect = DEFAULT_BUTTON_RECT.copy()
-        unpause_rect.topleft = scene.box.left + BASE_SIZE, scene.box.top + BASE_SIZE
-        unpause_button = Button(
-            text=[string['menu']['unpause']],
-            rect=unpause_rect,
-            action=scene.toggle_pause,
-            kb_index=0
-        )
-
-        # Options button:
-        options_rect = DEFAULT_BUTTON_RECT.copy()
-        options_rect.topleft = unpause_rect.right + BASE_SIZE, scene.box.top + BASE_SIZE
-        options_button = Button(
-            text=[string['menu']['options']],
-            rect=options_rect,
-            action=scene.generate_menu_popup,
-            action_keywords={"menu_class": Options},
-            kb_index=1
-        )
-
-        # Main menu button:
-        menu_rect = DEFAULT_BUTTON_RECT.copy()
-        menu_rect.topleft = options_rect.right + BASE_SIZE, scene.box.top + BASE_SIZE
-        menu_button = Button(
-            text=[string['menu']['main']],
-            rect=menu_rect,
-            action=scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_menu"],
-                    "confirm_text": string['menu']['confirmed_menu'],
-                    "action": scene.request_new_handler,
-                    "action_parameters": [MainMenuSceneHandler]
-                }
-            },
-            kb_index=2
-        )
-
-        # Ragequit button
-        exit_rect = DEFAULT_BUTTON_RECT.copy()
-        exit_rect.topleft = menu_rect.right + BASE_SIZE, scene.box.top + BASE_SIZE
-        exit_button = Button(
-            text=[string['menu']['exit_ingame']],
-            rect=exit_rect,
-            action=scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_exit"],
-                    "confirm_text": string['menu']['confirmed_exit_ingame'],
-                    "action": exit_game
-                }
-            },
-            kb_index=3
-        )
-
-        # "Paused" banner
-        paused_banner = Banner(
-            f"[{string['gameplay']['paused']}]",
-            BASE_SIZE * 2,
-            scene.box.center[:],
-            colors["pause_popup"],
-            lifetime=0.6,
-            animation_duration=0.3,
-            tick_down=False
-        )
-
-        super(PauseEnsemble, self).__init__(
-            buttons_list=[unpause_button, options_button, menu_button, exit_button],
-            decoration_objects=[paused_banner],
-            rect=scene.box,
-            background=False,
-            escape_button_index=0,
-            add_tnt=True
-        )
-
-
-class MainMenu(Menu):
-
-    def generate_buttons(self):
-        buttons = [
-            # Continue button:
-            Button(
-                text=[string['menu']['continue']],
-                rect=DEFAULT_BUTTON_RECT,
-                action=SceneHandler.active.load_save,
-                action_parameters=[SkirmishSceneHandler],
-                kb_index=0
-            ),
-
-            # Skirmish button
-            Button(
-                text=[string['menu']['skirmish']],
-                rect=DEFAULT_BUTTON_RECT,
-                action=self.scene.generate_menu_popup,
-                action_keywords={
-                    "menu_class": Difficulty,
-                    "keywords": {
-                        "action": self._start_skirmish,
-                        "locked_from": PROGRESS["max_skirmish_beaten"] + 1
-                    }
-                },
-                kb_index=1
-            ),
-
-            # Tutorial button
-            Button(
-                text=[string['menu']['tutorial']],
-                rect=DEFAULT_BUTTON_RECT,
-                action=self.scene.request_new_handler,
-                action_keywords={
-                    "scene_handler": TutorialSceneHandler
-                },
-                kb_index=2
-            ),
-
-            # Options button:
-            Button(
-                text=[string['menu']['options']],
-                rect=DEFAULT_BUTTON_RECT,
-                action=self.scene.generate_menu_popup,
-                action_keywords={"menu_class": Options},
-                kb_index=3
-            ),
-
-            # Exit button
-            Button(
-                text=[string['menu']['exit']],
-                rect=DEFAULT_BUTTON_RECT,
-                action=self.scene.generate_menu_popup,
-                action_keywords={
-                    "menu_class": RUSureMenu,
-                    "keywords": {
-                        "title": string["menu"]["confirm_exit"],
-                        "confirm_text": string['menu']['confirmed_exit'],
-                        "action": exit_game
-                    }
-                },
-                kb_index=4
-            )
-        ]
-
-        # Check if there is a savefile; disable Continue button if not
-        save = load_json('saved.json', 'progress')
-        if save.get('type', None) != 'skirmish':
-            buttons[0].disabled = True
-
-        return buttons
-
-    def __init__(self, scene):
-        # Work within scene:
-        self.scene = scene
-
-        text = string["game_title"]
-        decorated_rows = [[row, colors["inventory_title"]] for row in frame_text([text], style='┏━┓┗┛┃').splitlines()]
-        row_length = len(decorated_rows[0][0])
-        decorated_rows.append([string["game_subtitle"].rjust(row_length), colors["inventory_description"]])
-        title_surface = ascii_draw_rows(BASE_SIZE, decorated_rows)
-
-        super(MainMenu, self).__init__(
-            self.generate_buttons(),
-            reposition_buttons=(3, 2),
-            background=True,
-            title_surface=title_surface,
-            add_tnt=True
-        )
-
-    def _start_skirmish(self, tier):
-        self.scene.request_new_handler(scene_handler=SkirmishSceneHandler, args=[tier])
-
-
-class Victory(Menu):
-    def __init__(
-            self,
-            scene,
-            next_level_text=None,
-            next_level_action=None,
-            next_level_parameters=None,
-            next_level_keywords=None,
-            victory_text=None
-    ):
-        # Modify savefile to be next level
-        if SceneHandler.active.tier < 4:
-            SceneHandler.active.save(next_level=True)
-        else:
-            # At Tier 4, character must be hall of famed instead of save
-            wipe_save()
-
-        # Stop theme music, play sound:
-        if pygame.mixer.music.get_busy():
-            pygame.mixer.music.stop()
-        play_sound('level_clear', 1)
-
-        index = 0
-        if next_level_text is not None:
-            # Next level button:
-            next_level_button = Button(
-                text=[next_level_text],
-                rect=DEFAULT_BUTTON_RECT,
-                action=next_level_action,
-                action_parameters=next_level_parameters,
-                action_keywords=next_level_keywords,
-                kb_index=index
-            )
-            index += 1
-        else:
-            next_level_button = None
-
-        # Main menu button:
-        # If there is no 'Next level' action saved, return to main menu does not require confirmation
-        main_menu_action = {
-            'action': scene.generate_menu_popup,
-            'action_keywords': {
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_menu"],
-                    "confirm_text": string['menu']['confirmed_menu'],
-                    "action": scene.request_new_handler,
-                    "action_parameters": [MainMenuSceneHandler]
-                }
-            }
-        } if next_level_button is not None else {
-            'action': scene.request_new_handler,
-            "action_parameters": [MainMenuSceneHandler]
-        }
-
-        menu_button = Button(
-            text=[string['menu']['main']],
-            rect=DEFAULT_BUTTON_RECT,
-            kb_index=index,
-            **main_menu_action
-        )
-        index += 1
-
-        # Quit button
-        exit_button = Button(
-            text=[string['menu']['exit']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_exit"],
-                    "confirm_text": string['menu']['confirmed_exit'],
-                    "action": exit_game
-                }
-            },
-            kb_index=index
-        )
-
-        buttons_list = [next_level_button, menu_button, exit_button] if next_level_button is not None else \
-            [menu_button, exit_button]
-
-        # Form victory surface for title:
-        # 1. Victory statement surface
-        victory_string = (victory_text or random.choice(string['gameplay']['scene_clear'])).ljust(15)
-        statement_surface = ascii_draw(BASE_SIZE * 2, victory_string, colors['inventory_better'])
-        # 2. Form killed monsters list surface
-        if scene.dead_characters:
-            killed_monsters_count = dict()
-            for enemy in scene.dead_characters:
-                killed_monsters_count[enemy.class_name] = killed_monsters_count.get(enemy.class_name, 0) + 1
-
-            colored_header_row = [[string["gameplay"]["monster_list"].ljust(20), colors["inventory_text"]]]
-
-            content_rows = frame_text(
-                [
-                    f"{key_value[0]}: {key_value[1]}".rjust(31)
-                    for key_value in
-                    sorted(killed_monsters_count.items(), key=lambda x: -x[1])
-                ],
-                '━━━━━ '
-            )
-
-            colored_content_rows = [[row, colors["inventory_text"]] for row in content_rows.splitlines()]
-
-            # Add stats rows:
-            combo = f'{scene.max_combo}{"!" * (min(3, scene.max_combo // 23))}'
-            time = f'{scene.timer // 60:.0f}m{int(scene.timer % 60):.0f}.{str(scene.timer % 1)[2:4]}s'
-            damage = f'{scene.player_damage:,.0f}'
-            dps = f'{scene.player_damage / scene.timer:.2f} {string["gameplay"]["victory_stats"]["dps"]}'
-            stats_rows = [
-                [f'{string["gameplay"]["victory_stats"]["time"]}: {time}', colors["inventory_text"]],
-                [f'{string["gameplay"]["victory_stats"]["combo"]}: {combo}', colors["inventory_text"]],
-                [f'{string["gameplay"]["victory_stats"]["damage"]}: {damage} ({dps})', colors["inventory_text"]],
-                [f'{string["gameplay"]["victory_stats"]["deaths"]}: {scene.player_deaths}', colors["inventory_text"]]
-            ]
-
-            killed_monsters_surface = ascii_draw_rows(BASE_SIZE, colored_header_row + colored_content_rows + stats_rows)
-
-        else:
-            killed_monsters_surface = s((0, 0))
-
-        total_title_surface = s(
-            (
-                max(statement_surface.get_width(), killed_monsters_surface.get_width()) + BASE_SIZE * 2,
-                BASE_SIZE * (3 if scene.dead_characters else 2) + statement_surface.get_height() +
-                killed_monsters_surface.get_height()
-            ),
-            pygame.SRCALPHA
-        )
-        total_title_surface.fill(self._background_color)
-        frame_surface(total_title_surface, colors['inventory_text'])
-        total_title_surface.blit(statement_surface, (BASE_SIZE, BASE_SIZE))
-        total_title_surface.blit(killed_monsters_surface, (BASE_SIZE, BASE_SIZE * 2 + statement_surface.get_height()))
-
-        super().__init__(
-            buttons_list=buttons_list,
-            title_surface=total_title_surface,
-            reposition_buttons=(1, len(buttons_list)),
-            escape_button_index=menu_button.kb_index,
-            add_tnt=True
-        )
-
-
-class Defeat(Menu):
-
-    def __init__(self, scene):
-        # No cheating! Wipe savefile:
-        wipe_save()
-
-        # Stop theme music, play sound:
-        if pygame.mixer.music.get_busy():
-            pygame.mixer.music.stop()
-        play_sound('level_failed', 1)
-
-        # Main menu button:
-        menu_button = Button(
-            text=[string['menu']['main']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_menu"],
-                    "confirm_text": string['menu']['confirmed_menu'],
-                    "action": scene.request_new_handler,
-                    "action_parameters": [MainMenuSceneHandler]
-                }
-            },
-            kb_index=0
-        )
-
-        # Quit button
-        exit_button = Button(
-            text=[string['menu']['exit_ingame']],
-            rect=DEFAULT_BUTTON_RECT,
-            action=scene.generate_menu_popup,
-            action_keywords={
-                "menu_class": RUSureMenu,
-                "keywords": {
-                    "title": string["menu"]["confirm_exit"],
-                    "confirm_text": string['menu']['confirmed_exit_ingame'],
-                    "action": exit_game
-                }
-            },
-            kb_index=1
-        )
-
-        buttons_list = [menu_button, exit_button]
-
-        defeat_banner = Banner(
-            string['gameplay']['game_over'],
-            BASE_SIZE * 2,
-            v(scene.box.center) - v(0, scene.box.height // 3),
-            colors["game_over"],
-            lifetime=6,
-            animation_duration=3,
-            tick_down=False
-        )
-
-        super().__init__(
-            buttons_list=buttons_list,
-            decoration_objects=[defeat_banner],
-            reposition_buttons=(1, 2),
-            escape_button_index=menu_button.kb_index,
-            add_tnt=True
-        )
-
-
-class Difficulty(Menu):
-    def __init__(self, action, locked_from: int = None):
-
-        button_list = []
-        index = 0
-
-        # Generate buttons for difficulty levels
-        for difficulty in range(1, 5):
-            button = Button(
-                text=[f"{string['menu']['difficulty']}: {difficulty}"],
-                action=action,
-                rect=DEFAULT_BUTTON_RECT,
-                action_keywords={"tier": difficulty},
-                kb_index=index
-            )
-
-            index += 1
-            button_list.append(button)
-            if difficulty > (locked_from or 0):
-                button.disabled = True
-
-        # Generate back buton:
-        button_rect = DEFAULT_BUTTON_RECT.copy()
-        button_rect.width *= 2
-        button_list.append(Button(
-            text=[string["menu"]["back"]],
-            action=self.fade,
-            kb_index=index,
-            rect=button_rect
-        ))
-
-        # Generate title:
-        title_surface = ascii_draw(BASE_SIZE, string['menu']['difficulty_choose'], colors["inventory_title"])
-
-        super().__init__(
-            button_list,
-            reposition_buttons=(index + 1, 1),
-            background=True,
-            title_surface=title_surface
-        )
-
-
-class LootHelp(Menu):
-    _background_color = c(*colors["loot_card"], 255)
-
-    def __init__(self):
-        button_list = [Button(
-            text=[string["menu"]["ok"]],
-            rect=DEFAULT_BUTTON_RECT,
-            action=self.fade,
-            kb_index=0
-        )]
-
-        title = ascii_draw_rows(
-            BASE_SIZE, [(entry, colors["inventory_title"]) for entry in string["tutorial"]["loot_help"]]
-        )
-
-        super(LootHelp, self).__init__(
-            buttons_list=button_list,
-            background=True,
-            title_surface=title,
-            reposition_buttons=(1, 1)
-        )
-
-
-# Player character class
-class Player(Humanoid):
-    drops_shields = False
-    hit_immunity = 1.2
-    remains_persistence = 0.3
-
-    def __init__(self, position, species='Human'):
-        self.species = species
-        player_body = character_stats["body"][self.species].copy()
-        player_body["agility"] *= 2
-
-        super(Player, self).__init__(
-            position,
-            **player_body,
-            **colors["player"],
-            faces=character_stats["mind"][self.species],
-            name=string["protagonist_name"]
-        )
-
-        # Face right when starting:
-        self.flip(new_collision=0)
-
-        # Scene interaction:
-        self.inventory = Inventory(self, INVENTORY_SPACE)
-        self.seen_loot_drops = False
-        self.sees_enemies = False
-
-        # Bump sound limit:
-        self.last_bump = 0
-
-        # Add a secondary stamina bar to replace the usual when no stamina is consumed
-        main_stamina_bar_parameters = list(get_key(self.bars["stamina"], Bar.instance_cache))
-        new_parameters = list(main_stamina_bar_parameters)
-        # Change color:
-        new_parameters[2] = c(colors['sp_special'])
-        self.sp_passive = Bar(*new_parameters)
-
-        # Set by scene:
-        self.combo_counter = None
-
-    def push(self, vector, time, state='flying', affect_player=False, **kwargs):
-        # Player character is more resilient to pushback
-        if affect_player and state in DISABLED:
-            vector *= 0.33
-        super().push(vector, time, state, **kwargs)
-
-    def equip_basic(self, main_hand_pick=None, off_hand_pick=None):
-
-        if main_hand_pick is None:
-            main_hand_lst = list(
-                filter(
-                    lambda x:
-                    artifacts[x]["class"] in {"Dagger", "Sword", "Spear", "Falchion", "Axe"} and
-                    artifacts[x]["tier"] == 0,
-                    artifacts
-                )
-            )
-            main_hand_pick = random.choice(main_hand_lst), 'main_hand'
-        else:
-            main_hand_pick = main_hand_pick, 'main_hand'
-
-        if off_hand_pick is None:
-            off_hand_lst = list(
-                filter(
-                    lambda x:
-                    artifacts[x]["class"] in {"Shield", "Swordbreaker", "Katar", "Knife"} and
-                    artifacts[x]["tier"] == 0,
-                    artifacts
-                )
-            )
-            off_hand_pick = random.choice(off_hand_lst), 'off_hand'
-        else:
-            off_hand_pick = off_hand_pick, 'off_hand'
-
-        for weapon in (main_hand_pick, off_hand_pick):
-            weapon_gen = Wielded.registry[artifacts[weapon[0]]["class"]]
-            generated = weapon_gen(BASE_SIZE, equipment_dict=artifacts[weapon[0]], roll_stats=False)
-            self.equip(generated, weapon[1])
-
-    # Player SP is drawn differently if no weapon consumes stamina
-    def _draw_bars(self):
-        self.weapons_drain = any(
-            weapon for weapon in self.weapon_slots
-            if (
-                    self.slots[weapon] and
-                    self.slots[weapon].aim_drain_modifier != 0 and
-                    self.slots[weapon].stamina_ignore_timer <= 0
-            )
-        )
-        return super(Player, self)._draw_bars()
-
-    def _fill_bar_dicts(self, bar: str, drawn_bars: dict, bar_rects: dict):
-        if bar == 'stamina' and not self.weapons_drain:
-            drawn_bars[bar], bar_rects[bar] = self.sp_passive.display(self.stamina)
-        else:
-            super(Player, self)._fill_bar_dicts(bar, drawn_bars, bar_rects)
-
-    def save(self) -> str:
-        # All Player objects are mostly identical, main difference is equipment and species
-        equipment_classes = {
-            slot: eq.class_name
-            for slot, eq in self.slots.items()
-            if eq
-        }
-
-        equipment_stats = dict()
-
-        for slot, eq in self.slots.items():
-            if eq:
-                eq.reset(self, reposition=False)
-                equipment_stats[slot] = eq.drop_json()
-
-        player_json = {
-            'species': self.species,
-            'seen_ld': self.seen_loot_drops,
-            'classes': equipment_classes,
-            'stats': equipment_stats
-        }
-
-        return json.dumps(player_json, sort_keys=False)
-
-    @classmethod
-    def load(cls, json_string: str, position=None):
-        saved_state = json.loads(json_string)
-
-        equipment_reg = Wielded.registry.copy()
-        equipment_reg.update(Hat.registry)
-
-        saved_classes = {
-            slot: equipment_reg[tp_str]
-            for slot, tp_str in
-            saved_state['classes'].items()
-        }
-
-        player = cls(position, species=saved_state['species'])
-        player.seen_loot_drops = saved_state['seen_ld']
-
-        # Create and equip saved weapons:
-        for slot, tp in saved_classes.items():
-            item = tp(tier_target=1, size=player.size)
-            item.from_json(saved_state['stats'][slot])
-            player.equip(item, slot)
-
-        return player
-
-
-# Scene Handlers: 'brains' of Scenes
-class SceneHandler:
-    _batch_spawn_chance = 0.3
-    theme = None
-    # Stores persistent reference to active scene handler to help instances of SceneHandler exchange game states:
-    active = None
-
-    def __init__(
-            self,
-            tier: int,
-            pad_monster_classes: list,
-            pad_monster_weights: list = None,
-            monsters: list = None,
-            loot_drops: int = 4,
-            monster_total_cost: int = 100,
-            on_scren_enemies_value=(7, 12),
-            player: Player = None,
-            scene: Scene = None,
-            enemy_color=c(100, 0, 0),
-            spawn_delay: float = (8.0, 2.0),
-            sort_loot: bool = False,
-            no_player: bool = False,
-            next_level_options: dict = None,
-            scene_background: s = None
-    ):
-        # If there is no active SceneHandler, proclaim self to be one:
-        if SceneHandler.active is None:
-            SceneHandler.active = self
-
-        # Dynamically changing:
-        self.victory_banner = None
-        self.loot_progression = 0
-        self.absolute_progression = 0
-
-        self.relative_progression = 0.0
-        self.deserved_loot_drops = 0
-
-        # Target tier to spawn monsters and loot:
-        self.tier = tier
-
-        # Spawn a player unless we have it ready from before:
-        if player is None and not no_player:
-            self.player = Player(position=PLAYER_SPAWN)
-            self.player.equip_basic()
-        else:
-            self.player = player
-
-        # Initiate a new scene, again, if needed:
-        self.scene = scene or Scene(self.player, SCREEN, SCENE_BOUNDS, custom_surface=scene_background)
-
-        # If scene does not have a player, but we do, add it to scene:
-        if self.scene.player is None and self.player is not None:
-            self.introduce_player()
-
-        # Create backlog of monsters:
-        self.on_scren_enemies_value_range = on_scren_enemies_value
-        self.monsters = monsters or []
-
-        # If spawn weights are not specified, all are equal
-        pad_monster_weights = pad_monster_weights or [1] * len(pad_monster_classes)
-        enemy_cost = sum(enemy.difficulty for enemy in self.monsters)
-
-        # Fill level up to missing value by monsters of specified classes
-        while enemy_cost < monster_total_cost:
-            monster_instance = random.choices(pad_monster_classes, pad_monster_weights)[0]
-            enemy_cost += monster_instance.difficulty
-            # Insert in random spots EXCEPT for first: may contain Bosses
-            insert_idx = random.randint(1, len(self.monsters)) if self.monsters else 0
-            self.monsters.insert(
-                insert_idx,
-                monster_instance(position=None, tier=self.tier, team_color=enemy_color)
-            )
-
-        # Create backlog of loot
-        # Spread by slot:
-        loot_by_slot = dict()
-        for loot_class in tuple(Wielded.registry.values()):
-            if loot_class.prefer_slot in loot_by_slot:
-                loot_by_slot[loot_class.prefer_slot].append(loot_class)
-            else:
-                loot_by_slot[loot_class.prefer_slot] = [loot_class]
-
-        loot_slots = list(loot_by_slot.keys())
-        loot_slot_weights = [LOOT_OCCURRENCE_WEIGHTS[slot] for slot in loot_slots]
-
-        self.loot = []
-
-        last_loot_classes = [None, None]
-        for _ in range(3 * loot_drops):
-            # Choose slot to generate piece of loot for:
-            loot_classes = loot_by_slot[random.choices(population=loot_slots, weights=loot_slot_weights)[0]]
-            # Prevent generating 3 of same class in a row:
-            if last_loot_classes[0] is last_loot_classes[1] in loot_classes:
-                loot_classes.remove(last_loot_classes[0])
-            loot_class = random.choice(loot_classes)
-
-            # Cycle last 2 classes:
-            del last_loot_classes[0]
-            last_loot_classes.append(loot_class)
-
-            # Append loot piece
-            self.loot.append(loot_class(tier_target=tier, size=BASE_SIZE))
-
-        # Better loot last:
-        if sort_loot:
-            self.loot.sort(key=lambda x: x.tier, reverse=False)
-
-        # Calculate "cost" of getting loot drop offered:
-        self.loot_progression_required = monster_total_cost / loot_drops if loot_drops != 0 else 0
-        self.absolute_level_value = monster_total_cost
-
-        # Spawn bars and loot drop indicator
-        self.fill_scene_progression()
-
-        # Enemy spawn delays
-        self.spawn_enemies = True
-        self.spawn_delay_range = spawn_delay
-        self.spawn_queued: [None, Character] = None
-        self.spawn_timer = 0
-
-        # Own spawn delay
-        self.respawn_banner: [None, Banner] = None
-        self.player_survived = True
-
-        # Support for looting sequence:
-        self.loot_querried = False
-        self.loot_total = loot_drops
-        self.loot_dropped = 0
-        self.batch_spawn_after_loot = False
-
-        # Button that takes us to the next level (subclasses set own, this is just a skeleton):
-        self.next_level_options = next_level_options or {
-            "next_level_text": None,
-            "next_level_action": None,
-            "next_level_parameters": None,
-            "next_level_keywords": None
-        }
-
-        # Play music
-        if OPTIONS["music"] and self.theme and not pygame.mixer.music.get_busy():
-            self.play_theme()
-
-    def introduce_player(self):
-        self.scene.player = self.player
-        if self.player not in self.scene.characters:
-            self.scene.characters = [self.player] + self.scene.characters
-        self.fill_scene_progression()
-        self.scene.log_weapons()
-
-    def fill_scene_progression(self):
-        bar_size = BASE_SIZE
-        items = {
-            f"{string['progress']['level']}{self.tier}": Bar(
-                bar_size,
-                10,
-                colors["inventory_durability"],
-                self.absolute_level_value,
-                base_color=colors['inventory_durability']
-            ),
-            string['progress']['loot_drop']: Bar(
-                bar_size,
-                10,
-                colors["inventory_durability"],
-                self.loot_progression_required,
-                base_color=colors['inventory_durability']
-            ),
-            "loot_drop": Indicator(ascii_draw(
-                bar_size,
-                string['progress']['loot_soon'],
-                c(colors["indicator_good"])
-            ))
-        }
-        self.scene.progression = ProgressionBars(items, font_size=bar_size)
-
-    def batch_spawn(self, value=None):
-        self.batch_spawn_after_loot = False
-        if value is None:
-            value = lerp(self.on_scren_enemies_value_range, self.relative_progression)
-
-        # Stop if monster backlog is empty
-        while self.monsters and not isinstance(self.monsters[-1], Boss) and self.scene.count_enemies_value() < value:
-            self.spawn_monster(force=True)
-
-    def execute(self) -> bool:
-        # 1. Iterate the scene
-        self.scene.iterate()
-
-        # 2. Affect the scene:
-        # 2.1. Check and spawn monsters if needed
-        # Test if loot is queued to be spawned
-        if self.spawn_enemies and not any((self.loot_querried, self.scene.loot_overlay, self.scene.paused)):
-            # If player just picked up loot, spawn a bunch of monsters:
-            if self.batch_spawn_after_loot:
-                self.batch_spawn()
-            # If scene is empty and player is chainkilling spawning enemies, spawn bunch at once:
-            elif (self.scene.count_enemies_value() == 0 and self.scene.enemies_count_on_death == []) or (
-                    len(self.scene.enemies_count_on_death) > 3 and
-                    self.scene.enemies_count_on_death[-3:] == [0, 0, 0] and
-                    self.scene.count_enemies_value() == 0
-            ):
-                self.batch_spawn()
-            # Otherwise, spawn normally
-            else:
-                self.spawn_monster()
-
-        # 2.2. Modify displayed scene bars according to progress
-        # Calculate current progress if player is present and loot is bound to drop:
-        if self.player is not None and self.loot_total != 0:
-            killed_value = sum(
-                [
-                    monster.difficulty
-                    for monster in self.scene.dead_characters
-                    if self.player.collision_group != monster.collision_group
-                ]
-            )
-            self.deserved_loot_drops = killed_value // self.loot_progression_required \
-                if self.loot_progression_required > 0 else 0
-            self.relative_progression = killed_value / self.absolute_level_value
-
-            if (
-                    self.deserved_loot_drops > self.loot_dropped or
-                    (self.loot_total > self.loot_dropped and not self.monsters)
-            ) and not self.loot_querried and self.spawn_timer <= 0:
-                self.loot_dropped += 1
-                self.loot_querried = True
-
-            # Update progress bars
-            if self.loot_querried or self.deserved_loot_drops > self.loot_dropped:
-                loot_bar_value = self.loot_progression_required
-            elif self.loot_dropped == self.loot_total:
-                loot_bar_value = 0
-            else:
-                loot_bar_value = killed_value % self.loot_progression_required
-
-            if self.scene.progression:
-                self.scene.progression.update([
-                    killed_value,
-                    loot_bar_value,
-                    self.loot_querried or self.deserved_loot_drops > self.loot_dropped
-                ])
-
-        # 2.3. Drop loot for player if scene is clear and progress is achieved
-        if (
-                not self.scene.paused and
-                not self.scene.loot_overlay and
-                self.loot_querried and
-                self.scene.count_enemies_value() == 0 and not
-                any(corpse for corpse in self.scene.particles if isinstance(corpse, Remains) and corpse.lifetime > 3)
-        ):
-            self.batch_spawn_after_loot = True
-            loot_package = self.loot[:3]
-            del self.loot[:3]
-
-            # Loot label contains a hint if it's first in playthrough:
-            loot_label = random.choice(
-                string["gameplay"]["loot_label" if self.player.seen_loot_drops else "loot_label_first"]
-            )
-
-            # Animate overlay from last dead monster:
-            last_victim = self.scene.dead_characters[-1].position + self.scene.conversion_v
-
-            # Spawn explanation:
-            if not self.player.seen_loot_drops:
-                self.scene.menus.append(LootHelp())
-            self.scene.loot_overlay = LootOverlay(loot_package, self.player, label=loot_label, appear_from=last_victim)
-
-            # Boolean toggles:
-            self.loot_querried = False
-            self.player.seen_loot_drops = True
-
-        # 2.4. Penalize and respawn dead player
-        if self.player in self.scene.dead_characters:
-            self.death_sequence()
-
-        # 3. Test if scenario is done
-        #  Test if scene is clear from enemies, no monsters left to spawn and all loot is picked up
-        done = not any([
-            not self.player,
-            self.monsters,
-            self.scene.paused,
-            self.loot_querried,
-            self.spawn_queued,
-            self.scene.loot_overlay,
-            any(char for char in self.scene.characters if char.collision_group != self.player.collision_group),
-            # Any non-persistent corpses
-            any(
-                corpse for corpse in self.scene.particles
-                if isinstance(corpse, Remains) and corpse.blitting_list[0][-1] is not None
-            )
-        ])
-
-        # Spawn victory menu
-        if done and not any(victory for victory in self.scene.menus if isinstance(victory, Victory)):
-            self._win()
-
-        # 4. If scene requests a new handler, hand over:
-        self._process_handover()
-
-        # Return True unless scenario is completed
-        return not done
-
-    def _process_handover(self):
-        if self.scene.new_sh_hook is not None:
-            self.hand_off_to(self.scene.new_sh_hook)
-
-    def _win(self):
-        self.scene.generate_menu_popup(
-            menu_class=Victory,
-            keywords={
-                "scene": self.scene,
-                **self.next_level_options
-            }
-        )
-
-    def spawn_monster(self, force=False):
-        # If forced, immediately spawn a monster. Exception unsafe!
-        if force:
-            self.scene.spawn(self.monsters.pop())
-            return
-
-        # Calculate current progress dependent variables:
-        current_on_scren_enemies = lerp(self.on_scren_enemies_value_range, self.relative_progression)
-        current_spawn_delay = lerp(self.spawn_delay_range, self.relative_progression)
-        present_enemies_value = self.scene.count_enemies_value()
-
-        # Execute querried spawn if timer reached 0:
-        if self.spawn_queued and self.spawn_timer <= 0:
-            self.scene.spawn(self.spawn_queued)
-            self.spawn_queued = None
-
-        # If there are no enemies and none are querried to spawn, reduce spawn_timer to 0.5:
-        elif self.spawn_queued is None and present_enemies_value == 0 and any(self.monsters):
-            self.spawn_queued = self.monsters.pop()
-            self.spawn_timer = 0.5
-
-        # Drop timer if spawn is querried but scene is empty:
-        elif self.spawn_timer > 0.5 and present_enemies_value == 0 and any(self.monsters):
-            self.spawn_timer = 0.5
-
-        # If a spawn is queued, tick down timer
-        elif self.spawn_timer > 0 and not self.scene.paused:
-            # Tick down slower is scene is close to full
-            tick_down_speed = 1 - present_enemies_value / current_on_scren_enemies
-            iteration_tick = lerp((0, FPS_TICK), tick_down_speed)
-            self.spawn_timer -= iteration_tick if tick_down_speed == 1 else 2 * iteration_tick
-
-        # If there are fewer enemies than needed and no spawn is queued, queue one
-        elif self.spawn_queued is None and present_enemies_value < current_on_scren_enemies and self.monsters:
-
-            # If next monsters is boss, wait until scene is clear from same team characters:
-            next_monster = self.monsters[-1]
-            if isinstance(next_monster, Boss) and any(char for char in self.scene.characters
-                                                      if next_monster.collision_group == char.collision_group):
-                return
-
-            self.spawn_timer = current_spawn_delay
-
-            # Depending on progress, there is a chance to get batch spawn instead, increasing with progress
-            if random.random() > self._batch_spawn_chance + (1 - self._batch_spawn_chance) * self.relative_progression:
-                self.batch_spawn()
-            else:
-                self.spawn_queued = self.monsters.pop()
-
-    def death_sequence(self, respawn_bang=True):
-
-        if any(defeat for defeat in self.scene.menus if isinstance(defeat, Defeat)):
-            return
-
-        elif self.respawn_banner is None:
-            self.player_survived, report = self.player.penalize()
-            # Spawn report banner
-            self.scene.report(report, colors["inventory_worse"])
-
-            if not self.player_survived:
-                self.scene.generate_menu_popup(
-                    menu_class=Defeat,
-                    keywords={"scene": self.scene}
-                )
-                # Exit the loop
-                return
-
-            banner_text = random.choice(string['gameplay']['respawn_successful'])
-            play_sound('player_death', 1)
-            self.respawn_banner = Banner(
-                banner_text,
-                BASE_SIZE * 2,
-                self.scene.box.center[:],
-                colors["respawn_encourage"],
-                lifetime=3,
-                animation_duration=0.3
-            )
-
-            self.scene.particles.append(self.respawn_banner)
-
-        elif self.respawn_banner.lifetime <= 0 and self.player not in self.scene.characters:
-            self.scene.respawn(self.player, PLAYER_SPAWN)
-            if respawn_bang:
-                self.scene.explosion(
-                    self.player.position,
-                    max_distance=13 * BASE_SIZE,
-                    collision_group=self.player.collision_group
-                )
-            self.respawn_banner = None
-
-    def hand_off_to(self, scene_handler, give_player=True):
-        if self is not SceneHandler.active:
-            raise ValueError(f"{self} is not the active scene handler.")
-
-        # Fade all menus:
-        [menu.fade() for menu in self.scene.menus]
-
-        # Tick down all banners:
-        for banner in self.scene.particles:
-            if isinstance(banner, Banner):
-                banner.tick_down = True
-
-        # Transplant scene banners and menus and player.
-        # scene_handler.scene.particles.extend(banner for banner in self.scene.particles if isinstance(banner, Banner))
-        # scene_handler.scene.menus.extend(self.scene.menus)
-
-        if not isinstance(scene_handler, MainMenuSceneHandler) and self.player is not None and give_player:
-            scene_handler.player = scene_handler.scene.player = self.player
-
-            # Also supplement to the scene character list:
-            try:
-                player_index = scene_handler.scene.characters.index(self.player)
-                scene_handler.scene.characters[player_index] = self.player
-            except ValueError:
-                # Player is not supposed to be alive in the scene? That's alright.
-                try:
-                    player_index = scene_handler.scene.dead_characters.index(self.player)
-                    scene_handler.scene.dead_characters[player_index] = self.player
-                except ValueError:
-                    # Special Handlers (CampaignHandler) may introduce player later
-                    pass
-
-            # Remind new SH to initiate on the scene:
-            scene_handler.introduce_player()
-            scene_handler.fill_scene_progression()
-
-        # Give up control:
-        SceneHandler.active = scene_handler
-
-        # Switch theme:
-        if OPTIONS["music"]:
-            end_theme()
-            if SceneHandler.active.theme is not None:
-                SceneHandler.active.play_theme()
-
-    def play_theme(self):
-        theme = self.theme
-        # If there is a Boss, pick its theme instead
-        for monster in self.scene.characters:
-            if isinstance(monster, Boss) and monster.theme is not None:
-                theme = monster.theme
-        play_theme(os.path.join('music', theme))
-
-    def load_save(self, cls):
-        return
-
-    @classmethod
-    def load(cls):
-        pass
-
-    def save(self, next_level=False):
-        return
-
-
-class SkirmishSceneHandler(SceneHandler):
-    theme = 'blkrbt_stairs.ogg'
-
-    def __init__(self, tier: int, *args, player=None, on_scren_enemies_value=(7, 12), **kwargs):
-
-        pad_monster_classes = list(filter(
-            lambda cls: not cls.debug and not issubclass(cls, Boss),
-            Character.registry.values()
-        ))
-        pad_monster_weights = [monster_class.skirmish_spawn_rate for monster_class in pad_monster_classes]
-
-        # Custom loot offering screens for newly spawning player:
-        self.offer_off_hand = self.offer_main_hand = player is None
-        player = player or Player(position=PLAYER_SPAWN)  # Base scene handler would equip player automatically
-
-        # Introduce boss monster:
-        boss = Elite(
-            position=None,
-            tier=tier,
-            base_creature=random.choice(pad_monster_classes),
-            pack_difficulty=on_scren_enemies_value[1] * 2 // 3
-        )
-
-        # Draw background (Lorem Ipsum currently)
-        # todo: replace with tiles
-        lorem_ipsum = s(ARENA_RECT.size)
-        lorem_ipsum.fill(colors["background"])
-        blit_cascade_text(
-            surface=lorem_ipsum,
-            font_size=BASE_SIZE * 3 // 2,
-            text=string["lorem_ipsum"],
-            xy_topleft=v(),
-            right_offset=0,
-            color=colors["background_noise"]
-        )
-
-        super().__init__(
-            tier=tier,
-            *args,
-            player=player,
-            monsters=[boss],
-            pad_monster_classes=pad_monster_classes,
-            pad_monster_weights=pad_monster_weights,
-            on_scren_enemies_value=on_scren_enemies_value,
-            scene_background=lorem_ipsum,
-            **kwargs
-        )
-
-        # Make sure Victory Screen has a button to go to the next difficulty level
-        if tier < 4:
-            self.next_level_options = {
-                "next_level_text": f"{string['menu']['difficulty']}: {tier + 1}",
-                "next_level_action": self.scene.request_new_handler,
-                "next_level_parameters": [SkirmishSceneHandler],
-                "next_level_keywords": {
-                    "kwargs": {
-                        "tier": tier + 1,
-                        "player": self.player,  # Make sure the player is handed over!
-                        **kwargs
-                    }
-                }
-            }
-
-        # If no custom loot drops are needed, pause monster spawning, and add an unpause countdown:
-        self.spawn_enemies = False
-        if not any((self.offer_main_hand, self.offer_off_hand)):
-            self._spawn_countdown()
-
-        # Save state of level to the disc:
-        if any(self.player.slots[slot] for slot in self.player.slots):
-            self.save()
-
-        self.fill_scene_progression()
-
-    def _spawn_countdown(self):
-        self.scene.particles.append(CountDown(
-            self._start_spawning,
-            {},
-            colors["pause_popup"],
-            position=self.scene.box.center[:],
-            go_text="FIGHT!",
-            ignore_pause=False
-        ))
-
-    def _start_spawning(self):
-        self.spawn_enemies = True
-        # Spawn monsters for scene inception:
-        self.batch_spawn(self.on_scren_enemies_value_range[0])
-
-    def execute(self) -> bool:
-        # If no custom loot drops are needed, proceed as normal:
-        if self.spawn_enemies:
-            return super(SkirmishSceneHandler, self).execute()
-
-        elif not any((self.offer_main_hand, self.offer_off_hand, self.scene.loot_overlay)):
-            # Spawn enemies if there is no countdown to do so:
-            if not any(countdown for countdown in self.scene.particles if isinstance(countdown, CountDown)):
-                self._spawn_countdown()
-
-        # Usual processing:
-        self.scene.iterate()
-        self._process_handover()
-
-        # Offer basic selection of artefacts for weapon slots:
-        if self.scene.loot_overlay is None and self.offer_main_hand:
-            self._skirmish_init_equip('main_hand')
-            self.offer_main_hand = False
-        elif self.scene.loot_overlay is None and self.offer_off_hand:
-            self._skirmish_init_equip('off_hand')
-            self.offer_off_hand = False
-
-        return False
-
-    def _skirmish_init_equip(self, slot):
-        weapon_classes = set(filter(
-            lambda cls: Wielded.registry[cls].prefer_slot == slot,
-            Wielded.registry.keys()
-        ))
-        main_hand_picks = random.sample(
-            list(filter(
-                lambda x:
-                artifacts[x]["class"] in weapon_classes and
-                artifacts[x]["tier"] == 0,
-                artifacts
-            )),
-            3
-        )
-
-        loot_package = []
-        for artifact in main_hand_picks:
-            generator = Wielded.registry[artifacts[artifact]["class"]]
-            loot_package.append(generator(BASE_SIZE, equipment_dict=artifacts[artifact], roll_stats=False))
-
-        # Loot label contains a hint if it's first in playthrough:
-        loot_label = random.choice(string["gameplay"]["loot_label_arena"])
-
-        self.scene.loot_overlay = LootOverlay(
-            loot_package,
-            self.player,
-            label=loot_label,
-            appear_from=None,
-            sound=False,
-            banner=False
-        )
-
-    def save(self, next_level=False):
-        save_dict = {
-            'type': 'skirmish',
-            'level': self.tier + 1 if next_level else self.tier,
-            'offer': [self.offer_off_hand, self.offer_main_hand],
-            'player': self.player.save(),
-            'seed': None  # May be useful one day
-        }
-        save_state(save_dict)
-
-    @classmethod
-    def load(cls):
-        saved_state = load_json('saved.json', directory='progress')
-
-        # Rereate saved player:
-        saved_player = Player.load(saved_state['player'], position=PLAYER_SPAWN)
-
-        # Create SceneHandler:
-        handler = cls(tier=saved_state['level'], player=saved_player)
-
-        # Player may have been saved without equipped weapons, so check save to supplement them:
-        handler.offer_off_hand, handler.offer_main_hand = saved_state['offer']
-
-        return handler
-
-    def _win(self):
-        super(SkirmishSceneHandler, self)._win()
-        mark_skirmish_progress(self.tier)
-
-
-class MainMenuSceneHandler(SceneHandler):
-    _spawn_delay = 2
-    _gladiator_capacity = 8
-    theme = 'blkrbt_brokenlight.ogg'
-
-    def __init__(self):
-
-        self.challenger_classes: list = [
-            gladiator for
-            gladiator in Character.registry.values()
-            if not (gladiator.debug or issubclass(gladiator, Boss))
-        ]
-        self.spawned_collision_group = 1
-        self.spawn_timer = 0
-
-        # Create a custom scene
-        main_menu_scene = Scene(None, SCREEN, EXTENDED_SCENE_BOUNDS, decorative=True)
-
-        super(MainMenuSceneHandler, self).__init__(
-            tier=0,
-            pad_monster_classes=[],
-            monster_total_cost=0,
-            loot_drops=0,
-            no_player=True,
-            scene=main_menu_scene
-        )
-
-        # Spawn MainMenu in the scene
-        self.scene.generate_menu_popup(
-            menu_class=MainMenu,
-            keywords={
-                "scene": self.scene
-            }
-        )
-
-        # If we start MMSH, that means Tutorial was completed or deliberately closed
-        if not PROGRESS["tutorial_completed"]:
-            tutorial_completed(True)
-
-    def execute(self) -> bool:
-        # Spawn a monster if less than N are present
-        if len(self.scene.characters) < self._gladiator_capacity and self.spawn_timer <= 0:
-            challenger_tier = random.choice(range(1, 5))
-            new_challenger = random.choice(self.challenger_classes)(position=None, tier=challenger_tier)
-            new_challenger.collision_group = self.spawned_collision_group
-            self.monsters.append(new_challenger)
-            self.spawn_monster(force=True)
-            # Python is designed to indefinetely extend integers, so there is no upper bound to catch exceptions for
-            # Besides, increment is expected to be occuring once per dozen seconds, so it is not imaginable to reach
-            # any kind of memory limit during time person stares at the menu.
-            self.spawned_collision_group += 1
-            self.spawn_timer = self._spawn_delay
-        else:
-            self.spawn_timer -= FPS_TICK
-
-        # 1. Iterate the scene
-        self.scene.iterate()
-        self._process_handover()
-
-        # Main Menu is never completed
-        return False
-
-    def load_save(self, cls):
-        self.hand_off_to(cls.load())
-
-
-class TutorialSceneHandler(SceneHandler):
-    theme = 'blkrbt_desert3.ogg'
-
-    def fill_scene_progression(self):
-        bar_size = BASE_SIZE
-        items = {
-            "esc_reminder": Indicator(ascii_draw(
-                BASE_SIZE,
-                string["tutorial"]["escape"],
-                colors["inventory_title"]
-            )),
-            "skip_reminder": Indicator(ascii_draw(
-                BASE_SIZE,
-                string["tutorial"]["skip"],
-                colors["inventory_title"]
-            ))
-            }
-        self.scene.progression = ProgressionBars(items, font_size=bar_size)
-
-    def __init__(self):
-        self.proceed_condition = None
-
-        super(TutorialSceneHandler, self).__init__(
-            pad_monster_classes=[],
-            monster_total_cost=0,
-            loot_drops=0,
-            tier=0
-        )
-
-        # "Kidnap" inventory UI:
-        self.player.inventory, self.stored_inventory = None, self.player.inventory
-
-        # Tutorial stages:
-        self.stages = [
-            # Move stage:
-            {
-                "player_equipment": {"main_hand": Sword(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["move"],
-                "dummies": [],
-                "positions": [],
-                "proceed_condition": lambda: (
-                        self.player.position.x < self.scene.box.width * 0.5 and
-                        not self.player.facing_right
-                ),
-                "preparation": self._teleport_left()
-            },
-
-            # Swing stage:
-            {
-                "player_equipment": {"main_hand": Axe(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["swing"],
-                "dummies": [make_dummy(Orc, tier=1, position=None)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._disable_activation
-            },
-
-            # Poke stage:
-            {
-                "player_equipment": {"main_hand": Spear(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["poke"],
-                "dummies": [make_dummy(Human, tier=1, position=None)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._disable_activation
-            },
-
-            # Sword stage:
-            {
-                "player_equipment": {"main_hand": Sword(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["sword"],
-                "dummies": [make_dummy(Goblin, tier=1, position=None) for _ in range(3)],
-                "positions": [
-                    v(
-                        self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
-                    )
-                    for i
-                    in range(3)
-                ],
-                "proceed_condition": lambda: (
-                        len(self.scene.dead_characters) == 3 and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._disable_activation
-            },
-
-            # Stab stage:
-            {
-                "player_equipment": {"main_hand": Sword(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["stab"],
-                "dummies": [make_dummy(Human, tier=1, position=None)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._active_only
-            },
-
-            # Block stage:
-            {
-                "player_equipment": {"off_hand": Shield(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["shield"],
-                "dummies": [],
-                "positions": [],
-                "proceed_condition": lambda: (
-                        self.player.shielded and
-                        self.player.stamina == self.player.max_stamina
-                ),
-                "preparation": self._limit_stamina
-            },
-
-            # Bash stage:
-            {
-                "player_equipment": {"off_hand": Shield(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["bash"],
-                "dummies": [make_dummy(Goblin, tier=1, position=None, hp=10)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                )
-            },
-
-            # Dagger stage:
-            {
-                "player_equipment": {"main_hand": Dagger(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["dagger"],
-                "dummies": [make_dummy(Goblin, tier=1, position=None, hp=10000)],
-                "positions": [v(self.scene.box.center)],
-                "proceed_condition": lambda: (
-                        self.player.rolled_through and
-                        self.player.phasing is False and
-                        self.player.slots["main_hand"].lock_timer <= 0
-                ),
-                "preparation": self._break_weapon
-            },
-
-            # Falchion stage:
-            {
-                "player_equipment": {"main_hand": Falchion(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["falchion"],
-                "dummies": [],
-                "positions": [],
-                "proceed_condition": lambda: (
-                        0 < self.player.roll_cooldown < 0.5 and
-                        self.player.phasing is False and
-                        self.player.slots["main_hand"].lock_timer <= 0
-                ),
-                "preparation": self._limit_stamina
-            },
-
-            # Spear 1 stage:
-            {
-                "player_equipment": {"main_hand": Spear(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["spear1"],
-                "dummies": [make_dummy(Orc, tier=1, position=None, hp=10000)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                    any(
-                        x for x in self.scene.characters
-                        if x.bleeding_intensity > 0 and x.bleeding_timer < 0.1
-                    )
-                )
-            },
-
-            # Katar stage:
-            {
-                "player_equipment": {
-                    "main_hand": Falchion(BASE_SIZE, tier_target=4),
-                    "off_hand": Katar(BASE_SIZE, tier_target=4)
-                },
-                "text": string["tutorial"]["katar"],
-                "dummies": [make_dummy(Orc, tier=1, position=None, hp=500)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._cheat_katar
-            },
-
-            # Inventory stage:
-            {
-                "player_equipment":
-                    {
-                        "main_hand": Sword(BASE_SIZE, tier_target=1, roll_stats=False),
-                        "backpack": Sword(BASE_SIZE, tier_target=4, roll_stats=False)
-                    },
-                "text": string["tutorial"]["inventory"],
-                "dummies": [],
-                "positions": [],
-                "proceed_condition": lambda: (
-                        not self.scene.paused and
-                        not all((self.player.slots["backpack"], self.player.slots["main_hand"])) and
-                        not any(
-                            remains for remains in self.scene.particles
-                            if isinstance(remains, Remains)
-                        )),
-                "preparation": self._restore_inventory
-            },
-
-            # Swordbreaker stage:
-            {
-                "player_equipment": {
-                    "main_hand": Sword(BASE_SIZE, tier_target=1),
-                    "off_hand": Swordbreaker(BASE_SIZE, tier_target=4)
-                },
-                "text": string["tutorial"]["breaker"],
-                "dummies": [make_dummy(Human, tier=1, position=None)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._limit_stamina
-            },
-
-            # Weight stage:
-            {
-                "player_equipment":
-                    {
-                        "main_hand": Axe(BASE_SIZE, tier_target=1, roll_stats=False),
-                        "backpack": Dagger(BASE_SIZE, tier_target=4, roll_stats=False)
-                    },
-                "text": string["tutorial"]["weight"],
-                "dummies": [make_dummy(Goblin, tier=1, position=None) for _ in range(3)],
-                "positions": [
-                    v(
-                        self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
-                    )
-                    for i
-                    in range(3)
-                    ],
-                "proceed_condition": lambda: (
-                        len(self.scene.dead_characters) == 3 and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                    )
-            },
-
-            # Spear 2 stage:
-            {
-                "player_equipment": {
-                    "main_hand": Spear(BASE_SIZE, tier_target=1),
-                    "backpack": Dagger(BASE_SIZE, tier_target=4)
-                },
-                "text": string["tutorial"]["spear2"],
-                "dummies": [make_dummy(Goblin, tier=1, position=None) for _ in range(3)],
-                "positions": [
-                    v(
-                        self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
-                    )
-                    for i
-                    in range(3)
-                ],
-                "proceed_condition": lambda: (
-                        len(self.scene.dead_characters) == 3 and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                )
-            },
-
-            # Knife and Combo stage:
-            {
-                "player_equipment": {"off_hand": Knife(BASE_SIZE, tier_target=1)},
-                "text": string["tutorial"]["knife"],
-                "dummies": [make_dummy(Human, tier=1, position=None, hp=300)],
-                "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
-                "proceed_condition": lambda: (
-                        self.scene.dead_characters and
-                        not any(remains for remains in self.scene.particles if isinstance(remains, Remains))
-                ),
-                "preparation": self._knife_stage
-            },
-
-        ]
-
-        # Disable scene elements:
-        self.saved_sp_restoration = self.player.stamina_restoration
-
-        self.scene.combo_counter = None
-        self.fill_scene_progression()
-
-        self._tutorial_banner = None
-        self._tutorial_stage(**self.stages[0])
-
-    def _disable_activation(self):
-        for slot in self.player.slots:
-            self.player.slots[slot].activate = (lambda *args, **kwargs: None)
-
-    def _teleport_left(self):
-        self.player.position = v(self.scene.box.width - self.player.position.x, self.player.position.y)
-
-    def _active_only(self):
-        for slot, weapon in self.player.slots.items():
-            if not weapon:
-                continue
-            weapon.is_dangerous = (lambda: self.player.state == 'active')
-
-    def _limit_stamina(self):
-        self.player.stamina = 0
-        self.player.stamina_restoration *= 0.3
-        self.player.since_dangerous_frame = -60
-
-    def _break_weapon(self):
-        for slot in self.player.slots:
-            self.player.slots[slot].damage_range = 1, 1
-
-    def _cheat_katar(self):
-        for weapon in self.player.slots.values():
-            if isinstance(weapon, Katar):
-                weapon.character_specific["stamina_drain"] = 0
-
-    def _restore_inventory(self):
-        self.player.inventory = self.stored_inventory
-        self.scene.log_weapons()
-
-    def _knife_stage(self):
-        self.scene.introduce_combo()
-        knife = self.player.slots["off_hand"]
-        knife.combo_cutoff = 5
-
-    def _tutorial_stage(
-            self,
-            player_equipment: dict,
-            text: str,
-            dummies: list[Character],
-            positions: list[v],
-            proceed_condition,
-            preparation=None
-    ):
-        # Make sure player stamina restoration is normal for the stage
-        self.player.stamina_restoration = self.saved_sp_restoration
-
-        self._tutorial_banner = Banner(
-            text,
-            BASE_SIZE * 3 // 2,
-            position=v(self.scene.box.midtop) + v(0, BASE_SIZE),
-            anchor='midtop',
-            color=colors["inventory_better"],
-            lifetime=0.6,
-            animation_duration=0.3,
-            animation='simple',
-            forced_tickdown=False,
-            max_width=self.scene.box.width - BASE_SIZE * 2
-        )
-        self.scene.particles.append(self._tutorial_banner)
-
-        for dummy, position in zip(dummies, positions):
-            self.scene.spawn(dummy, position)
-
-        for slot in self.player.slots:
-            if slot not in player_equipment:
-                player_equipment[slot] = Nothing()
-
-        for slot, equipment in player_equipment.items():
-            self.player.equip(equipment, slot)
-
-        self.scene.log_weapons()
-
-        self.proceed_condition = proceed_condition
-
-        if preparation is not None:
-            preparation()
-
-    def next_stage(self):
-
-        if self.stages:
-            del self.stages[0]
-
-        # Reset scene:
-        self.proceed_condition = None
-        self.scene.dead_characters = []
-        self.scene.characters = [self.player]
-        exhaust = [particle for particle in self.scene.particles if particle.shakeable]
-        for particle in exhaust:
-            self.scene.particles.remove(particle)
-
-        # Stop tutorial if everything is over
-        if not self.stages and not self.scene.menus:
-            self._tutorial_banner.forced_tickdown = True
-            self._win()
-            return
-
-        # Play sound:
-        play_sound('loot', 1)
-
-        # Reset player
-        self.player.position = v(PLAYER_SPAWN)
-        if not self.player.facing_right:
-            self.player.flip()
-        self.player.reset()
-
-        # Execute next stage:
-        self._tutorial_banner.forced_tickdown = True
-        self._tutorial_stage(**self.stages[0])
-
-    def execute(self) -> bool:
-        # Usual processing:
-        self.scene.iterate()
-        self._process_handover()
-
-        # Make sure indicators are visible
-        self.scene.progression.update([True, True])
-
-        # Check if current condition is fulfilled
-        if self.proceed_condition is not None and self.proceed_condition():
-            # Clean completed stage
-            if self.stages:
-                self.next_stage()
-
-        return False
-
-    def _win(self):
-        tutorial_completed(True)
-        self.scene.generate_menu_popup(
-            menu_class=Victory,
-            keywords={
-                "scene": self.scene,
-                "victory_text": string["tutorial"]["completed"]
-            }
-        )

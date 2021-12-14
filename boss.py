@@ -4,10 +4,13 @@
 #  Troll boss with custom AI
 #  Troll Boss AI with ramming charge and summonning goblins
 
-from monster import *
+import base_class as b
+import equipment as eq
+import monster as mo
+from primitive import *
 
 
-class Boss(Humanoid):
+class Boss(mo.Humanoid):
     difficulty = 0
     skirmish_spawn_rate = 0
     theme = 'blkrbt_ninesix.ogg'
@@ -64,7 +67,7 @@ class Elite(Boss):
         )
 
         # Create a base creature to 'steal' it's equipment and properties
-        donor: Character = base_creature(position=None, tier=tier, team_color=team_color)
+        donor: b.Character = base_creature(position=None, tier=tier, team_color=team_color)
 
         # Get slots and coordinates
         self.slots = donor.slots
@@ -84,7 +87,7 @@ class Elite(Boss):
                 self.equip(equipment, slot)
 
         # Equip crown
-        crown = EliteCrown(BASE_SIZE * body_stats["size"], tier)
+        crown = eq.EliteCrown(BASE_SIZE * body_stats["size"], tier)
         self.equip(crown, 'hat')
 
         # Add AI:
@@ -111,7 +114,7 @@ class Elite(Boss):
         return output
 
 
-class EliteAI(AI):
+class EliteAI(mo.AI):
     _reinforcement_cache_size = 15
     _summon_channel = 2
     _random_summon_chance = 0.5

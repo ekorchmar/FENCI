@@ -13,12 +13,14 @@
 # todo: celebration state if away from enemy and flexibility >> skill or all enemies dead
 # todo: randomly exchange wait <=> to wander: move to a new position, not too close to arena edge
 
-from particle import AttackWarning
-from equipment import *
+import base_class as b
+import particle as pt
+import equipment as eq
+from primitive import *
 from typing import Any
 
 
-class Humanoid(Character):
+class Humanoid(b.Character):
     skirmish_spawn_rate = 0
     weapon_slots = ["main_hand", "off_hand"]
     body_coordinates = {
@@ -32,10 +34,10 @@ class Humanoid(Character):
     def __init__(self, position, size, hand, *args, blink=5, **kwargs):
         super().__init__(position, size, *args, **kwargs)
         self.slots: dict[str, Any] = {
-            "main_hand": Nothing(),
-            "off_hand": Nothing(),
-            "hat": Nothing(),
-            "backpack": Nothing()
+            "main_hand": b.Nothing(),
+            "off_hand": b.Nothing(),
+            "hat": b.Nothing(),
+            "backpack": b.Nothing()
         }
         self.body_coordinates = Humanoid.body_coordinates.copy()
         scale_body(self.body_coordinates, size)
@@ -223,7 +225,7 @@ class Humanoid(Character):
 
             # Show cooldown bar:
             if self.roll_cooldown > 0:
-                self.bars["roll_cooldown"] = Bar(
+                self.bars["roll_cooldown"] = b.Bar(
                     BASE_SIZE // 3,
                     10,
                     colors["bar_base"],
@@ -324,10 +326,10 @@ class AI:
         self.swing_windup_time = 0  # How long weapon must be moving from standstill to reach SWING_TRESHOLD
         self.swing_windup_angle = 0  # What is minimal angle windup is required to start swinging from standstill
 
-        # Falchion roll
+        # eq.Falchion roll
         self.roll_range = 0
 
-        # Axe whirlwind
+        # eq.Axe whirlwind
         self.whirlwind_charge_time = 0  # Duration required for 3 spins
         self.whirlwind_cost = 0  # Cost to start whirlwinding
         self.whirlwing_charge_range = 0  # Distance required for full charge power-up
@@ -349,7 +351,7 @@ class AI:
 
     def warn(self):
         warning_position = self.character.body_coordinates["bars"] + v(0, -2*BASE_SIZE)
-        warning_particle = AttackWarning(warning_position, self.character, self.attack_delay)
+        warning_particle = pt.AttackWarning(warning_position, self.character, self.attack_delay)
         self.scene.particles.append(warning_particle)
         return warning_particle
 
@@ -358,7 +360,7 @@ class AI:
         self.strategy_timer = follow_time
 
         # Remove all own warnings from scene particles:
-        for key in filter(lambda x: isinstance(self.strategy_dict[x], AttackWarning), self.strategy_dict):
+        for key in filter(lambda x: isinstance(self.strategy_dict[x], pt.AttackWarning), self.strategy_dict):
             try:
                 self.scene.particles.remove(self.strategy_dict[key])
             except ValueError:
@@ -376,7 +378,7 @@ class AI:
             self.morale = min(1.0, 0.5*self.courage + self.morale)
 
     def calculate_stab(self):
-        if not isinstance(self.weapon, Pointed) or isinstance(self.weapon, Falchion):
+        if not isinstance(self.weapon, eq.Pointed) or isinstance(self.weapon, eq.Falchion):
             return
 
         # Calculate own max stab reach distance when equipping Pointed weapon
@@ -390,13 +392,13 @@ class AI:
         self.stab_stamina_cost = self.character.max_stamina * self.weapon.stab_cost
 
     def calculate_roll(self):
-        if not isinstance(self.weapon, Falchion):
+        if not isinstance(self.weapon, eq.Falchion):
             return
 
         self.roll_range = 0.5 * self.weapon.character_specific["roll_treshold"] * FPS_TARGET
 
     def calculate_swing(self):
-        if not isinstance(self.weapon, Bladed):
+        if not isinstance(self.weapon, eq.Bladed):
             return
 
         self.swing_range = self.weapon.length
@@ -405,7 +407,7 @@ class AI:
         self.swing_windup_angle = 0.5 * FPS_TARGET * self.angular_acceleration * (self.swing_windup_time ** 2)
 
     def calculate_whirlwind(self):
-        if not isinstance(self.weapon, Axe):
+        if not isinstance(self.weapon, eq.Axe):
             return
 
         # Duration required for 3 spins
@@ -558,7 +560,7 @@ class AI:
         # Else, decide if we want to "dogfight" if we have clear advantage or fall back to "confront"
         else:
             # Test if our weapon is suited for CQC:
-            if not isinstance(self.weapon, Bladed):
+            if not isinstance(self.weapon, eq.Bladed):
                 violence = False
 
             # Test if we have enough stamina for swing attack:
@@ -579,8 +581,8 @@ class AI:
                 violence = True
 
             # Now test if enemy weapon is not suited for CQC while our is; needs flexibility check:
-            elif not isinstance(self.enemies[self.target]["weapon"], Bladed) and \
-                    isinstance(self.weapon, Bladed) and \
+            elif not isinstance(self.enemies[self.target]["weapon"], eq.Bladed) and \
+                    isinstance(self.weapon, eq.Bladed) and \
                     self.flexibility > random.random():
                 violence = True
 
@@ -637,7 +639,7 @@ class AI:
 
             if not enemy_weapon:
                 reach = 0
-            elif isinstance(enemy_weapon, (Spear, Sword, Dagger)):
+            elif isinstance(enemy_weapon, (eq.Spear, eq.Sword, eq.Dagger)):
                 reach = enemy_weapon.length * 1.2 + v(enemy.body_coordinates[weapon_slot]).length()
             else:
                 reach = enemy_weapon.length + v(enemy.body_coordinates[weapon_slot]).length()
@@ -665,7 +667,7 @@ class AI:
         ):
             weapon_slot = friend.weapon_slots[0]
             weapon = friend.slots[weapon_slot]
-            if isinstance(weapon, Pointed):
+            if isinstance(weapon, eq.Pointed):
                 reach = weapon.length * 1.5 + v(friend.body_coordinates[weapon_slot]).length()
             else:
                 reach = weapon.length + v(friend.body_coordinates[weapon_slot]).length()
@@ -755,13 +757,13 @@ class AI:
                 return self.execute()
 
             # Shields may disable weapons:
-            if isinstance(self.character.slots["off_hand"], Shield):
+            if isinstance(self.character.slots["off_hand"], eq.Shield):
                 parry = self.weapon.disabled and not any((
                     self.character.slots["off_hand"].active_last_frame,
                     self.character.slots["off_hand"].active_this_frame
                 ))
-            # Axes may be locked by charging up:
-            elif isinstance(self.weapon, Axe):
+            # eq.Axes may be locked by charging up:
+            elif isinstance(self.weapon, eq.Axe):
                 parry = self.weapon.disabled and not self.weapon.locked_from_activation
             # Parried? Switch to confront
             else:
@@ -820,7 +822,7 @@ class AI:
                 else:
                     self.set_strategy('charge', max(self.strategy_timer, 0))
 
-            # For falchions, roll in:
+            # For eq.Falchions, roll in:
             elif self.roll_range > 0:
                 self.strategy_dict["plan"] = "roll in"
                 # ?? Todo: high skill may attempt to purposefully roll through the player
@@ -837,7 +839,7 @@ class AI:
                     # Execute roll:
                     self.character.use(self.slot, continuous_input=False, point=self.target.position)
 
-            # For Axes, spin up before running up to character
+            # For eq.Axes, spin up before running up to character
             elif self.whirlwind_cost > 0:
                 # If we are already calculated end of the spin, pass
                 if "stop_thinking" in self.strategy_dict:
@@ -1232,7 +1234,7 @@ class AI:
             self.character.stamina / self.character.max_stamina
         )
 
-        if isinstance(victim, Character):
+        if isinstance(victim, b.Character):
             # Less courage if we are hit
             if victim is self.character:
                 base_courage *= self.courage
@@ -1248,7 +1250,7 @@ class AI:
 
             victim_collision = victim.collision_group
 
-        elif isinstance(victim, Equipment):
+        elif isinstance(victim, b.Equipment):
             # Clashing weapons are less scary than wounds
             base_courage *= 2
             # Default:
@@ -1282,7 +1284,7 @@ class AI:
     def use_shield(self):
         """If we own a shield, hold it up"""
         offhand = self.character.slots["off_hand"]
-        if isinstance(offhand, Shield):
+        if isinstance(offhand, eq.Shield):
             self.character.use("off_hand", continuous_input=(offhand.activation_offset != v()))
 
 
@@ -1341,32 +1343,32 @@ class Goblin(Humanoid):
         def goblin_blade_material():
             def filter_func(x):
                 return (
-                    x.name not in Material.collections["elven"] and
-                    x.name not in Material.collections["mythical"]
+                    x.name not in b.Material.collections["elven"] and
+                    x.name not in b.Material.collections["mythical"]
                 )
 
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
-                gbm = Material.pick(["mineral"], tier, filter_func)
+                gbm = b.Material.pick(["mineral"], tier, filter_func)
             # Otherwise, 30% for any metal, except mythril
             elif tier <= 2 and random.random() > 0.7:
-                gbm = Material.pick(["metal"], tier, filter_func)
+                gbm = b.Material.pick(["metal"], tier, filter_func)
             # Anything bone otherwise:
             else:
-                gbm = Material.pick(["bone"], tier, filter_func)
+                gbm = b.Material.pick(["bone"], tier, filter_func)
             return gbm
 
         # Goblin main hand weapon is:
         main_hand_choice = random.choices(
-            ["Dagger", "Spear", "Falchion", "Sword"],
+            ["eq.Dagger", "eq.Spear", "eq.Falchion", "eq.Sword"],
             [40, 30, 20, 10]
         )[0]
 
         if main_hand_choice == 'Dagger':
-            # Generate dict for dagger
+            # Generate dict for eq.Dagger
             dagger_builder = {
                 "hilt": {
-                    # Goblins make daggers themselves, so designs are simple
+                    # Goblins make eq.Daggers themselves, so designs are simple
                     "str": random.choice(["=(", "-]"])
                 },
                 "blade": {
@@ -1378,12 +1380,12 @@ class Goblin(Humanoid):
 
             # Hilt material and colors would be filled in by the constructor, but we need to exclude mythril.
             if random.random() > 0.7:  # 30% of the time, pick same material for hilt
-                hm = Material.pick(
+                hm = b.Material.pick(
                     ['metal', 'bone'],
                     tier,
                     filter_func=lambda x: (
-                            x.name not in Material.collections["elven"] and
-                            x.name not in Material.collections["mythical"]
+                            x.name not in b.Material.collections["elven"] and
+                            x.name not in b.Material.collections["mythical"]
                     )
                 )
             else:
@@ -1391,12 +1393,12 @@ class Goblin(Humanoid):
             dagger_builder["hilt"]["material"] = hm
 
             main_equipment_dict = {"constructor": dagger_builder, "tier": tier}
-            main_hand_weapon = Dagger(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Dagger(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
 
         elif main_hand_choice == 'Spear':
             spear_builder = {
                 "shaft": {
-                    # Spears are short, light and simple, and never painted
+                    # eq.Spears are short, light and simple, and never painted
                     "str": random.choice(["▭▭▭▭▭▭▭▭", "–-–-–-–-"])
                 },
                 "head": {
@@ -1404,55 +1406,55 @@ class Goblin(Humanoid):
                 }
             }
             # Shaft material is always reed or very light wood
-            spear_builder["shaft"]["material"] = Material.pick(
+            spear_builder["shaft"]["material"] = b.Material.pick(
                 ["wood", "reed"],
                 tier,
                 lambda x: (
-                            x.name not in Material.collections["elven"] and
-                            x.name not in Material.collections["mythical"]
+                            x.name not in b.Material.collections["elven"] and
+                            x.name not in b.Material.collections["mythical"]
                     ) and x.weight < 0.5
             )
-            # Tip material has same logic as dagger material
+            # Tip material has same logic as eq.Dagger material
             spear_builder["head"]["material"] = goblin_blade_material()
 
-            # Goblin spears are purely functional and never painted, so we generate colors now
+            # Goblin eq.Spears are purely functional and never painted, so we generate colors now
             for part in {'shaft', 'head'}:
-                color = Material.registry[spear_builder[part]["material"]].generate()
+                color = b.Material.registry[spear_builder[part]["material"]].generate()
                 spear_builder[part]["color"] = color
 
             main_equipment_dict = {"constructor": spear_builder, "tier": tier}
-            main_hand_weapon = Spear(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Spear(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
 
         elif main_hand_choice == 'Falchion':
             falchion_builder = {
                 "blade": {
-                    "str": random.choice(parts_dict['falchion']['blades']),
-                    "material": Material.pick(['metal'], tier, lambda x: (
-                            x.name not in Material.collections["elven"] and
-                            x.name not in Material.collections["mythical"]
+                    "str": random.choice(parts_dict['Falchion']['blades']),
+                    "material": b.Material.pick(['metal'], tier, lambda x: (
+                            x.name not in b.Material.collections["elven"] and
+                            x.name not in b.Material.collections["mythical"]
                     ))
                 },
                 "hilt": {}
             }
 
             if random.random() > 0.6:  # 40% of the time, pick same material for hilt
-                falchion_builder['hilt']['material'] = Material.pick(
+                falchion_builder['hilt']['material'] = b.Material.pick(
                     ['metal', 'bone', 'precious', 'wood'],
                     tier,
                     lambda x: (
-                            x.name not in Material.collections["elven"] and
-                            x.name not in Material.collections["mythical"]
+                            x.name not in b.Material.collections["elven"] and
+                            x.name not in b.Material.collections["mythical"]
                     )
                 )
             else:
                 falchion_builder['hilt']['material'] = falchion_builder["blade"]["material"]
 
             main_equipment_dict = {"constructor": falchion_builder, "tier": tier}
-            main_hand_weapon = Falchion(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Falchion(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
 
-        # Random short Sword rest of the time
+        # Random short eq.Sword rest of the time
         else:
-            # Swords are scavenged, goblins don't make swords
+            # eq.Swords are scavenged, goblins don't make eq.Swords
             # Only requirement is to be short and never contain elven materials
             def make_blade(blade_parts):
                 return blade_parts[0] * 3 + blade_parts[1]
@@ -1462,50 +1464,52 @@ class Goblin(Humanoid):
             sword_builder = {
                 "blade": {
                     "str": blade_string,
-                    "material": Material.pick(['metal'], tier, lambda x: x.name not in Material.collections["elven"])
+                    "material": b.Material.pick(
+                        ['metal'], tier, lambda x: x.name not in b.Material.collections["elven"]
+                    )
                 },
                 "hilt": {}
             }
             if random.random() > 0.6:  # 40% of the time, pick same material for hilt
-                sword_builder['hilt']['material'] = Material.pick(
+                sword_builder['hilt']['material'] = b.Material.pick(
                     ['metal', 'bone', 'precious', 'wood'],
                     tier,
                     lambda x:
-                        x.name not in Material.collections["elven"] and
-                        x.name not in Material.collections["mythical"]
+                        x.name not in b.Material.collections["elven"] and
+                        x.name not in b.Material.collections["mythical"]
                 )
             else:
                 sword_builder['hilt']['material'] = sword_builder["blade"]["material"]
 
             main_equipment_dict = {"constructor": sword_builder, "tier": tier}
-            main_hand_weapon = Sword(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Sword(BASE_SIZE, tier_target=tier, equipment_dict=main_equipment_dict)
 
         return main_hand_weapon
 
     @staticmethod
     def _shield_goblin(tier, team_color):
         shield_builder = {"frame": {
-            "material": Material.pick(["reed"], tier)
+            "material": b.Material.pick(["reed"], tier)
         }, "plate": {
-            "material": Material.pick(
+            "material": b.Material.pick(
                 ['metal', 'wood', 'leather', 'bone'],
                 tier,
                 lambda x: (
-                        x.name not in Material.collections['plateless_bone'] and
-                        x.name not in Material.collections['elven'] and
-                        x.name not in Material.collections['mythical'] and
+                        x.name not in b.Material.collections['plateless_bone'] and
+                        x.name not in b.Material.collections['elven'] and
+                        x.name not in b.Material.collections['mythical'] and
                         x.weight <= 0.5
                 )
             )
         }}
 
         # If specified, paint plate team color; otherwise let .generate handle it
-        if team_color and Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
+        if team_color and b.Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
             shield_builder['plate']['color'] = team_color
             shield_builder['plate']['tags'] = ['painted']
 
         off_equipment_dict = {"constructor": shield_builder, "tier": tier}
-        return Shield(BASE_SIZE, tier_target=tier, equipment_dict=off_equipment_dict)
+        return eq.Shield(BASE_SIZE, tier_target=tier, equipment_dict=off_equipment_dict)
 
 
 class Human(Humanoid):
@@ -1532,13 +1536,13 @@ class Human(Humanoid):
         )
 
         # Equal chance for any main hand weapon:
-        main_class = random.choice((Axe, Sword, Dagger, Falchion, Spear))
+        main_class = random.choice((eq.Axe, eq.Sword, eq.Dagger, eq.Falchion, eq.Spear))
 
         # Humans use anything, so allow random generation:
         self.equip(main_class(tier_target=tier, size=int(BASE_SIZE * body_stats['size'])), 'main_hand')
         # Shield in 50% cases
         if random.random() > 0.5:
-            shield = Shield(tier_target=tier, size=int(BASE_SIZE * body_stats['size']))
+            shield = eq.Shield(tier_target=tier, size=int(BASE_SIZE * body_stats['size']))
             self.equip(shield, 'off_hand')
             # Force team color, if plate is painted:
             if (
@@ -1590,27 +1594,27 @@ class Orc(Humanoid):
         # Don't use Elven, never use light materials
         def filter_func(x):
             return (
-                    x.name not in Material.collections["elven"] and
-                    x.name not in Material.collections["celestial"] and
+                    x.name not in b.Material.collections["elven"] and
+                    x.name not in b.Material.collections["celestial"] and
                     x.weight >= 0.8
             )
 
         def orc_blade_material():
             # Mineral, 50% of the time on tier 1 and 2
             if tier <= 2 and random.random() > 0.5:
-                gbm = Material.pick(["mineral"], tier, filter_func)
+                gbm = b.Material.pick(["mineral"], tier, filter_func)
             # Otherwise, any metal
             else:
-                gbm = Material.pick(["metal"], tier, filter_func)
+                gbm = b.Material.pick(["metal"], tier, filter_func)
             return gbm
 
         # Goblin main hand weapon is:
         main_hand_choice = random.choices(
-            ["Axe", "Sword", "Spear"], [65, 25, 10]
+            ["eq.Axe", "eq.Sword", "eq.Spear"], [65, 25, 10]
         )[0]
 
         if main_hand_choice == 'Axe':
-            # Generate dict for Axe
+            # Generate dict for eq.Axe
             axe_builder = {"head": {"material": orc_blade_material()}}
 
             # Handle material and colors would be filled in by the constructor, but we need to exclude elven.
@@ -1619,11 +1623,11 @@ class Orc(Humanoid):
                 # 20% of the time, pick same metal for METALLIC hilt
                 if (
                         random.random() > 0.8 and
-                        Material.registry[axe_builder["head"]["material"]].physics in ('metal', 'precious')
+                        b.Material.registry[axe_builder["head"]["material"]].physics in ('metal', 'precious')
                 ):
                     hm = axe_builder["head"]["material"]
                 else:
-                    hm = Material.pick(
+                    hm = b.Material.pick(
                         ['bone', 'wood'],
                         roll_tier(tier),
                         filter_func
@@ -1633,16 +1637,16 @@ class Orc(Humanoid):
             axe_builder["handle"] = {"material": new_handle_material()}
 
             main_equipment_dict = {"constructor": axe_builder, 'tier': tier}
-            main_hand_weapon = Axe(size, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Axe(size, tier_target=tier, equipment_dict=main_equipment_dict)
 
         elif main_hand_choice == 'Sword':
-            # Generate dict for Sword
+            # Generate dict for eq.Sword
             sword_builder: dict = {"blade": {"material": orc_blade_material()}, 'hilt': {}}
 
             # Hilt material and colors would be filled in by the constructor, but we need to exclude elven.
             def new_hilt_material():
                 if random.random() > 0.4:  # 40% of the time, pick same material for hilt
-                    hm = Material.pick(
+                    hm = b.Material.pick(
                         ['metal', 'bone', 'wood'],
                         tier,
                         filter_func
@@ -1653,7 +1657,7 @@ class Orc(Humanoid):
 
             sword_builder["hilt"]["material"] = new_hilt_material()
 
-            # Get not-so pretty looking sword parts:
+            # Get not-so pretty looking eq.Sword parts:
             sword_builder["hilt"]["str"] = random.choice([
               "<–]",
               "⊂=(",
@@ -1663,7 +1667,7 @@ class Orc(Humanoid):
               "⊂═╣"]
             )
 
-            # LONG and scary swords
+            # LONG and scary eq.Swords
             def make_blade(blade_parts):
                 return blade_parts[0] * 5 + blade_parts[1]
 
@@ -1678,7 +1682,7 @@ class Orc(Humanoid):
 
             # Generate colors -- unpainted, of course:
             sword_builder['blade']["color"] = sword_builder['blade'].get(
-                "color", Material.registry[sword_builder['blade']["material"]].generate()
+                "color", b.Material.registry[sword_builder['blade']["material"]].generate()
             )
 
             def new_hilt_color():
@@ -1687,26 +1691,26 @@ class Orc(Humanoid):
                     return sword_builder['blade']["color"]
 
                 # Generate usual material color
-                return Material.registry[sword_builder['hilt']["material"]].generate()
+                return b.Material.registry[sword_builder['hilt']["material"]].generate()
 
             sword_builder['hilt']["color"] = sword_builder['hilt'].get(
                 "color", new_hilt_color()
             )
 
             main_equipment_dict = {"constructor": sword_builder, "tier": tier}
-            main_hand_weapon = Sword(size, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Sword(size, tier_target=tier, equipment_dict=main_equipment_dict)
 
-            # 2% of the orcs hold sword wrong way for comedic value
+            # 2% of the orcs hold eq.Sword wrong way for comedic value
             if random.random() < 0.02:
                 main_hand_weapon.surface = pygame.transform.flip(main_hand_weapon.surface, True, False)
 
         else:
-            # Generate dict for Spear
-            # Strings: Long, sturdy spears
+            # Generate dict for eq.Spear
+            # Strings: Long, sturdy eq.Spears
             spear_builder: dict = {
                 "head":
                     {
-                        'material': Material.pick(
+                        'material': b.Material.pick(
                             ['metal', 'bone', 'mineral'],
                             tier,
                             filter_func
@@ -1720,7 +1724,7 @@ class Orc(Humanoid):
                     },
                 "shaft":
                     {
-                        'material': Material.pick(
+                        'material': b.Material.pick(
                             ['wood'],
                             tier,
                             filter_func
@@ -1736,10 +1740,10 @@ class Orc(Humanoid):
 
             # Unpainted:
             for part in spear_builder:
-                spear_builder[part]['color'] = Material.registry[spear_builder[part]["material"]].generate()
+                spear_builder[part]['color'] = b.Material.registry[spear_builder[part]["material"]].generate()
 
             main_equipment_dict = {"constructor": spear_builder, "tier": tier}
-            main_hand_weapon = Spear(size, tier_target=tier, equipment_dict=main_equipment_dict)
+            main_hand_weapon = eq.Spear(size, tier_target=tier, equipment_dict=main_equipment_dict)
 
         return main_hand_weapon
 
@@ -1747,12 +1751,12 @@ class Orc(Humanoid):
     def _shield_orc(tier, team_color, size):
         shield_builder = {
             "frame": {
-                "material": Material.pick(
+                "material": b.Material.pick(
                     ["wood", "metal", "bone"],
                     tier,
                     filter_func=lambda x: (
-                        x.name not in Material.collections["elven"] and
-                        x.name not in Material.collections["celestial"] and
+                        x.name not in b.Material.collections["elven"] and
+                        x.name not in b.Material.collections["celestial"] and
                         x.weight >= 1
                     )
                 )
@@ -1760,25 +1764,171 @@ class Orc(Humanoid):
         }
 
         shield_builder["plate"] = {
-            "material": Material.pick(
+            "material": b.Material.pick(
                 ['metal', 'wood'],
                 tier,
                 lambda x: (
-                        x.name not in Material.collections['plateless_bone'] and
-                        x.name not in Material.collections['elven'] and
-                        x.name not in Material.collections['celestial'] and
-                        Material.registry[shield_builder["frame"]["material"]].weight >= x.weight >= 1
+                        x.name not in b.Material.collections['plateless_bone'] and
+                        x.name not in b.Material.collections['elven'] and
+                        x.name not in b.Material.collections['celestial'] and
+                        b.Material.registry[shield_builder["frame"]["material"]].weight >= x.weight >= 1
                 )
             )
         }
 
         # If specified, paint plate team color; otherwise let .generate handle it
-        if team_color and Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
+        if team_color and b.Material.registry[shield_builder['plate']['material']].physics in PAINTABLE:
             shield_builder['plate']['color'] = team_color
             shield_builder['plate']['tags'] = ['painted']
 
         off_equipment_dict = {"constructor": shield_builder, "tier": tier}
-        return Shield(size, tier_target=tier, equipment_dict=off_equipment_dict)
+        return eq.Shield(size, tier_target=tier, equipment_dict=off_equipment_dict)
+
+
+# Player character class
+class Player(Humanoid):
+    drops_shields = False
+    hit_immunity = 1.2
+    remains_persistence = 0.3
+
+    def __init__(self, position, species='Human'):
+        self.species = species
+        player_body = character_stats["body"][self.species].copy()
+        player_body["agility"] *= 2
+
+        super(Player, self).__init__(
+            position,
+            **player_body,
+            **colors["player"],
+            faces=character_stats["mind"][self.species],
+            name=string["protagonist_name"]
+        )
+
+        # Face right when starting:
+        self.flip(new_collision=0)
+
+        # Scene interaction:
+        self.inventory = b.Inventory(self, INVENTORY_SPACE)
+        self.seen_loot_drops = False
+        self.sees_enemies = False
+
+        # Bump sound limit:
+        self.last_bump = 0
+
+        # Add a secondary stamina bar to replace the usual when no stamina is consumed
+        main_stamina_bar_parameters = list(get_key(self.bars["stamina"], b.Bar.instance_cache))
+        new_parameters = list(main_stamina_bar_parameters)
+        # Change color:
+        new_parameters[2] = c(colors['sp_special'])
+        self.sp_passive = b.Bar(*new_parameters)
+
+        # Set by scene:
+        self.combo_counter = None
+
+    def push(self, vector, time, state='flying', affect_player=False, **kwargs):
+        # Player character is more resilient to pushback
+        if affect_player and state in DISABLED:
+            vector *= 0.33
+        super().push(vector, time, state, **kwargs)
+
+    def equip_basic(self, main_hand_pick=None, off_hand_pick=None):
+
+        if main_hand_pick is None:
+            main_hand_lst = list(
+                filter(
+                    lambda x:
+                    artifacts[x]["class"] in {"Dagger", "Sword", "Spear", "Falchion", "Axe"} and
+                    artifacts[x]["tier"] == 0,
+                    artifacts
+                )
+            )
+            main_hand_pick = random.choice(main_hand_lst), 'main_hand'
+        else:
+            main_hand_pick = main_hand_pick, 'main_hand'
+
+        if off_hand_pick is None:
+            off_hand_lst = list(
+                filter(
+                    lambda x:
+                    artifacts[x]["class"] in {"Shield", "Swordbreaker", "Katar", "Knife"} and
+                    artifacts[x]["tier"] == 0,
+                    artifacts
+                )
+            )
+            off_hand_pick = random.choice(off_hand_lst), 'off_hand'
+        else:
+            off_hand_pick = off_hand_pick, 'off_hand'
+
+        for weapon in (main_hand_pick, off_hand_pick):
+            weapon_gen = eq.Wielded.registry[artifacts[weapon[0]]["class"]]
+            generated = weapon_gen(BASE_SIZE, equipment_dict=artifacts[weapon[0]], roll_stats=False)
+            self.equip(generated, weapon[1])
+
+    # Player SP is drawn differently if no weapon consumes stamina
+    def _draw_bars(self):
+        self.weapons_drain = any(
+            weapon for weapon in self.weapon_slots
+            if (
+                    self.slots[weapon] and
+                    self.slots[weapon].aim_drain_modifier != 0 and
+                    self.slots[weapon].stamina_ignore_timer <= 0
+            )
+        )
+        return super(Player, self)._draw_bars()
+
+    def _fill_bar_dicts(self, bar: str, drawn_bars: dict, bar_rects: dict):
+        if bar == 'stamina' and not self.weapons_drain:
+            drawn_bars[bar], bar_rects[bar] = self.sp_passive.display(self.stamina)
+        else:
+            super(Player, self)._fill_bar_dicts(bar, drawn_bars, bar_rects)
+
+    def save(self) -> str:
+        # All Player objects are mostly identical, main difference is equipment and species
+        equipment_classes = {
+            slot: item.class_name
+            for slot, item in self.slots.items()
+            if item
+        }
+
+        equipment_stats = dict()
+
+        for slot, item in self.slots.items():
+            if item:
+                item.reset(self, reposition=False)
+                equipment_stats[slot] = item.drop_json()
+
+        player_json = {
+            'species': self.species,
+            'seen_ld': self.seen_loot_drops,
+            'classes': equipment_classes,
+            'stats': equipment_stats
+        }
+
+        return json.dumps(player_json, sort_keys=False)
+
+    @classmethod
+    def load(cls, json_string: str, position=None):
+        saved_state = json.loads(json_string)
+
+        equipment_reg = eq.Wielded.registry.copy()
+        equipment_reg.update(eq.Hat.registry)
+
+        saved_classes = {
+            slot: equipment_reg[tp_str]
+            for slot, tp_str in
+            saved_state['classes'].items()
+        }
+
+        player = cls(position, species=saved_state['species'])
+        player.seen_loot_drops = saved_state['seen_ld']
+
+        # Create and equip saved weapons:
+        for slot, tp in saved_classes.items():
+            item = tp(tier_target=1, size=player.size)
+            item.from_json(saved_state['stats'][slot])
+            player.equip(item, slot)
+
+        return player
 
 
 # Dummy creation

@@ -14,12 +14,13 @@
 #  -bow deals damage depending on drawn time
 #  -crossbow can only deals max damage, but requires being fully loaded
 
-from base_class import *
-from particle import Kicker, MouseHint, Spark, DustCloud
+import base_class as b
+import particle as pt
+from primitive import *
 
 
 # Define equipment classes:
-class Hat(Equipment):
+class Hat(b.Equipment):
     _size_modifier = 1
     prefer_slot = 'hat'
 
@@ -33,7 +34,7 @@ class Hat(Equipment):
         self.generate(tier)
         self.redraw_loot()
 
-        self.loot_cards[None] = LootCard(self)
+        self.loot_cards[None] = b.LootCard(self)
 
     def draw(self, character, position):
         surface = self.surface if character.facing_right else self.flipped_surface
@@ -57,11 +58,11 @@ class EliteCrown(Hat):
         tier = self.builder["tier"]
         self.builder["class"] = "Crown"
 
-        material = Material.pick(['precious'], tier)
+        material = b.Material.pick(['precious'], tier)
         self.builder["constructor"]["whole"] = {
-            "str": random.choice(parts_dict['crown']),
+            "str": random.choice(b.parts_dict['crown']),
             "material": material,
-            "color": Material.registry[material].generate()
+            "color": b.Material.registry[material].generate()
         }
 
         surface = ascii_draw(
@@ -74,7 +75,7 @@ class EliteCrown(Hat):
         self.flipped_surface = pygame.transform.flip(self.surface, True, False)
 
 
-class Wielded(Equipment):
+class Wielded(b.Equipment):
     registry = {}
     """Weapons, shields"""
     aim_drain_modifier = 1
@@ -148,7 +149,7 @@ class Wielded(Equipment):
         self.dangerous = False
         self.stamina_ignore_timer = 0
 
-        # Depend on Material.registry and quality
+        # Depend on b.Material.registry and quality
         self.agility_modifier = None
         self.stamina_drain = None
         self.bleed = 0
@@ -170,7 +171,7 @@ class Wielded(Equipment):
             self.agility_modifier = triangle_roll(self.agility_modifier, 0.07)
         if self.roll_stats and self.stamina_drain is not None:
             self.stamina_drain = triangle_roll(self.stamina_drain, 0.07)
-        self.loot_cards[None] = LootCard(self)
+        self.loot_cards[None] = b.LootCard(self)
 
         # Attacks color may be updated by .generate
         self.color = color or self.color
@@ -554,8 +555,8 @@ class Wielded(Equipment):
         # Play sound dependent on collision vector, divide by other weapon weight:
         sound_v = collision_vector/other_weapon.weight
         sound_intensity = sound_v.length_squared() / (9*POKE_THRESHOLD*POKE_THRESHOLD)
-        material_physics = Material.registry[self.builder['constructor'][self.hitting_surface]['material']].physics
-        material_sound = Material.sounds[material_physics]
+        material_physics = b.Material.registry[self.builder['constructor'][self.hitting_surface]['material']].physics
+        material_sound = b.Material.sounds[material_physics]
         play_sound(material_sound, sound_intensity)
 
         # Don't get parried if:
@@ -683,7 +684,7 @@ class Wielded(Equipment):
         if skip_kicker:
             return
         # Add particle kicker:
-        bleed_kicker = Kicker(
+        bleed_kicker = pt.Kicker(
             position=v(self.tip_v) + v(0, -BASE_SIZE),
             damage_value=0,
             color=colors["crit_kicker"],
@@ -692,14 +693,14 @@ class Wielded(Equipment):
         self.particles.append(bleed_kicker)
 
     @staticmethod
-    def _test_execution(victim: Character) -> bool:
+    def _test_execution(victim: b.Character) -> bool:
         """Returns True if damage is dealt to target skewered by another weapon"""
         execute = victim.anchor_weapon is not None
         return execute
 
-    def _perform_execution(self, character, victim: Character):
+    def _perform_execution(self, character, victim: b.Character):
         character.stamina = character.max_stamina
-        execution_kicker = Kicker(
+        execution_kicker = pt.Kicker(
             position=v(self.tip_v) + v(0, BASE_SIZE),
             damage_value=0,
             color=colors["crit_kicker"],
@@ -812,7 +813,7 @@ class Bladed(Wielded):
                 spark_position = random_point(*self.hitbox())
                 spark_speed = random.triangular(0.1, 0.3) * self.tip_delta
                 self.particles.append(
-                    Spark(
+                    pt.Spark(
                         spark_position,
                         spark_speed,
                         weapon=self,
@@ -865,7 +866,7 @@ class Pointed(Wielded):
             self.kebab.anchor_weapon = None
             self.kebab.anchor_timer = 0
             self.particles.append(
-                Kicker(
+                pt.Kicker(
                     position=v(self.tip_v) + v(0, BASE_SIZE),
                     damage_value=0,
                     color=colors["inventory_description"],
@@ -990,7 +991,7 @@ class Pointed(Wielded):
         self.character_specific["stab_inertia_v"] = 6.25 * BASE_SIZE * character.agility * self.stab_modifier * \
             self.agility_modifier
 
-    def _skewer(self, character, victim: Character):
+    def _skewer(self, character, victim: b.Character):
         # Bleed Bosses instead of skewering
         if not victim.drops_shields:
             self.cause_bleeding(victim)
@@ -1008,7 +1009,7 @@ class Pointed(Wielded):
         self.stamina_ignore_timer = self.skewer_duration + 1
 
         # Add particle kicker:
-        skewer_kicker = Kicker(
+        skewer_kicker = pt.Kicker(
             position=v(self.tip_v)+v(0, BASE_SIZE),
             damage_value=0,
             color=colors["lightning"],
@@ -1018,7 +1019,7 @@ class Pointed(Wielded):
         self.particles.append(skewer_kicker)
 
         # Add a Bar for character:
-        character.bars[self.prefer_slot] = Bar(
+        character.bars[self.prefer_slot] = b.Bar(
             max_value=self.skewer_duration,
             fill_color=self.color or character.attacks_color,
             **character.weapon_bar_options
@@ -1067,7 +1068,7 @@ class Sword(Bladed, Pointed):
         )
 
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal'], roll_tier(tier))
+            "material", b.Material.pick(['metal'], roll_tier(tier))
         )
 
         # Create a hilt
@@ -1078,10 +1079,10 @@ class Sword(Bladed, Pointed):
 
         def new_hilt_material():
             # Prevent same material generation if tier is above current tier
-            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+            blade_tier = b.Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
             if random.random() > 0.4 or blade_tier > tier:  # 40% of the time, pick same material for hilt
-                hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
+                hm = b.Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
             return hm
@@ -1092,7 +1093,7 @@ class Sword(Bladed, Pointed):
 
         # Generate colors:
         self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
-            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['blade']["material"]].generate()
         )
 
         def new_hilt_color():
@@ -1107,13 +1108,13 @@ class Sword(Bladed, Pointed):
                 return self.builder["constructor"]['blade']["color"]
 
             # 10%, paint the hilt
-            if Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
                     random.random() > 0.9:
                 self.builder["constructor"]['hilt']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
 
         self.builder["constructor"]['hilt']["color"] = self.builder["constructor"]['hilt'].get(
             "color", new_hilt_color()
@@ -1139,14 +1140,14 @@ class Sword(Bladed, Pointed):
         # Sword tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self: Wielded):
-        hilt_material = Material.registry[self.builder["constructor"]["hilt"]["material"]]
-        blade_material = Material.registry[self.builder["constructor"]["blade"]["material"]]
+        hilt_material = b.Material.registry[self.builder["constructor"]["hilt"]["material"]]
+        blade_material = b.Material.registry[self.builder["constructor"]["blade"]["material"]]
         blade_len = len(self.builder["constructor"]["blade"]["str"])
 
-        # Generate stats according to Material.registry
+        # Generate stats according to b.Material.registry
         self.weight = 1 + hilt_material.weight + blade_len * (1 + math.sqrt(blade_material.weight))
         self.tier = int((hilt_material.tier+blade_material.tier)*0.5)
 
@@ -1222,7 +1223,7 @@ class Spear(Pointed):
         )
         self.builder["constructor"]["shaft"]["material"] = self.builder["constructor"]["shaft"].get(
             "material",
-            Material.pick(['wood', 'reed'], roll_tier(tier))
+            b.Material.pick(['wood', 'reed'], roll_tier(tier))
         )
 
         # Create spearhead:
@@ -1231,12 +1232,12 @@ class Spear(Pointed):
             "str", random.choice(parts_dict['spear']['heads'])
         )
         self.builder["constructor"]["head"]["material"] = self.builder["constructor"]["head"].get(
-            "material", Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
+            "material", b.Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
         )
 
         # Generate colors:
         def new_color(x):
-            return Material.registry[self.builder["constructor"][x]["material"]].generate()
+            return b.Material.registry[self.builder["constructor"][x]["material"]].generate()
 
         for part in self.builder["constructor"]:
             self.builder["constructor"][part]['color'] = self.builder["constructor"][part].get(
@@ -1263,15 +1264,15 @@ class Spear(Pointed):
         # Spear tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() * (1 - 3 / pole_length)
 
-        self.color = self.color = Material.registry[self.builder["constructor"]["shaft"]["material"]].attacks_color or \
-            Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["shaft"]["material"]].attacks_color or \
+            b.Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
 
     def update_stats(self):
-        shaft_material = Material.registry[self.builder["constructor"]["shaft"]["material"]]
-        tip_material = Material.registry[self.builder["constructor"]["head"]["material"]]
+        shaft_material = b.Material.registry[self.builder["constructor"]["shaft"]["material"]]
+        tip_material = b.Material.registry[self.builder["constructor"]["head"]["material"]]
         shaft_len = len(self.builder["constructor"]["shaft"]["str"])
 
-        # Generating stats according to Material.registry
+        # Generating stats according to b.Material.registry
         self.weight = 5 + shaft_material.weight * 0.5 * shaft_len + tip_material.weight
         self.tier = int((shaft_material.tier + tip_material.tier) * 0.5)
 
@@ -1463,10 +1464,10 @@ class Short(Pointed):
     stab_modifier = 1
 
     def update_stats(self):
-        hilt_material = Material.registry[self.builder["constructor"]["hilt"]["material"]]
-        blade_material = Material.registry[self.builder["constructor"]["blade"]["material"]]
+        hilt_material = b.Material.registry[self.builder["constructor"]["hilt"]["material"]]
+        blade_material = b.Material.registry[self.builder["constructor"]["blade"]["material"]]
 
-        # Generate stats according to Material.registry
+        # Generate stats according to b.Material.registry
         self.weight = 1 + hilt_material.weight + 2 * (1 + blade_material.weight)
         self.tier = int((hilt_material.tier + blade_material.tier) * 0.5)
 
@@ -1508,7 +1509,7 @@ class Dagger(Short, Bladed):
 
         )
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
+            "material", b.Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
         )
 
         # Create a hilt
@@ -1519,10 +1520,10 @@ class Dagger(Short, Bladed):
 
         def new_hilt_material():
             # Prevent same material generation if tier is above current tier
-            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+            blade_tier = b.Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
             if random.random() > 0.7 or blade_tier > tier:  # 30% of the time, pick same material for hilt
-                hm = Material.pick(['metal', 'bone', 'precious'], roll_tier(tier))
+                hm = b.Material.pick(['metal', 'bone', 'precious'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
             return hm
@@ -1534,7 +1535,7 @@ class Dagger(Short, Bladed):
         # Generate colors:
         # Blade is never painted
         self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
-            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['blade']["material"]].generate()
         )
 
         def new_hilt_color():
@@ -1549,13 +1550,13 @@ class Dagger(Short, Bladed):
                 return self.builder["constructor"]['blade']["color"]
 
             # 10%, paint the hilt
-            if Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
                     random.random() > 0.9:
                 self.builder["constructor"]['hilt']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
 
         self.builder["constructor"]['hilt']["color"] = self.builder["constructor"]['hilt'].get(
             "color", new_hilt_color()
@@ -1580,7 +1581,7 @@ class Dagger(Short, Bladed):
         # Dagger tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
         if not calculate_only and victim and self._test_execution(victim):
@@ -1609,8 +1610,8 @@ class Dagger(Short, Bladed):
         self.damage_range = int(self.damage_range[0] * 0.8), int(self.damage_range[1] * 0.9)
         # Roll cooldown reduced by hilt tier and increased by blade material weight
         self.roll_window = math.sqrt(
-            1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
-            (1 + 0.1 * Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
+            1.5 * b.Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
+            (1 + 0.1 * b.Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
         ) + 0.2
         self.redraw_loot()
 
@@ -1626,7 +1627,7 @@ class Dagger(Short, Bladed):
             # Spawn mouse-hint particle for player Daggers roll
             offset = v(-2 * BASE_SIZE, 0) if self.prefer_slot == 'main_hand' else v(2 * BASE_SIZE, 0)
 
-            roll_particle = MouseHint(
+            roll_particle = pt.MouseHint(
                 relative_position=offset,
                 lifetime=self.roll_window,
                 text="ROLL!",
@@ -1637,7 +1638,7 @@ class Dagger(Short, Bladed):
             self.particles.append(roll_particle)
 
             # Add a Bar for character:
-            owner.bars[self.prefer_slot] = Bar(
+            owner.bars[self.prefer_slot] = b.Bar(
                 max_value=self.roll_window,
                 fill_color=self.color or owner.attacks_color,
                 **owner.weapon_bar_options
@@ -1793,7 +1794,7 @@ class Axe(Bladed):
                 self.spins_charged += 1
                 play_sound('beep1', 0.5 if character.ai else 1)
                 # Spawn counting kicker:
-                count_kicker = Kicker(
+                count_kicker = pt.Kicker(
                     size=BASE_SIZE,
                     position=v(self.tip_v),
                     damage_value=0,
@@ -1810,7 +1811,7 @@ class Axe(Bladed):
                     for _ in range(5):
                         spark_v = v()
                         spark_v.from_polar((1.5 * SWING_THRESHOLD, random.uniform(-180, 180)))
-                        spark = Spark(
+                        spark = pt.Spark(
                             position=v(self.tip_v),
                             weapon=None,
                             vector=spark_v,
@@ -1833,7 +1834,7 @@ class Axe(Bladed):
 
         # Spawn a bar (unless player already has it):
         if self.prefer_slot not in character.bars:
-            character.bars[self.prefer_slot] = Bar(
+            character.bars[self.prefer_slot] = b.Bar(
                 max_value=self.full_charge_time,
                 fill_color=self.color or character.attacks_color,
                 **character.weapon_bar_options
@@ -1878,7 +1879,7 @@ class Axe(Bladed):
         )
 
         self.builder["constructor"]["head"]["material"] = self.builder["constructor"]["head"].get(
-            "material", Material.pick(['precious', 'metal', 'mineral'], roll_tier(tier))
+            "material", b.Material.pick(['precious', 'metal', 'mineral'], roll_tier(tier))
         )
 
         # Create a handle:
@@ -1889,20 +1890,20 @@ class Axe(Bladed):
 
         def new_handle_material():
             # Prevent same material generation if tier is above current tier
-            blade_tier = Material.registry[self.builder["constructor"]["head"]["material"]].tier
+            blade_tier = b.Material.registry[self.builder["constructor"]["head"]["material"]].tier
 
             # 20% of the time, pick same metal for METALLIC hilt
             if (
-                    blade_tier <= tier and
-                    random.random() > 0.8 and
-                    Material.registry[self.builder["constructor"]["head"]["material"]].physics in ('metal', 'precious')
+                blade_tier <= tier and
+                random.random() > 0.8 and
+                b.Material.registry[self.builder["constructor"]["head"]["material"]].physics in ('metal', 'precious')
             ):
                 hm = self.builder["constructor"]["head"]["material"]
             else:
-                hm = Material.pick(
+                hm = b.Material.pick(
                     ['bone', 'wood'],
                     roll_tier(tier),
-                    lambda x: x.name not in Material.collections['short_bone']
+                    lambda x: x.name not in b.Material.collections['short_bone']
                 )
             return hm
 
@@ -1912,7 +1913,7 @@ class Axe(Bladed):
 
         # Generate colors:
         self.builder["constructor"]['head']["color"] = self.builder["constructor"]['head'].get(
-            "color", Material.registry[self.builder["constructor"]['head']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['head']["material"]].generate()
         )
 
         # If axe is full-metal, use head color for handle
@@ -1920,7 +1921,7 @@ class Axe(Bladed):
             if self.builder["constructor"]['head']['material'] == self.builder["constructor"]['handle']['material']:
                 return self.builder["constructor"]['head']["color"]
             # Else, generate new
-            return Material.registry[self.builder["constructor"]['handle']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['handle']["material"]].generate()
 
         self.builder["constructor"]['handle']["color"] = self.builder["constructor"]['handle'].get(
             "color", new_handle_color()
@@ -1944,7 +1945,7 @@ class Axe(Bladed):
         # Sword tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0]
 
-        self.color = Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
 
         # Axe special: find locations of head corner vectors relative to the hilt
         blade_start = len(handle_str) / (len(head_str) + len(handle_str))
@@ -1960,10 +1961,10 @@ class Axe(Bladed):
         }
 
     def update_stats(self):
-        handle_material = Material.registry[self.builder["constructor"]["handle"]["material"]]
-        head_material = Material.registry[self.builder["constructor"]["head"]["material"]]
+        handle_material = b.Material.registry[self.builder["constructor"]["handle"]["material"]]
+        head_material = b.Material.registry[self.builder["constructor"]["head"]["material"]]
 
-        # Generate stats according to Material.registry
+        # Generate stats according to b.Material.registry
         self.weight = 1.5 * handle_material.weight + 3 + 3 * head_material.weight
         self.tier = int((handle_material.tier + head_material.tier) * 0.5)
 
@@ -2023,7 +2024,7 @@ class Axe(Bladed):
                 except KeyError:
                     inverse_charge_progression = 1
 
-                character.bars[self.prefer_slot] = Bar(
+                character.bars[self.prefer_slot] = b.Bar(
                     max_value=self.spin_remaining * inverse_charge_progression,
                     fill_color=self.color or character.attacks_color,
                     **character.weapon_bar_options
@@ -2152,7 +2153,7 @@ class Falchion(Sword):
         )
 
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal'], roll_tier(tier))
+            "material", b.Material.pick(['metal'], roll_tier(tier))
         )
 
         # Create a hilt
@@ -2163,10 +2164,10 @@ class Falchion(Sword):
 
         def new_hilt_material():
             # Prevent same material generation if tier is above current tier
-            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+            blade_tier = b.Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
             if random.random() > 0.6 or blade_tier > tier:  # 40% of the time, pick same material for hilt
-                hm = Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
+                hm = b.Material.pick(['metal', 'bone', 'precious', 'wood'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
             return hm
@@ -2177,7 +2178,7 @@ class Falchion(Sword):
 
         # Generate colors:
         self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
-            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['blade']["material"]].generate()
         )
 
         def new_hilt_color():
@@ -2192,13 +2193,13 @@ class Falchion(Sword):
                 return self.builder["constructor"]['blade']["color"]
 
             # 10%, paint the hilt
-            if Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
                     random.random() > 0.9:
                 self.builder["constructor"]['hilt']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
 
         self.builder["constructor"]['hilt']["color"] = self.builder["constructor"]['hilt'].get(
             "color", new_hilt_color()
@@ -2224,7 +2225,7 @@ class Falchion(Sword):
         # Falchion tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
         # Steal from swords, then increase damage range by 15%
@@ -2234,8 +2235,8 @@ class Falchion(Sword):
 
         # Roll cooldown reduced by hilt tier and increased by blade material weight
         self.roll_cooldown = math.sqrt(
-            1.5 * Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
-            (1 + 0.1 * Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
+            1.5 * b.Material.registry[self.builder["constructor"]["blade"]["material"]].weight /
+            (1 + 0.1 * b.Material.registry[self.builder["constructor"]["hilt"]["material"]].tier)
         ) + 0.2
 
         if self.roll_stats:
@@ -2252,7 +2253,7 @@ class Falchion(Sword):
             return
 
         # Get mouse target for roll direction and range
-        roll_v = (point or MouseV.instance.custom_pointer) - v(character.position)
+        roll_v = (point or b.MouseV.instance.custom_pointer) - v(character.position)
 
         # Modify/limit roll length (^2 is faster)
         if roll_v.length_squared() > (self.character_specific["roll_treshold"] * FPS_TARGET) ** 2:
@@ -2341,7 +2342,7 @@ class Shield(OffHand):
             "str", random.choice(parts_dict['shield']['frames'])
         )
         self.builder["constructor"]["frame"]["material"] = self.builder["constructor"]["frame"].get(
-            "material", Material.pick(['metal', 'reed', 'wood', 'bone'], roll_tier(tier))
+            "material", b.Material.pick(['metal', 'reed', 'wood', 'bone'], roll_tier(tier))
         )
 
         # Create plate
@@ -2351,20 +2352,20 @@ class Shield(OffHand):
         )
         # Some bone-physics material should be excluded, as plates are not formed from them:
         # Shield plate must not be heavier than frame:
-        frame_material_weight = Material.registry[self.builder["constructor"]["frame"]["material"]].weight
+        frame_material_weight = b.Material.registry[self.builder["constructor"]["frame"]["material"]].weight
 
         self.builder["constructor"]["plate"]["material"] = self.builder["constructor"]["plate"].get(
             "material",
-            Material.pick(
+            b.Material.pick(
                 ['metal', 'wood', 'leather', 'bone'],
                 roll_tier(tier),
-                lambda x: x.weight <= frame_material_weight and x.name not in Material.collections['plateless_bone']
+                lambda x: x.weight <= frame_material_weight and x.name not in b.Material.collections['plateless_bone']
             )
         )
 
         # Frame is never painted:
         self.builder["constructor"]["frame"]["color"] = self.builder["constructor"]["frame"].get(
-            "color", Material.registry[self.builder["constructor"]["frame"]["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]["frame"]["material"]].generate()
         )
 
         # Paint plate if possible:
@@ -2376,14 +2377,14 @@ class Shield(OffHand):
                 return paint()
 
             # 40%, paint the plate
-            if Material.registry[self.builder["constructor"]['plate']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['plate']["material"]].physics in PAINTABLE and \
                     random.random() > 0.6:
                 if "color" not in self.builder["constructor"]['plate']:
                     self.builder["constructor"]['plate']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['plate']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['plate']["material"]].generate()
 
         self.builder["constructor"]['plate']["color"] = self.builder["constructor"]['plate'].get(
             "color", new_plate_color()
@@ -2401,12 +2402,12 @@ class Shield(OffHand):
 
         self.hilt = self.surface.get_rect().center
 
-        self.color = Material.registry[self.builder["constructor"]["plate"]["material"]].attacks_color or \
-            Material.registry[self.builder["constructor"]["frame"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["plate"]["material"]].attacks_color or \
+            b.Material.registry[self.builder["constructor"]["frame"]["material"]].attacks_color
 
     def update_stats(self):
-        plate_material = Material.registry[self.builder["constructor"]["plate"]["material"]]
-        frame_material = Material.registry[self.builder["constructor"]["frame"]["material"]]
+        plate_material = b.Material.registry[self.builder["constructor"]["plate"]["material"]]
+        frame_material = b.Material.registry[self.builder["constructor"]["frame"]["material"]]
 
         self.weight = 3 + plate_material.weight * 3 + frame_material.weight
         self.tier = int((plate_material.tier + frame_material.tier)/2)
@@ -2469,7 +2470,7 @@ class Shield(OffHand):
 
             # Add a Bar for character:
             if self.prefer_slot not in character.bars:
-                character.bars[self.prefer_slot] = Bar(
+                character.bars[self.prefer_slot] = b.Bar(
                     max_value=self.equip_time,
                     fill_color=self.color or character.attacks_color,
                     **character.weapon_bar_options
@@ -2617,7 +2618,7 @@ class Shield(OffHand):
 
         # Spawn sparks from shield
         for _ in range(random.randint(7, 10)):
-            spark = Spark(
+            spark = pt.Spark(
                 position=self.hilt_v,
                 weapon=self,
                 vector=-vector / 2,
@@ -2678,7 +2679,7 @@ class Shield(OffHand):
         return v(), 0
 
     def _kicker(self, kicker_text, character):
-        blocked_kicker = Kicker(
+        blocked_kicker = pt.Kicker(
             position=v(character.position),
             damage_value=0,
             color=colors["crit_kicker"],
@@ -2764,7 +2765,7 @@ class Shield(OffHand):
         # Spawn dust clouds
         rect = self.surface.get_rect(center=self.hilt_v)
         for _ in range(random.randint(7, 9)):
-            self.particles.append(DustCloud(rect))
+            self.particles.append(pt.DustCloud(rect))
 
         self.reactivation_timer = self._grace_period
         return self.damage_range[0]
@@ -2808,7 +2809,7 @@ class Swordbreaker(Dagger, OffHand):
 
         )
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal', 'precious'], roll_tier(tier))
+            "material", b.Material.pick(['metal', 'precious'], roll_tier(tier))
         )
 
         # Create a hilt
@@ -2819,10 +2820,10 @@ class Swordbreaker(Dagger, OffHand):
 
         def new_hilt_material():
             # Prevent same material generation if tier is above current tier
-            blade_tier = Material.registry[self.builder["constructor"]["blade"]["material"]].tier
+            blade_tier = b.Material.registry[self.builder["constructor"]["blade"]["material"]].tier
 
             if random.random() > 0.7 or blade_tier > tier:  # 30% of the time, pick same material for hilt
-                hm = Material.pick(['metal', 'wood', 'bone', 'precious'], roll_tier(tier))
+                hm = b.Material.pick(['metal', 'wood', 'bone', 'precious'], roll_tier(tier))
             else:
                 hm = self.builder["constructor"]["blade"]["material"]
             return hm
@@ -2833,7 +2834,7 @@ class Swordbreaker(Dagger, OffHand):
 
         # Generate colors:
         self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
-            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['blade']["material"]].generate()
         )
 
         def new_hilt_color():
@@ -2848,13 +2849,13 @@ class Swordbreaker(Dagger, OffHand):
                 return self.builder["constructor"]['blade']["color"]
 
             # 10%, paint the hilt
-            if Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['hilt']["material"]].physics in PAINTABLE and \
                     random.random() > 0.9:
                 self.builder["constructor"]['hilt']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['hilt']["material"]].generate()
 
         self.builder["constructor"]['hilt']["color"] = self.builder["constructor"]['hilt'].get(
             "color", new_hilt_color()
@@ -2879,7 +2880,7 @@ class Swordbreaker(Dagger, OffHand):
         # Dagger tip coordinate relative to hilt -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
         super().update_stats()
@@ -2985,7 +2986,7 @@ class Katar(Pointed, OffHand):
 
         )
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal', 'precious', 'mineral'], roll_tier(tier))
+            "material", b.Material.pick(['metal', 'precious', 'mineral'], roll_tier(tier))
         )
 
         # Create a guard
@@ -2998,12 +2999,12 @@ class Katar(Pointed, OffHand):
             # Never use same material as blade
             picked_blade_material = self.builder["constructor"]["blade"]["material"]
 
-            return Material.pick(
+            return b.Material.pick(
                 ['metal', 'leather', 'bone', 'precious'],
                 roll_tier(tier),
                 lambda x:
-                    x.name not in Material.collections['plateless_bone'] and
-                    x is not Material.registry[picked_blade_material]
+                    x.name not in b.Material.collections['plateless_bone'] and
+                    x is not b.Material.registry[picked_blade_material]
             )
 
         self.builder["constructor"]["guard"]["material"] = self.builder["constructor"]["guard"].get(
@@ -3013,7 +3014,7 @@ class Katar(Pointed, OffHand):
 
         # Generate colors:
         self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
-            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['blade']["material"]].generate()
         )
 
         def new_guard_color():
@@ -3024,13 +3025,13 @@ class Katar(Pointed, OffHand):
                 return paint()
 
             # 50%, paint the handle
-            if Material.registry[self.builder["constructor"]['guard']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['guard']["material"]].physics in PAINTABLE and \
                     random.random() > 0.5:
                 self.builder["constructor"]['guard']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['guard']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['guard']["material"]].generate()
 
         self.builder["constructor"]['guard']["color"] = self.builder["constructor"]['guard'].get(
             "color", new_guard_color()
@@ -3062,13 +3063,13 @@ class Katar(Pointed, OffHand):
         # Dagger tip coordinate relative to handle -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
-        guard = Material.registry[self.builder["constructor"]["guard"]["material"]]
-        blade = Material.registry[self.builder["constructor"]["blade"]["material"]]
+        guard = b.Material.registry[self.builder["constructor"]["guard"]["material"]]
+        blade = b.Material.registry[self.builder["constructor"]["blade"]["material"]]
 
-        # Generate stats according to Material.registry
+        # Generate stats according to b.Material.registry
         self.weight = 1.5*guard.weight + 2 * blade.weight
         self.tier = int((guard.tier+blade.tier)*0.5)
 
@@ -3125,7 +3126,7 @@ class Katar(Pointed, OffHand):
 
             self.activation_rest_time = self._activation_cooldown
             if self.prefer_slot not in character.bars:
-                character.bars[self.prefer_slot] = Bar(
+                character.bars[self.prefer_slot] = b.Bar(
                     max_value=self._activation_cooldown,
                     fill_color=self.color or character.attacks_color,
                     **character.weapon_bar_options
@@ -3300,7 +3301,7 @@ class Knife(Pointed, OffHand):
 
         )
         self.builder["constructor"]["blade"]["material"] = self.builder["constructor"]["blade"].get(
-            "material", Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
+            "material", b.Material.pick(['metal', 'bone', 'mineral'], roll_tier(tier))
         )
 
         # Create a handle
@@ -3316,7 +3317,7 @@ class Knife(Pointed, OffHand):
             if random.random() < 0.2:
                 return picked_blade_material
             else:
-                return Material.pick(
+                return b.Material.pick(
                     ['wood', 'bone', 'leather', 'cloth'],
                     roll_tier(tier)
                 )
@@ -3328,7 +3329,7 @@ class Knife(Pointed, OffHand):
 
         # Generate colors:
         self.builder["constructor"]['blade']["color"] = self.builder["constructor"]['blade'].get(
-            "color", Material.registry[self.builder["constructor"]['blade']["material"]].generate()
+            "color", b.Material.registry[self.builder["constructor"]['blade']["material"]].generate()
         )
 
         def new_guard_color():
@@ -3339,13 +3340,13 @@ class Knife(Pointed, OffHand):
                 return paint()
 
             # 25%, paint the handle
-            if Material.registry[self.builder["constructor"]['handle']["material"]].physics in PAINTABLE and \
+            if b.Material.registry[self.builder["constructor"]['handle']["material"]].physics in PAINTABLE and \
                     random.random() < 0.25:
                 self.builder["constructor"]['handle']['tags'] = ['painted']
                 return paint()
 
             # Generate usual material color
-            return Material.registry[self.builder["constructor"]['handle']["material"]].generate()
+            return b.Material.registry[self.builder["constructor"]['handle']["material"]].generate()
 
         self.builder["constructor"]['handle']["color"] = self.builder["constructor"]['handle'].get(
             "color", new_guard_color()
@@ -3370,14 +3371,14 @@ class Knife(Pointed, OffHand):
         # Dagger tip coordinate relative to handle -- offset 1.25 character_positions
         self.length = self.surface.get_width() - self.hilt[0] * 1.25
 
-        self.color = Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
+        self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
     def update_stats(self):
         super(Knife, self).update_stats()
-        handle = Material.registry[self.builder["constructor"]["handle"]["material"]]
-        blade = Material.registry[self.builder["constructor"]["blade"]["material"]]
+        handle = b.Material.registry[self.builder["constructor"]["handle"]["material"]]
+        blade = b.Material.registry[self.builder["constructor"]["blade"]["material"]]
 
-        # Generate stats according to Material.registry
+        # Generate stats according to b.Material.registry
         self.weight = 0.5*handle.weight + 1.5 * blade.weight
         self.tier = int((handle.tier+blade.tier)*0.5)
 
@@ -3442,7 +3443,7 @@ class Knife(Pointed, OffHand):
 
             self.activation_rest_time += self.return_time + self._stab_duration
 
-            character.bars[self.prefer_slot] = Bar(
+            character.bars[self.prefer_slot] = b.Bar(
                 max_value=self.activation_rest_time,
                 fill_color=self.color or character.attacks_color,
                 **character.weapon_bar_options

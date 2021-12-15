@@ -524,8 +524,8 @@ class Wielded(b.Equipment):
         self.dangerous = False
         return [*self.draw(character)[:2], speed]
 
-    def deal_damage(self, vector=None, victim=None, victor=None):
-        return 0
+    def deal_damage(self, vector=None, victim=None, victor=None) -> (int, bool):
+        return 0, False
 
     def parry(self, owner, opponent, other_weapon, calculated_impact=None):
 
@@ -729,18 +729,18 @@ class Bladed(Wielded):
             return True
         return not self.disabled and abs(self.angular_speed) >= SWING_THRESHOLD
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         if victim and self._test_execution(victim):
             if not calculate_only:
                 self._perform_execution(victor, victim)
-            return self.damage_range[1]
+            return self.damage_range[1], True
 
         # Process limit cases:
         if abs(self.angular_speed) <= SWING_THRESHOLD or self.spin_remaining > 0:
-            return self.damage_range[0]
+            return self.damage_range[0], False
 
         if abs(self.angular_speed) >= 1.6 * SWING_THRESHOLD:
-            return self.damage_range[1]
+            return self.damage_range[1], True
 
         # Assume a cubic dependence instead of LERP becuase it has close to desired value spread
         # Calculate function constants:
@@ -761,7 +761,7 @@ class Bladed(Wielded):
         # damage_max = 0.216 * coefficient * SWING_THRESHOLD ^ 3 + damage_mid_point
         # coefficient = (1/0.216))*(damage_max - damage_mid_point) * (SWING_THRESHOLD ** -3)
 
-        return damage
+        return damage, False
 
     def _spin(self, speed, abs_angle):
         """Force self to spin with set speed for duration"""
@@ -965,12 +965,12 @@ class Pointed(Wielded):
 
         return poke_strength >= POKE_THRESHOLD and not self.disabled
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         # If we stab a target that is skewered on another weapon, spawn "EXECUTION" kicker
         if victim and victor and self._test_execution(victim):
             if not calculate_only:
                 self._perform_execution(victor, victim)
-            return self.damage_range[1]
+            return self.damage_range[1], True
 
         hitting_v = self.tip_delta + (vector or v())
 
@@ -981,7 +981,7 @@ class Pointed(Wielded):
         relative_poke = (poke_strength - POKE_THRESHOLD) / (2 * POKE_THRESHOLD)
         damage = round(lerp(self.damage_range, relative_poke))
 
-        return damage
+        return damage, damage == self.damage_range[1]
 
     def on_equip(self, character):
         super(Pointed, self).on_equip(character)
@@ -1166,13 +1166,14 @@ class Sword(Bladed, Pointed):
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         if self._test_execution(victim):
             self._perform_execution(victor, victim)
-            return self.damage_range[1]
-        stab = Pointed.deal_damage(self, vector, calculate_only=True)
-        swing = Bladed.deal_damage(self, vector, calculate_only=True)
-        return max(stab, swing)
+            return self.damage_range[1], True
+        stab = Pointed.deal_damage(self, vector, calculate_only=True)[0]
+        swing = Bladed.deal_damage(self, vector, calculate_only=True)[0]
+        damage = max(stab, swing)
+        return damage, damage == self.damage_range[1]
 
 
 class Spear(Pointed):
@@ -1303,7 +1304,7 @@ class Spear(Pointed):
         self.held_position = v()
         return supplement_v
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
 
         dealt_damage = super(Spear, self).deal_damage(v(), victim, victor, calculate_only)
         # Only player characters can skewer:
@@ -1319,7 +1320,7 @@ class Spear(Pointed):
         if all([
             self.in_use,
             not self.kebab,
-            0 < dealt_damage < victim.hp,
+            0 < dealt_damage[0] < victim.hp,
             not victim.shielded
         ]):
             self._skewer(victor, victim)
@@ -1583,19 +1584,19 @@ class Dagger(Short, Bladed):
 
         self.color = b.Material.registry[self.builder["constructor"]["blade"]["material"]].attacks_color
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         if not calculate_only and victim and self._test_execution(victim):
             self._perform_execution(victor, victim)
-            return self.damage_range[1]
+            return self.damage_range[1], True
         # Determine if stabbibg or swinging damage is dealt; swinging is always min damage
-        stab = Pointed.deal_damage(self, vector, victim, victor, calculate_only=True)
-        swing = Bladed.deal_damage(self, vector, victim, victor, calculate_only=True)
+        stab = Pointed.deal_damage(self, vector, victim, victor, calculate_only=True)[0]
+        swing = Bladed.deal_damage(self, vector, victim, victor, calculate_only=True)[0]
 
         # If swing damage would be higher than stab damage, return minimal possible damage:
         if swing > stab:
-            return self.damage_range[0]
+            return self.damage_range[0], False
 
-        return stab
+        return stab, stab == self.damage_range[1]
 
     def __init__(self, *args, **kwargs):
         self.roll_window = 0
@@ -2116,9 +2117,9 @@ class Axe(Bladed):
             pushback_v = v(-2 * POKE_THRESHOLD if owner.facing_right else 2 * POKE_THRESHOLD, -2 * POKE_THRESHOLD)
             owner.push(pushback_v, 1.2, affect_player=True)
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         if 0 < self.spin_remaining < 360 and self.last_spin_crits:
-            return self.damage_range[1]
+            return self.damage_range[1], True
 
         return super(Axe, self).deal_damage(vector, victim, victor, calculate_only)
 
@@ -2244,7 +2245,7 @@ class Falchion(Sword):
 
         self.redraw_loot()
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         # Stab component is always min damage, and calculation is covered by Bladed edge cases
         return Bladed.deal_damage(self, vector, victim, victor, calculate_only)
 
@@ -2761,14 +2762,14 @@ class Shield(OffHand):
         if not character.ramming:
             self.active_this_frame = False
 
-    def deal_damage(self, vector=None, victim=None, victor=None):
+    def deal_damage(self, vector=None, victim=None, victor=None) -> (int, bool):
         # Spawn dust clouds
         rect = self.surface.get_rect(center=self.hilt_v)
         for _ in range(random.randint(7, 9)):
             self.particles.append(pt.DustCloud(rect))
 
         self.reactivation_timer = self._grace_period
-        return self.damage_range[0]
+        return self.damage_range[0], self.damage_range[0] > 30
 
     def can_bash(self, character):
         enough_energy = character.stamina >= character.max_stamina * 0.5
@@ -2896,7 +2897,7 @@ class Swordbreaker(Dagger, OffHand):
                 character.stamina += character.max_stamina * 0.05 * FPS_TICK
         super().aim(hilt_placement, aiming_vector, character)
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
         return super(Swordbreaker, self).deal_damage(vector, victim, victor, calculate_only)
 
@@ -2934,7 +2935,7 @@ class Katar(Pointed, OffHand):
     hand_rotation = 90
     prevent_activation = False
     _activation_cooldown = 0.8
-    _skewer_actuation = 0.2
+    _skewer_detection = 0.15
 
     def __init__(self, *args, **kwargs):
         super(Katar, self).__init__(*args, **kwargs)
@@ -3201,14 +3202,14 @@ class Katar(Pointed, OffHand):
             else:
                 self._drop_kebab()
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         # Important: pierces shields if grab is occuring!
-        if victim and isinstance(victim.shielded, Shield) and self.held_duration > self._skewer_actuation:
+        if victim and isinstance(victim.shielded, Shield) and self.held_duration > self._skewer_detection:
             victim.shielded = None
 
         dealt_damage = super(Katar, self).deal_damage(vector, victim, victor, calculate_only)
         if victor:
-            victor.stamina = min(victor.stamina + dealt_damage, victor.max_stamina)
+            victor.stamina = min(victor.stamina + dealt_damage[0], victor.max_stamina)
 
         # If we are holding activation, damage skewers enemy
         if all([
@@ -3217,9 +3218,9 @@ class Katar(Pointed, OffHand):
                 victim.drops_shields,
                 self.in_use,
                 not self.kebab,
-                0 < dealt_damage < victim.hp,
+                0 < dealt_damage[0] < victim.hp,
                 self.active_last_frame,
-                self.held_duration > self._skewer_actuation
+                self.held_duration > self._skewer_detection
         ]):
             self._skewer(victor, victim)
 
@@ -3418,13 +3419,14 @@ class Knife(Pointed, OffHand):
 
         return stats_dict
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False):
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
+        # Damage scales according to combo count
         if victor and victor.ai is None and victor.combo_counter:
             progress = victor.combo_counter.counter/self.combo_cutoff
             damage = round(lerp(self.damage_range, progress))
-            return damage
+            return damage, damage == self.damage_range[1]
         else:
-            return self.damage_range[0]
+            return self.damage_range[0], False
 
     def aim(self, hilt_placement, aiming_vector, character):
         # Work with activation cooldown:

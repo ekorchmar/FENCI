@@ -20,7 +20,8 @@ class Kicker(b.Particle):
             critcolor=None,
             override_string=None,
             oscillate=True,
-            size=BASE_SIZE // 1.5
+            size=BASE_SIZE // 1.5,
+            draw_crit=False
     ):
 
         if override_string:
@@ -30,12 +31,12 @@ class Kicker(b.Particle):
 
             if weapon:
                 # Color crits
-                if damage_value == weapon.damage_range[1]:
+                if draw_crit:
                     damage_string = str(weapon.damage_range[1]) + '!'
                     color = critcolor or color
                 # Higher damage flies faster
                 try:
-                    progression = (damage_value-weapon.damage_range[0])/(weapon.damage_range[1]-weapon.damage_range[0])
+                    progression = damage_value * 0.01
                     base_speed = lerp((0.5*base_speed, base_speed), progression)
                 except ZeroDivisionError:
                     pass

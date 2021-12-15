@@ -998,9 +998,9 @@ class Scene:
             if isinstance(weapon, eq.Wielded):
                 if isinstance(target, b.Character):
                     collision_v = target.speed + weapon.tip_delta
-                    damage = round(weapon.deal_damage(vector=collision_v, victim=target, victor=owner))
+                    damage = weapon.deal_damage(vector=collision_v, victim=target, victor=owner)
                     survived, actual_damage = opponent.hurt(
-                        damage=damage,
+                        damage=round(damage[0]),
                         vector=weapon.tip_delta,
                         weapon=weapon,
                         offender=owner
@@ -1013,11 +1013,11 @@ class Scene:
                         # If player was hit or performed the hit, add small screenshake:
                         if self.player is target:
                             # Wielding lighter shield causes heavier screenshake:
-                            self.shaker.add_shake(0.001 * damage * (10 - shield.weight))
-                            play_sound('shield', 0.01 * damage)
+                            self.shaker.add_shake(0.001 * damage[0] * (10 - shield.weight))
+                            play_sound('shield', 0.01 * damage[0])
                         elif self.player is owner:
-                            self.shaker.add_shake(0.0025 * damage)
-                            play_sound('shield', 0.005 * damage)
+                            self.shaker.add_shake(0.0025 * damage[0])
+                            play_sound('shield', 0.005 * damage[0])
 
                     # If actual damage is below zero, apply it back to attacker (For Buckler?)
                     elif actual_damage < 0:
@@ -1044,7 +1044,7 @@ class Scene:
                         self.alert_ai(target)
 
                     # Spawn kicker and blood:
-                    self.splatter(point, target, actual_damage, weapon)
+                    self.splatter(point, target, actual_damage, weapon, crit=damage[1])
 
                     # Half shakeup for crits and Executions, quarter for everything else
                     if owner is self.player:
@@ -1101,8 +1101,9 @@ class Scene:
                     collision_v = v(weapon.speed) * weapon.weight / target.weight
 
                     # Shield damage is static, push target for remaining charge duration + 0.5 s
+                    shield_damage = shield.deal_damage(v())
                     survived, bash_damage = target.hurt(
-                        damage=shield.deal_damage(v()),
+                        damage=shield_damage[0],
                         vector=collision_v,
                         offender=weapon,
                         duration=min(1.5, 0.5 + weapon.state_timer),
@@ -1117,7 +1118,7 @@ class Scene:
                     else:
                         self.alert_ai(target)
 
-                    self.splatter(target.position, target, bash_damage, shield)
+                    self.splatter(target.position, target, bash_damage, shield, crit=shield_damage[1])
                     self.shaker.add_shake(1.0)
 
                     for _ in range(random.randint(5, 7)):
@@ -1160,7 +1161,7 @@ class Scene:
                         target, weapon = assigned
 
                         damage_modifier = lerp(
-                            (0.25 * POKE_THRESHOLD * POKE_THRESHOLD, POKE_THRESHOLD * POKE_THRESHOLD),
+                            (0.25 * POKE_THRESHOLD * POKE_THRESHOLD, 2.25 * POKE_THRESHOLD * POKE_THRESHOLD),
                             relative_v.length_squared())
                         impact_damage = 0.05 * weapon.weight * damage_modifier
                         play_sound('collision', 0.01 * impact_damage)
@@ -1265,7 +1266,7 @@ class Scene:
             self.shaker.add_shake(character.size / 2 * BASE_SIZE)
             character.wall_collision_v = v()
 
-    def splatter(self, point, target, damage, weapon=None):
+    def splatter(self, point, target, damage, weapon=None, crit=False):
         if damage <= 0:
             return
 
@@ -1284,7 +1285,8 @@ class Scene:
             damage,
             color=colors["dmg_kicker"],
             weapon=weapon,
-            critcolor=colors["crit_kicker"]
+            critcolor=colors["crit_kicker"],
+            draw_crit=crit
         )
         self.particles.append(kicker)
 

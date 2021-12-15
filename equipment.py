@@ -657,7 +657,7 @@ class Wielded(b.Equipment):
 
             portrait = tint(portrait, color)
 
-        if isinstance(self, (Spear, Axe, Katar)):
+        if isinstance(self, (Spear, Axe, Katar, Mace)):
             portrait = pygame.transform.flip(portrait, True, True)
         new_width = portrait.get_width()
 
@@ -3384,7 +3384,7 @@ class Knife(Pointed, OffHand):
         self.tier = int((handle.tier+blade.tier)*0.5)
 
         # Static
-        self.agility_modifier = 2
+        self.agility_modifier = 3
         self.stamina_drain = 0
 
         # Calculate damage range depending on weight and tier:
@@ -3466,3 +3466,166 @@ class Knife(Pointed, OffHand):
 
     def is_dangerous(self):
         return super().is_dangerous() and self.in_use
+
+
+class Mace(Sword):
+    class_name = 'Mace'
+    hitting_surface = 'head'
+    default_angle = 30
+    max_tilt = 150
+    upside = ["Hold activation to increase speed and stamina drain", "Extra pushback"]
+    downside = ["Minimal damage on stab attacks"]
+    _handle_length = 6
+    pushback = 3
+
+    def __init__(self, size, *args, **kwargs):
+        self.destroys_shield = False
+        self.active_last_frame = False
+        self.active_this_frame = False
+        super(Mace, self).__init__((size*3) // 8, *args, **kwargs)
+
+    def generate(self, tier=None):
+
+        # Fill missing parts of self.builder on the go:
+        self.builder["constructor"] = self.builder.get("constructor", {})
+        self.builder["tier"] = self.builder.get("tier", tier)
+
+        # Use this for calculations from now on
+        tier = self.builder["tier"]
+
+        self.builder["class"] = "Mace"
+
+        # Create mace head:
+        self.builder["constructor"]["head"] = self.builder["constructor"].get("head", {})
+        self.builder["constructor"]["head"]["str"] = self.builder["constructor"]["head"].get(
+            "str", random.choice(parts_dict['mace']['heads'])
+        )
+
+        self.builder["constructor"]["head"]["material"] = self.builder["constructor"]["head"].get(
+            "material", b.Material.pick(['metal', 'mineral'], roll_tier(tier))
+        )
+
+        # Create a handle:
+        self.builder["constructor"]["handle"] = self.builder["constructor"].get("handle", {})
+        self.builder["constructor"]["handle"]["str"] = self.builder["constructor"]["handle"].get(
+            "str", random.choice(parts_dict['axe']['handles'])
+        )
+
+        def new_handle_material():
+            # Prevent same material generation if tier is above current tier
+            blade_tier = b.Material.registry[self.builder["constructor"]["head"]["material"]].tier
+
+            # 40% of the time, pick same metal for METALLIC hilt
+            if (
+                blade_tier <= tier and
+                random.random() < 0.4 and
+                b.Material.registry[self.builder["constructor"]["head"]["material"]].physics == 'metal'
+            ):
+                hm = self.builder["constructor"]["head"]["material"]
+            else:
+                hm = b.Material.pick(
+                    ['bone', 'wood'],
+                    roll_tier(tier),
+                    lambda x: x.name not in b.Material.collections['short_bone']
+                )
+            return hm
+
+        self.builder["constructor"]["handle"]["material"] = self.builder["constructor"]["handle"].get(
+            "material", new_handle_material()
+        )
+
+        # Generate colors:
+        self.builder["constructor"]['head']["color"] = self.builder["constructor"]['head'].get(
+            "color", b.Material.registry[self.builder["constructor"]['head']["material"]].generate()
+        )
+
+        # If mace is full-metal, use head color for handle
+        def new_handle_color():
+            if self.builder["constructor"]['head']['material'] == self.builder["constructor"]['handle']['material']:
+                return self.builder["constructor"]['head']["color"]
+            # Else, generate new
+            return b.Material.registry[self.builder["constructor"]['handle']["material"]].generate()
+
+        self.builder["constructor"]['handle']["color"] = self.builder["constructor"]['handle'].get(
+            "color", new_handle_color()
+        )
+
+        # Now that builder is filled, create surface:
+        handle_str = self._handle_length * ['  ' + self.builder["constructor"]["handle"]["str"] + '  ']
+        head_str = self.builder["constructor"]["head"]["str"]
+        handle_color = self.builder["constructor"]["handle"]["color"]
+        head_color = self.builder["constructor"]["head"]["color"]
+
+        self.surface = ascii_draw_rows(
+            self.font_size, [[row, head_color] for row in head_str] + [[row, handle_color] for row in handle_str]
+        )
+        self.surface = pygame.transform.rotate(self.surface, -90)
+
+        # Hold in the middle of handle
+        relative_x = len(handle_str) * 0.5 / len(head_str + handle_str)
+        self.hilt = self.surface.get_width() * relative_x, self.surface.get_height() * 0.5
+
+        # Sword tip coordinate relative to hilt -- offset 1.25 character_positions
+        self.length = self.surface.get_width() - self.hilt[0]
+
+        self.color = b.Material.registry[self.builder["constructor"]["head"]["material"]].attacks_color
+
+    def update_stats(self: Wielded):
+        handle_material = b.Material.registry[self.builder["constructor"]["handle"]["material"]]
+        head_material = b.Material.registry[self.builder["constructor"]["head"]["material"]]
+
+        # Generate stats according to b.Material.registry
+        self.weight = 1.5 * handle_material.weight + 2 + 2.5 * head_material.weight
+        self.tier = int((handle_material.tier + head_material.tier) * 0.5)
+
+        # reduced for head weight, increased for handle tier
+        # SQRT to bring closer to 1.0
+        self.agility_modifier = math.sqrt((8.0 + handle_material.tier) / (3 * head_material.weight)) * .75
+        # Increased for axe total weight, reduced for head tier (1.3-1.6)
+        # SQRT to bring closer to 1.0
+        self.stamina_drain = (0.06 * self.weight) ** 0.25
+
+        # Calculate damage range depending on weight, size and tier:
+        min_damage = int((400 + self.weight * self.weight) / 7 * 1.08 ** (self.tier - 1))
+        max_damage = int(min_damage * math.sqrt(2 + 0.05 * self.tier))
+        self.damage_range = min_damage, max_damage
+
+        self.redraw_loot()
+
+    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
+        # Stab component is always min damage, and calculation is covered by Bladed edge cases
+        return Bladed.deal_damage(self, vector, victim, victor, calculate_only)
+
+    def activate(self, character, continuous_input):
+        if character.state not in DISABLED and character.stamina > self.character_specific["stamina_drain"]:
+            if abs(self.angular_speed) > SWING_THRESHOLD:
+                character.stamina -= self.character_specific["stamina_drain"]
+            self.active_this_frame = True
+
+    def aim(self, hilt_placement, aiming_vector, character):
+        self.destroys_shield = self.active_last_frame = self.active_this_frame
+        old_acc = self.character_specific["acceleration"]
+        # If we are active this frame, set speed to max
+        if self.active_this_frame:
+            self.character_specific["acceleration"] = 4*old_acc
+
+            # Spawn particle near the tip (Approx. 14/s)
+            if self.dangerous and random.random() < FPS_TICK * 14:
+                spark_position = v(self.hitbox()[1])
+                spark_speed = random.triangular(0.1, 0.3) * self.tip_delta
+                self.particles.append(
+                    pt.Spark(
+                        spark_position,
+                        spark_speed,
+                        weapon=self,
+                        attack_color=self.color,
+                        lifetime=REMAINS_SCREENTIME * 0.03
+                    )
+                )
+
+        super(Mace, self).aim(hilt_placement, aiming_vector, character)
+
+        # Switch back:
+        if self.active_this_frame:
+            self.character_specific["acceleration"] = old_acc
+            self.active_this_frame = False

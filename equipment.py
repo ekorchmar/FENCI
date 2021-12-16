@@ -88,6 +88,7 @@ class Wielded(b.Equipment):
     destroys_shield = False
     ignores_shield = False
     _stamina_ignore = 0.8
+    _tier_scaling = 1.08
 
     def reset(self, character, reposition=True):
         if reposition:
@@ -1170,7 +1171,7 @@ class Sword(Bladed, Pointed):
         )
 
         # Calculate damage range depending on weight, size and tier:
-        min_damage = int(1.15 * (50 + self.weight) * 1.08 ** (self.tier - 1))
+        min_damage = int(1.15 * (50 + self.weight) * self._tier_scaling ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(1 + blade_len / 5))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -1203,6 +1204,7 @@ class Spear(Pointed):
     downside = ["No swing attacks"]
     class_name = "Spear"
     stab_dash_modifier = 0
+    pushback = 1.5
 
     _max_fallback = 1.0
     _fallback_distance = 0.4
@@ -1298,7 +1300,7 @@ class Spear(Pointed):
 
         # Calculate damage range depending on weight and tier; longer range causes more damage,
         # Max damage is further increased by weight:
-        min_damage = int(1.15 * (65 + 0.85 * self.weight) * 1.08 ** (tip_material.tier - 1))
+        min_damage = int(1.15 * (65 + 0.85 * self.weight) * self._tier_scaling ** (tip_material.tier - 1))
         max_damage = int(math.sqrt(self.weight / 8) * int(min_damage * 1.15 * math.sqrt(shaft_len / 8)))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -1477,6 +1479,7 @@ class Short(Pointed):
     default_angle = 30
     max_tilt = 150
     stab_modifier = 1
+    _tier_scaling = 1.12
 
     def update_stats(self):
         hilt_material = b.Material.registry[self.builder["constructor"]["hilt"]["material"]]
@@ -1493,7 +1496,7 @@ class Short(Pointed):
         self.stamina_drain = 0.34*math.sqrt(self.weight / math.sqrt(hilt_material.weight))
 
         # Calculate damage range depending on weight and tier:
-        min_damage = int((60 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
+        min_damage = int((60 + 0.5 * self.weight) * self._tier_scaling ** (self.tier - 1))
         max_damage = int(min_damage * 1.2)
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -1997,7 +2000,7 @@ class Axe(Bladed):
 
         # Calculate damage range depending on weight, size and tier:
         # High tier axes scale better, weight is very important
-        min_damage = int((450 + self.weight * self.weight) / 7 * 1.08 ** (self.tier - 1))
+        min_damage = int((450 + self.weight * self.weight) / 7 * self._tier_scaling ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(2 + 0.1 * self.tier))
         self.damage_range = min_damage, max_damage
 
@@ -2608,8 +2611,15 @@ class Shield(OffHand):
 
     def block(self, character, damage, vector, weapon: Wielded = None, offender=None) -> (v, int):
 
+        block_failed = False
+
+        # Prevent protecting from back attacks, unless character is moving
+        if offender and not character.ramming and \
+                ((character.position.x > offender.position.x) == character.facing_right):
+            block_failed = True
+
         # If inside a parry window, immediately bash attacker:
-        if offender and character.ai is None and self.held_counter < self.equip_time + self.parry_window:
+        elif offender and character.ai is None and self.held_counter < self.equip_time + self.parry_window:
             # Aim shield towards offender:
             offender_v = v(offender.position) - v(character.position)
             phi = -offender_v.as_polar()[1]
@@ -2627,28 +2637,23 @@ class Shield(OffHand):
             if weapon:
                 block_failed = block_failed or weapon.destroys_shield or weapon.ignores_shield
 
-            # Prevent protecting from back attacks, unless character is moving
-            if offender and not character.ramming:
-                block_failed = block_failed or \
-                        ((character.position.x > offender.position.x) == character.facing_right)
+        if block_failed:
 
-            if block_failed:
+            ignored = False
+            # Displace self by enemy weapon delta
+            if weapon:
+                self.activation_offset += weapon.tip_delta
+                ignored = weapon.ignores_shield
 
-                ignored = False
-                # Displace self by enemy weapon delta
-                if weapon:
-                    self.activation_offset += weapon.tip_delta
-                    ignored = weapon.ignores_shield
+            # Spawn a kicker and queue destruction if held by AI:
+            self.active_this_frame = self.active_last_frame = False
+            self.queue_destroy = character.drops_shields and not ignored
+            self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
+            if self.queue_destroy:
+                character.bars.pop(self.prefer_slot, 0)
 
-                # Spawn a kicker and queue destruction if held by AI:
-                self.active_this_frame = self.active_last_frame = False
-                self.queue_destroy = character.drops_shields and not ignored
-                self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
-                if self.queue_destroy:
-                    character.bars.pop(self.prefer_slot, 0)
-
-                # Return full damage and force
-                return vector, damage
+            # Return full damage and force
+            return vector, damage
 
         # Spawn sparks from shield
         for _ in range(random.randint(7, 10)):
@@ -3103,7 +3108,7 @@ class Katar(Pointed, OffHand):
         self.stamina_drain = self.weight / (4 * math.sqrt(guard.weight+blade.weight))
 
         # Calculate damage range depending on weight and tier:
-        damage = int((22 + 0.5 * self.weight) * 1.08 ** (self.tier - 1))
+        damage = int((22 + 0.5 * self.weight) * self._tier_scaling ** (self.tier - 1))
         self.damage_range = damage, damage
 
         # Depends on total weight and heavily on blade tier
@@ -3281,7 +3286,7 @@ class Knife(Pointed, OffHand):
     default_angle = -30
     class_name = "Knife"
     max_tilt = 85
-    stab_modifier = 1.2
+    stab_modifier = 1.0
     return_time = 0.05
     held_position = v(-15, 5)
     stab_dash_modifier = 0
@@ -3498,10 +3503,10 @@ class Mace(Sword):
     upside = ["Hold activation to increase speed and stamina drain", "Extra pushback"]
     downside = ["Minimal damage on stab attacks", "Reduced stamina grace period"]
     _handle_length = 6
-    pushback = 2.2
     _stamina_ignore = 0.4
 
     def __init__(self, size, *args, **kwargs):
+        self.pushback = 1
         self.destroys_shield = False
         self.active_last_frame = False
         self.active_this_frame = False
@@ -3609,9 +3614,16 @@ class Mace(Sword):
         self.stamina_drain = (0.06 * self.weight) ** 0.25
 
         # Calculate damage range depending on weight, size and tier:
-        min_damage = int((400 + self.weight * self.weight) / 7 * 1.08 ** (self.tier - 1))
+        min_damage = int((400 + self.weight * self.weight) / 7 * self._tier_scaling ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(2 + 0.05 * self.tier))
         self.damage_range = min_damage, max_damage
+
+        # Calculate pushback (HIGHER for lighter mace):
+        weight_class = (self.weight - 4.6) / 2.4
+        self.pushback = 1 + lerp((1, 2), 1-weight_class)
+
+        if self.roll_stats:
+            self.pushback = triangle_roll(self.pushback, 0.07)
 
         self.redraw_loot()
 
@@ -3652,3 +3664,21 @@ class Mace(Sword):
         if self.active_this_frame:
             self.character_specific["acceleration"] = old_acc
             self.active_this_frame = False
+
+    def show_stats(self, compare_to=None):
+        stats_dict: dict = super().show_stats(compare_to=compare_to)
+
+        if compare_to is not None:
+            comparison_dict = compare_to.show_stats()
+        else:
+            comparison_dict = dict()
+
+        stats_dict["KNOCKBACK"] = {
+            "value": self.pushback,
+            "text": f'{self.pushback:.1f}'
+        }
+
+        if "KNOCKBACK" in comparison_dict:
+            stats_dict["KNOCKBACK"]["evaluation"] = self.pushback - comparison_dict["KNOCKBACK"]["value"]
+
+        return stats_dict

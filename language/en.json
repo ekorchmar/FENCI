@@ -216,6 +216,7 @@
     "Maces deal lower damage than bladed weapons, but are very reliable at controlling your enemy.",
     "Activating your Mace is a costly way to quickly disperse your opposition, but missing just one attack will leave you stumbling for stamina.",
     "You can get around Mace's increased stamina consumption by chaining your attacks on groups of enemies."
+    "Lighter Maces deal less damage, but push enemies further."
   ],
   "gameplay": {
     "paused": "PAUSED",

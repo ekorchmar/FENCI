@@ -147,5 +147,25 @@
         "color": [104, 43, 22, 255]
       }
     }
+  },
+  "ritual hammer":{
+    "class": "Mace",
+    "tier": 0,
+    "constructor": {
+      "handle": {
+        "str": "|",
+        "material": "birch",
+        "color": [255, 215, 96, 255]
+      },
+      "head": {
+        "str": [
+          "╒═Δ═╕",
+          "│ ╿ │",
+          "╘═╽═╛"
+        ],
+        "material": "onix",
+        "color": [34, 39, 67, 255]
+      }
+    }
   }
 }

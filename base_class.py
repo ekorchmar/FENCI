@@ -1491,6 +1491,7 @@ class LootCard(Card):
         "DAMAGE",
         "LENGTH",
         "WEIGHT",
+        "KNOCKBACK",
         "SPEED",
         "DRAIN",
         "DEFLECT TIME",
@@ -1498,7 +1499,7 @@ class LootCard(Card):
         "BLEED",
         "ROLL WINDOW",
         "FULL CHARGE",
-        "COOLDOWN"
+        "COOLDOWN",
     ]
 
     def __init__(self, equipment, compare_to: [None, Equipment] = None):

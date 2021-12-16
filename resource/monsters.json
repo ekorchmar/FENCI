@@ -43,6 +43,18 @@
       ],
       "blood": [102, 64, 36],
       "hand": "m"
+    },
+    "Skeleton": {
+      "size": 0.8,
+      "agility": 0.9,
+      "max_speed": 6.8,
+      "stamina": 300.0,
+      "stamina_restoration": 120,
+      "hp_restoration": 0,
+      "health": 135,
+      "color": [227, 218, 201],
+      "blood": [69, 0, 0],
+      "hand": "m"
     }
   },
   "soul": {
@@ -63,6 +75,12 @@
       "skill": 0.5,
       "flexibility": 0.5,
       "courage": 0.5
+    },
+    "Skeleton": {
+      "aggression": 0.5,
+      "skill": 0.5,
+      "flexibility": 0.3,
+      "courage": 0.8
     },
     "Elf": {
       "aggression": 0.5,
@@ -207,7 +225,73 @@
         ]
       },
     "Skeleton": {
-      "idle": "( •̟̟̟•)"
+      "idle": [
+        "( •̟̟̟•)", 0
+        ],
+      "blink": [
+           "( -̟̟̟-)",
+          0
+        ],
+      "idle_rare": [
+          "(• ̟ •)",
+          "(• ̟̟• )",
+          "(• ̟̟• )",
+          "(• ̟ •)",
+          1.5
+        ],
+        "talk": [
+          "( •̟̟̟•)",
+          0
+        ],
+        "hurt": [
+          "(#•̟̟̟•)",
+          0
+        ],
+        "active": [
+          "( >̟̟̟<)",
+          0
+        ],
+        "bashing": [
+          "(!>̟̟̟<)",
+          0
+        ]
+        ,
+        "jumping": [
+          "( >̟̟̟<)",
+          0
+        ],
+        "running": [
+          "( •̟̟̟•)",
+          0
+        ],
+        "pog": [
+          "(^̟̟̟^)",
+          0
+        ],
+        "flying": [
+          "( o̟̯•)",
+          0
+        ],
+        "exhausted": [
+          "Zz-̟̯•)",
+          0
+        ],
+        "dead": [
+          "( x ̟x)",
+          0
+        ],
+        "channeling": [
+          "( •̟̟̟•)",
+          0
+        ],
+        "skewered": [
+          "(#>̟̟̟<)",
+          0
+        ],
+        "scared": [
+          "( T̟̟̟T)",
+          0
+        ]
     },
     "Orc": {
         "idle": [

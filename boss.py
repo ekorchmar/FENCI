@@ -4,7 +4,6 @@
 #  Troll boss with custom AI
 #  Troll Boss AI with ramming charge and summonning goblins
 
-import base_class as b
 import equipment as eq
 import monster as mo
 from primitive import *
@@ -43,7 +42,7 @@ class Elite(Boss):
     _size_modifier = 1.2
     _breakpoints = 3  # Reducing health below breakpoint causes the Boss to spawn reinforcements
 
-    def __init__(self, position, tier: int, base_creature: type, pack_difficulty: int = 5, team_color=None):
+    def __init__(self, position, tier: int, base_creature, pack_difficulty: int = 5, team_color=None):
         # Create a bigger version of base creature:
         body_stats = character_stats["body"][base_creature.__name__].copy()
         portraits = character_stats["mind"][base_creature.__name__].copy()
@@ -66,29 +65,30 @@ class Elite(Boss):
             name=f"Elite {base_creature.__name__.capitalize()} Lv.{tier:.0f}"
         )
 
-        # Create a base creature to 'steal' it's equipment and properties
-        donor: b.Character = base_creature(position=None, tier=tier, team_color=team_color)
+        # Create an instance of a base creature to 'steal' it's properties
+        donor = base_creature(position=None, tier=tier, team_color=team_color)
 
         # Get slots and coordinates
         self.slots = donor.slots
         self.body_coordinates = donor.body_coordinates.copy()
         scale_body(self.body_coordinates, self._size_modifier)
 
-        for slot in filter(lambda x: x != 'hat', donor.slots):
-            equipment = donor.slots[slot]
-            if equipment:
-                # Update equipment portrait and stats to match own size
-                equipment.font_size = int(equipment.font_size * 1.2)
-                equipment.generate()
-                equipment.update_stats()
-                equipment.redraw_loot()
+        # Equip main hand:
+        self.equip(base_creature.get_main(size=self.size, tier=tier), 'main_hand')
 
-                # Equip it
-                self.equip(equipment, slot)
+        # Equip a Shield (ALWAYS!):
+        self.equip(base_creature.get_shield(size=self.size, tier=tier, team_color=team_color), 'off_hand')
 
         # Equip crown
         crown = eq.EliteCrown(BASE_SIZE * body_stats["size"], tier)
         self.equip(crown, 'hat')
+
+        # Breakpoint treshold:
+        self.breakpoint_treshold = self._breakpoints / self.max_hp
+
+        # Set team color from Shield if painted:
+        if not team_color and 'painted' in self.slots["off_hand"].builder["constructor"]["plate"].get("tags", []):
+            team_color = self.slots["off_hand"].builder["constructor"]["plate"]["color"]
 
         # Add AI:
         self.ai = EliteAI(
@@ -98,9 +98,6 @@ class Elite(Boss):
             tier=tier,
             team_color=team_color
         )
-
-        # Breakpoint treshold:
-        self.breakpoint_treshold = self._breakpoints / self.max_hp
 
     def hurt(self, *args, **kwargs) -> (bool, int):
         before_breakpoints = round(self.hp * self.breakpoint_treshold)

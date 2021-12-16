@@ -856,7 +856,7 @@ class Pointed(Wielded):
     stab_cost = 0.5
     stab_modifier = 1.0
     stab_dash_modifier = 1.0
-    _stab_duration = 0.2
+    stab_duration = 0.2
     _max_skewer_duration = 2
 
     def __init__(self, *args, **kwargs):
@@ -935,7 +935,7 @@ class Pointed(Wielded):
                         continue
 
                     weapon.disabled = True
-                    weapon.lock(angle=weapon.default_angle, duration=self._stab_duration)
+                    weapon.lock(angle=weapon.default_angle, duration=self.stab_duration)
 
         # Determine activation_offset to move weapon forward (stab)
         self.inertia_vector = v()
@@ -951,11 +951,11 @@ class Pointed(Wielded):
 
         # Lock self
         self.in_use = True
-        self.lock(angle=self.last_angle, duration=self._stab_duration, inertia=self.inertia_vector)
+        self.lock(angle=self.last_angle, duration=self.stab_duration, inertia=self.inertia_vector)
 
         # Dash, if character is not skewering with any other weapon:
         if dash_vector != v() and not eq_skewering:
-            character.push(character.speed, self._stab_duration, state="active")
+            character.push(character.speed, self.stab_duration, state="active")
 
     def is_dangerous(self):
         parent = super().is_dangerous()
@@ -1480,6 +1480,7 @@ class Short(Pointed):
     max_tilt = 150
     stab_modifier = 1
     _tier_scaling = 1.12
+    pushback = 0.5
 
     def update_stats(self):
         hilt_material = b.Material.registry[self.builder["constructor"]["hilt"]["material"]]
@@ -2939,7 +2940,7 @@ class Swordbreaker(Dagger, OffHand):
         return stats_dict
 
 
-class Katar(Pointed, OffHand):
+class Katar(Short, OffHand):
     class_name = "Katar"
     max_tilt = 85
     default_angle = 0
@@ -2949,7 +2950,7 @@ class Katar(Pointed, OffHand):
     held_position = v(-15, 5)
     stab_dash_modifier = 0
     stab_cost = 0.25
-    _stab_duration = 0.3
+    stab_duration = 0.3
     upside = [
         "Activate to stab and bleed enemy",
         "Hold activation to immobilize enemy",
@@ -3215,7 +3216,7 @@ class Katar(Pointed, OffHand):
 
         self.held_duration += FPS_TICK
         self.active_this_frame = True
-        if self.held_duration >= self._stab_duration and self.kebab:
+        if self.held_duration >= self.stab_duration and self.kebab:
             # Lock in place
             self.inertia_vector = v()
             self.lock(FPS_TICK, self.last_angle)
@@ -3288,7 +3289,7 @@ class Knife(Pointed, OffHand):
     max_tilt = 85
     stab_modifier = 1.0
     return_time = 0.05
-    held_position = v(-15, 5)
+    held_position = v(0, 5)
     stab_dash_modifier = 0
     stab_cost = 0.2
     can_parry = False
@@ -3470,7 +3471,7 @@ class Knife(Pointed, OffHand):
             else:
                 self.activation_rest_time = self._activation_cooldown
 
-            self.activation_rest_time += self.return_time + self._stab_duration
+            self.activation_rest_time += self.return_time + self.stab_duration
 
             character.bars[self.prefer_slot] = b.Bar(
                 max_value=self.activation_rest_time,

@@ -59,7 +59,8 @@ class Material:
         'ferrous': {'pig iron', 'iron', 'sanchezium', 'dwarfish steel', 'damascus steel'},
         'bendable_bone': {"fish bone", 'cattle horn', 'game antler', 'demon horn', 'unicorn horn',
                           'moonbeast antler', 'wishbone', 'carbon plate', 'cursed bones'},
-        'celestial': {'moonglow silver', "moonbeast antler"}
+        'celestial': {'moonglow silver', "moonbeast antler"},
+        "silver": {'silver', 'quicksilver', 'moonglow silver'}
     }
     sounds = {
         "metal": "metal",

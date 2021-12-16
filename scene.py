@@ -13,6 +13,7 @@
 # todo: Add lightning effect to character spawn
 #  sparks in inventory when weapon is damaged
 #  Dialogues
+import random
 
 import base_class as b
 import particle as pt
@@ -1313,7 +1314,7 @@ class Scene:
                 else:
                     vector = v()
                     vector.from_polar((
-                        2 * POKE_THRESHOLD,
+                        random.triangular(0, 3 * POKE_THRESHOLD),
                         random.uniform(-180, 180)
                     ))
                 blood = pt.Spark(target.position, vector, attack_color=target.color, angle_spread=(-60, 60))

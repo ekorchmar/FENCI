@@ -3232,7 +3232,7 @@ class Katar(Short, OffHand):
 
     def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
         # Important: pierces shields if grab is occuring!
-        if victim and isinstance(victim.shielded, Shield) and self.held_duration > self._skewer_detection:
+        if victim and isinstance(victim.shielded, Shield) and self.active_last_frame:
             victim.shielded = None
 
         dealt_damage = super(Katar, self).deal_damage(vector, victim, victor, calculate_only)
@@ -3247,8 +3247,7 @@ class Katar(Short, OffHand):
                 self.in_use,
                 not self.kebab,
                 0 < dealt_damage[0] < victim.hp,
-                self.active_last_frame,
-                self.held_duration > self._skewer_detection
+                self.active_last_frame
         ]):
             self._skewer(victor, victim)
 

@@ -1,15 +1,10 @@
 # todo:
-#  tilt skewered enemy face slightly according to anchor_weapon.last_angle
 # After tech demo
 # todo:
 #  ?? Burning weapons
-#  ?? Mace: activateable main hand weapon, copies falchion activation, increases collision damage to hit characters
 #  Add hats: armor, that passively changes stats of characters. Can be light, magic or heavy
-#  activateable axes and maces
-#  If mace is channeled, slowly spin up, ignoring limitations and aiming angle
 #  Add projectiles,
 #  activatable buckler: smaller, lighter shield with throw attack and lower stamina efficiency
-#  axe can be channelled, to immobilize self and power up a boomerang throw
 #  Add bows, crossbows: off-hand projectile weapons; replace main weapon when used:
 #  -bow deals damage depending on drawn time
 #  -crossbow can only deals max damage, but requires being fully loaded
@@ -92,6 +87,7 @@ class Wielded(b.Equipment):
     prevent_activation = True
     destroys_shield = False
     ignores_shield = False
+    _stamina_ignore = 0.8
 
     def reset(self, character, reposition=True):
         if reposition:
@@ -266,6 +262,8 @@ class Wielded(b.Equipment):
         # Tick down stamina ignore timer:
         if self.stamina_ignore_timer > 0:
             self.stamina_ignore_timer -= FPS_TICK
+        elif self.stamina_ignore_timer < 0:
+            self.stamina_ignore_timer = 0
 
         # If weapon is locked, tick down timer and move by inertia offset(unless disabled) if needed:
         if self.lock_timer > 0:
@@ -568,7 +566,7 @@ class Wielded(b.Equipment):
                 abs(other_weapon.angular_speed) > SWING_THRESHOLD * 0.5 or
                 isinstance(other_weapon, Shield)
         ):
-            self.stamina_ignore_timer = 1
+            self.stamina_ignore_timer = self._stamina_ignore
             return
 
         # Reset hand position:
@@ -712,6 +710,9 @@ class Wielded(b.Equipment):
         # Cause bleeding by skewering weapon:
         victim.anchor_weapon.cause_bleeding(victim, skip_kicker=True)
 
+    def _ignore_stamina_drain(self):
+        self.stamina_ignore_timer = max(self._stamina_ignore, self.stamina_ignore_timer)
+
 
 class Bladed(Wielded):
     """Maces, Axes, Swords"""
@@ -734,6 +735,10 @@ class Bladed(Wielded):
             if not calculate_only:
                 self._perform_execution(victor, victim)
             return self.damage_range[1], True
+
+        # Make weapon not consume stamina
+        if not calculate_only:
+            self._ignore_stamina_drain()
 
         # Process limit cases:
         if abs(self.angular_speed) <= SWING_THRESHOLD or self.spin_remaining > 0:
@@ -972,6 +977,10 @@ class Pointed(Wielded):
                 self._perform_execution(victor, victim)
             return self.damage_range[1], True
 
+        # Make weapon not consume stamina
+        if not calculate_only:
+            self._ignore_stamina_drain()
+
         hitting_v = self.tip_delta + (vector or v())
 
         # Project weapon hit on weapon itself to determine "poking" component of collision vector
@@ -1170,6 +1179,11 @@ class Sword(Bladed, Pointed):
         if self._test_execution(victim):
             self._perform_execution(victor, victim)
             return self.damage_range[1], True
+
+        # Make weapon not consume stamina
+        if not calculate_only:
+            self._ignore_stamina_drain()
+
         stab = Pointed.deal_damage(self, vector, calculate_only=True)[0]
         swing = Bladed.deal_damage(self, vector, calculate_only=True)[0]
         damage = max(stab, swing)
@@ -1588,6 +1602,11 @@ class Dagger(Short, Bladed):
         if not calculate_only and victim and self._test_execution(victim):
             self._perform_execution(victor, victim)
             return self.damage_range[1], True
+
+        # Make weapon not consume stamina
+        if not calculate_only:
+            self._ignore_stamina_drain()
+
         # Determine if stabbibg or swinging damage is dealt; swinging is always min damage
         stab = Pointed.deal_damage(self, vector, victim, victor, calculate_only=True)[0]
         swing = Bladed.deal_damage(self, vector, victim, victor, calculate_only=True)[0]
@@ -2121,6 +2140,10 @@ class Axe(Bladed):
         if 0 < self.spin_remaining < 360 and self.last_spin_crits:
             return self.damage_range[1], True
 
+        # Make weapon not consume stamina
+        if not calculate_only:
+            self._ignore_stamina_drain()
+
         return super(Axe, self).deal_damage(vector, victim, victor, calculate_only)
 
 
@@ -2469,16 +2492,16 @@ class Shield(OffHand):
                 self.character_specific['speed_limit'] * 0.7
             self.inertia_vector = v(x_component, 0)
 
-            # Add a Bar for character:
-            if self.prefer_slot not in character.bars:
+        else:
+            # Spawn a bar for reflect window:
+            if self.prefer_slot not in character.bars and 0 < self.held_counter - self.equip_time < self.parry_window:
                 character.bars[self.prefer_slot] = b.Bar(
-                    max_value=self.equip_time,
+                    max_value=self.parry_window,
                     fill_color=self.color or character.attacks_color,
                     **character.weapon_bar_options
                 )
-            character.__dict__[self.prefer_slot] = self.held_counter
+            character.__dict__[self.prefer_slot] = self.parry_window
 
-        else:
             character.shielded = self
             character.__dict__[self.prefer_slot] = self.equip_time
 
@@ -2585,37 +2608,47 @@ class Shield(OffHand):
 
     def block(self, character, damage, vector, weapon: Wielded = None, offender=None) -> (v, int):
 
-        # Determine how much stamina would a full block require
-        character.stamina -= damage * self.stamina_drain
+        # If inside a parry window, immediately bash attacker:
+        if offender and character.ai is None and self.held_counter < self.equip_time + self.parry_window:
+            # Aim shield towards offender:
+            offender_v = v(offender.position) - v(character.position)
+            phi = -offender_v.as_polar()[1]
+            self.last_angle = phi
+            character.speed.from_polar((POKE_THRESHOLD, phi))
+            self._bash(character)
 
-        block_failed = character.stamina < 0 and (weapon is None or self.weight <= weapon.weight)
+        else:
+            # Determine how much stamina would a full block require
+            character.stamina -= damage * self.stamina_drain
 
-        # Fully charged Spears and Spinning Axes can destroy shields
-        if weapon:
-            block_failed = block_failed or weapon.destroys_shield or weapon.ignores_shield
+            block_failed = character.stamina < 0 and (weapon is None or self.weight <= weapon.weight)
 
-        # Prevent protecting from back attacks, unless character is moving
-        if offender:
-            block_failed = block_failed or \
-                    ((character.position.x > offender.position.x) == character.facing_right and not character.ramming)
-
-        if block_failed:
-
-            ignored = False
-            # Displace self by enemy weapon delta
+            # Fully charged Spears and Spinning Axes can destroy shields
             if weapon:
-                self.activation_offset += weapon.tip_delta
-                ignored = weapon.ignores_shield
+                block_failed = block_failed or weapon.destroys_shield or weapon.ignores_shield
 
-            # Spawn a kicker and queue destruction if held by AI:
-            self.active_this_frame = self.active_last_frame = False
-            self.queue_destroy = character.drops_shields and not ignored
-            self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
-            if self.queue_destroy:
-                character.bars.pop(self.prefer_slot)
+            # Prevent protecting from back attacks, unless character is moving
+            if offender and not character.ramming:
+                block_failed = block_failed or \
+                        ((character.position.x > offender.position.x) == character.facing_right)
 
-            # Return full damage and force
-            return vector, damage
+            if block_failed:
+
+                ignored = False
+                # Displace self by enemy weapon delta
+                if weapon:
+                    self.activation_offset += weapon.tip_delta
+                    ignored = weapon.ignores_shield
+
+                # Spawn a kicker and queue destruction if held by AI:
+                self.active_this_frame = self.active_last_frame = False
+                self.queue_destroy = character.drops_shields and not ignored
+                self._kicker('DESTROYED!' if self.queue_destroy else 'BROKEN!', character)
+                if self.queue_destroy:
+                    character.bars.pop(self.prefer_slot, 0)
+
+                # Return full damage and force
+                return vector, damage
 
         # Spawn sparks from shield
         for _ in range(random.randint(7, 10)):
@@ -2627,20 +2660,6 @@ class Shield(OffHand):
                 angle_spread=(-45, 45)
             )
             self.particles.append(spark)
-
-        # If inside a parry window, return own damage as negative value to tell Scene to deal damage to attacker:
-        # if offender character.ai is None and self.held_counter < self.equip_time+self.parry_window:
-        #    self._kicker("DEFLECT!", character)
-        #    return v(), -self.damage_range[1]
-
-        # If inside a parry window, immediately bash attacker:
-        if offender and character.ai is None and self.held_counter < self.equip_time + self.parry_window:
-            # Aim shield towards offender:
-            offender_v = v(offender.position) - v(character.position)
-            phi = -offender_v.as_polar()[1]
-            self.last_angle = phi
-            character.speed.from_polar((POKE_THRESHOLD, phi))
-            self._bash(character)
 
         # Cause character movement by reduced force:
         # The more damage was blocked, the higher the pushback
@@ -2672,7 +2691,7 @@ class Shield(OffHand):
             self.queue_destroy = chance > attempt
             if self.queue_destroy:
                 kicker_text = 'DESTROYED!'
-                character.bars.pop(self.prefer_slot)
+                character.bars.pop(self.prefer_slot, 0)
 
         # Spawn 'BLOCKED' kicker
         self._kicker(kicker_text, character)
@@ -2729,6 +2748,13 @@ class Shield(OffHand):
         return stats_dict
 
     def aim(self, hilt_placement, aiming_vector, character):
+        # Update bar:
+        if self.prefer_slot in character.bars:
+            if self.held_counter - self.equip_time >= self.parry_window:
+                character.bars.pop(self.prefer_slot, 0)
+            else:
+                character.__dict__[self.prefer_slot] = self.parry_window - self.held_counter + self.equip_time
+
         # Tick down immunity:
         if self.internal_immunity > 0:
             self.internal_immunity -= FPS_TICK
@@ -2897,13 +2923,9 @@ class Swordbreaker(Dagger, OffHand):
                 character.stamina += character.max_stamina * 0.05 * FPS_TICK
         super().aim(hilt_placement, aiming_vector, character)
 
-    def deal_damage(self, vector=None, victim=None, victor=None, calculate_only=False) -> (int, bool):
-        self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
-        return super(Swordbreaker, self).deal_damage(vector, victim, victor, calculate_only)
-
     def parry(self, owner, opponent, other_weapon, calculated_impact=None):
         super(Swordbreaker, self).parry(owner, opponent, other_weapon, calculated_impact)
-        self.stamina_ignore_timer = min(self.stamina_ignore_timer, 0.6)
+        self._ignore_stamina_drain()
 
     def show_stats(self, compare_to=None):
         stats_dict: dict = super().show_stats(compare_to=compare_to)
@@ -3474,9 +3496,10 @@ class Mace(Sword):
     default_angle = 30
     max_tilt = 150
     upside = ["Hold activation to increase speed and stamina drain", "Extra pushback"]
-    downside = ["Minimal damage on stab attacks"]
+    downside = ["Minimal damage on stab attacks", "Reduced stamina grace period"]
     _handle_length = 6
-    pushback = 3
+    pushback = 2.2
+    _stamina_ignore = 0.4
 
     def __init__(self, size, *args, **kwargs):
         self.destroys_shield = False
@@ -3597,9 +3620,9 @@ class Mace(Sword):
         return Bladed.deal_damage(self, vector, victim, victor, calculate_only)
 
     def activate(self, character, continuous_input):
-        if character.state not in DISABLED and character.stamina > self.character_specific["stamina_drain"]:
-            if abs(self.angular_speed) > SWING_THRESHOLD:
-                character.stamina -= self.character_specific["stamina_drain"]
+        if character.state not in DISABLED and character.stamina > 2*self.character_specific["stamina_drain"]:
+            if abs(self.angular_speed) > SWING_THRESHOLD*0.5:
+                character.stamina -= 2*self.character_specific["stamina_drain"]
             self.active_this_frame = True
 
     def aim(self, hilt_placement, aiming_vector, character):

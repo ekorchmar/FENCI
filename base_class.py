@@ -1180,10 +1180,7 @@ class Character:
 
         if weapon:
             # Scale vector down depending on character weight:
-            vector *= weapon.pushback * weapon.weight / self.weight
-
-            # Make weapon not consume stamina for duration
-            weapon.stamina_ignore_timer = duration
+            vector *= 0.02 * weapon.pushback * weapon.weight * BASE_SIZE / self.size
 
         if vector != v() and self.anchor_weapon is None:
             self.push(vector, duration, state='hurt')

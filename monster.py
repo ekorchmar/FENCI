@@ -1359,7 +1359,7 @@ class Goblin(Humanoid):
 
         # 34% of the time also generate a light Shield
         if random.random() > 0.66:
-            self.equip(self.get_shield(tier=tier, size=self.size, team_color=team_color), 'off_hand')
+            self.equip(self.get_shield(tier=tier, team_color=team_color), 'off_hand')
 
         self.ai = AI(self, **ai_stats)
 
@@ -1562,7 +1562,7 @@ class Human(Humanoid):
         )
 
         # Humans use anything, so allow random generation:
-        self.equip(self.get_main(tier, self.size), 'main_hand')
+        self.equip(self.get_main(tier), 'main_hand')
         # Shield in 50% cases
         if random.random() > 0.5:
             shield = self.get_shield(tier, self.size, team_color)
@@ -1801,7 +1801,7 @@ class Orc(Humanoid):
 
 class Skeleton(Humanoid):
     has_blood = False
-    skirmish_spawn_rate = 2
+    skirmish_spawn_rate = 2.5
     class_name = 'Skeleton'
     difficulty = 2.5
 
@@ -1823,11 +1823,11 @@ class Skeleton(Humanoid):
             name=f"Skeleton Lv.{tier:.0f}"
         )
 
-        self.equip(self.get_main(tier, self.size), 'main_hand')
+        self.equip(self.get_main(tier), 'main_hand')
 
         # Shield in 85% cases
         if random.random() < 0.85:
-            shield = self.get_shield(tier, self.size, team_color)
+            shield = self.get_shield(tier, team_color)
             self.equip(shield, 'off_hand')
 
         # Add AI:

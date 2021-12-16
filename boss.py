@@ -74,13 +74,15 @@ class Elite(Boss):
         scale_body(self.body_coordinates, self._size_modifier)
 
         # Equip main hand:
-        self.equip(base_creature.get_main(size=self.size, tier=tier), 'main_hand')
+        self.equip(
+            base_creature.get_main(size=max(self.size, BASE_SIZE), tier=tier), 'main_hand')
 
         # Equip a Shield (ALWAYS!):
-        self.equip(base_creature.get_shield(size=self.size, tier=tier, team_color=team_color), 'off_hand')
+        self.equip(
+            base_creature.get_shield(size=max(self.size, BASE_SIZE), tier=tier, team_color=team_color), 'off_hand')
 
         # Equip crown
-        crown = eq.EliteCrown(BASE_SIZE * body_stats["size"], tier)
+        crown = eq.EliteCrown(self.size, tier)
         self.equip(crown, 'hat')
 
         # Breakpoint treshold:

@@ -1271,11 +1271,21 @@ class Character:
         viable_equipment = [
             self.slots[slot]
             for slot in self.slots
-            if slot != 'backpack' and self.slots[slot] and self.slots[slot].durability > 0
+            if (
+                    slot != 'backpack' and
+                    self.slots[slot] and
+                    self.slots[slot].durability > 0
+            )
         ]
 
         if not viable_equipment:
             return False, "All equipment is broken!"
+
+        # Don't break main hand weapon until it's the last one
+        main_hand_weapon = self.slots['main_hand']
+        if main_hand_weapon and len(viable_equipment) > 1:
+            if main_hand_weapon.durability == 1:
+                viable_equipment.remove(main_hand_weapon)
 
         # Equipment is more likely to be picked if it's less damaged (less likely to completely break)
         break_likelihood = [item.durability for item in viable_equipment]

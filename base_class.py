@@ -370,7 +370,7 @@ class Equipment:
         self.prevent_regen = False
 
     def reset(self, character, reposition=True):
-        pass
+        self.particles.clear()
 
     def generate(self, tier=None):
         """

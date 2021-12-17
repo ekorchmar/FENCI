@@ -1801,7 +1801,7 @@ class Orc(Humanoid):
 
 class Skeleton(Humanoid):
     has_blood = False
-    skirmish_spawn_rate = 2.5
+    skirmish_spawn_rate = 4
     class_name = 'Skeleton'
     difficulty = 2.5
 
@@ -1827,7 +1827,7 @@ class Skeleton(Humanoid):
 
         # Shield in 85% cases
         if random.random() < 0.85:
-            shield = self.get_shield(tier, team_color)
+            shield = self.get_shield(tier=tier, team_color=team_color)
             self.equip(shield, 'off_hand')
 
         # Add AI:
@@ -1836,7 +1836,7 @@ class Skeleton(Humanoid):
     @staticmethod
     def get_main(tier, size=BASE_SIZE) -> eq.Wielded:
         classes = eq.Mace, eq.Sword, eq.Spear, eq.Axe
-        weights = 75, 15, 10, 5
+        weights = 50, 30, 15, 15
         cls = random.choices(classes, weights)[0]
 
         def filter_func(x):

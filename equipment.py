@@ -91,6 +91,7 @@ class Wielded(b.Equipment):
     _tier_scaling = 1.08
 
     def reset(self, character, reposition=True):
+        super(Wielded, self).reset(character, reposition)
         if reposition:
             self.last_angle = self.default_angle if character.facing_right else \
                 math.copysign(180, self.default_angle)-self.default_angle
@@ -2625,7 +2626,7 @@ class Shield(OffHand):
             offender_v = v(offender.position) - v(character.position)
             phi = -offender_v.as_polar()[1]
             self.last_angle = phi
-            character.speed.from_polar((POKE_THRESHOLD, phi))
+            character.speed.from_polar((2*POKE_THRESHOLD, phi))
             self._bash(character)
 
         else:

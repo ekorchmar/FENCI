@@ -82,8 +82,7 @@ class Elite(Boss):
             base_creature.get_shield(size=max(self.size, BASE_SIZE), tier=tier, team_color=team_color), 'off_hand')
 
         # Equip crown
-        crown = eq.EliteCrown(self.size, tier)
-        self.equip(crown, 'hat')
+        self.equip(eq.EliteCrown(self.size, tier), 'hat')
 
         # Breakpoint treshold:
         self.breakpoint_treshold = self._breakpoints / self.max_hp

@@ -1312,7 +1312,9 @@ class Character:
 
         # Reset own weapons
         for slot in self.weapon_slots:
-            self.slots[slot].reset(self, )
+            self.slots[slot].reset(self, reposition=True)
+            if self.shielded is self.slots[slot]:
+                self.shielded = None
 
         self.bleeding_intensity = 0
         self.bleeding_timer = 0

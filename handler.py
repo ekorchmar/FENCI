@@ -800,7 +800,7 @@ class TutorialSceneHandler(SceneHandler):
                 "positions": [
                     v(
                         self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
+                        self.scene.box.height * 0.5 + self.scene.box.height * (i + 1) / 8
                     )
                     for i
                     in range(3)
@@ -956,7 +956,7 @@ class TutorialSceneHandler(SceneHandler):
                 "positions": [
                     v(
                         self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
+                        self.scene.box.height * 0.5 + self.scene.box.height * (i + 1) / 8
                     )
                     for i
                     in range(3)
@@ -978,7 +978,7 @@ class TutorialSceneHandler(SceneHandler):
                 "positions": [
                     v(
                         self.scene.box.width - PLAYER_SPAWN[0],
-                        self.scene.box.height * (i + 1) / 4
+                        self.scene.box.height * 0.5 + self.scene.box.height * (i + 1) / 8
                     )
                     for i
                     in range(3)

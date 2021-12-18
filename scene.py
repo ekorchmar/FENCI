@@ -1,7 +1,7 @@
 # todo:
-#  Split options into submenus; add options for: SFX volume;
 # After tech demo
 # todo:
+#  Split options into submenus; add options for: SFX volume;
 #  Store each completed level in progress/victory.json
 #  Procedure to querry victory.json for top DPS and lowest time per level tier and type
 #  bleeding contributes to player_damage
@@ -13,7 +13,6 @@
 # todo: Add lightning effect to character spawn
 #  sparks in inventory when weapon is damaged
 #  Dialogues
-import random
 
 import base_class as b
 import particle as pt

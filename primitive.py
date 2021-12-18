@@ -48,7 +48,7 @@ OPTIONS = load_json('options.json', 'options')
 # Global progress tracking:
 PROGRESS = load_json('progress.json', 'progress')
 
-FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
+RATING_URL = "https://ekorchmar.itch.io/fenci/rate?source=game"
 
 # Screen options:
 WINDOW_SIZE = 1024, 768
@@ -57,6 +57,7 @@ FPS_TARGET = 60
 FPS_TICK = 1 / FPS_TARGET
 BASE_SIZE = 24
 DISPLAY_COLOR = colors["background"]
+FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
 
 # All sounds and constants:
 MUSIC_VOLUME = 0.5
@@ -407,6 +408,13 @@ def mark_skirmish_progress(beaten_tier: int):
 
 def tutorial_completed(state: bool):
     PROGRESS["tutorial_completed"] = state
+
+    with open(os.path.join('progress', 'progress.json'), 'w') as progress_json:
+        json.dump(PROGRESS, progress_json)
+
+
+def remove_browser_prompt():
+    PROGRESS["disable_web_prompt"] = True
 
     with open(os.path.join('progress', 'progress.json'), 'w') as progress_json:
         json.dump(PROGRESS, progress_json)

@@ -356,6 +356,12 @@
           "3": "75%",
           "4": "100%"
         }
+    },
+    "web_prompt": {
+      "prompt": "Would you like to help develop the game by providing your rating and feedback? Opens in web browser.",
+      "yes": "Yes!",
+      "no": "Yes, but later.",
+      "never": "Never ask again."
     }
   },
   "overlay_hint": {
@@ -424,7 +430,7 @@
     "falchion": "Press LEFT mouse button with falchion to roll in any direction at any time. It is fun and costs no stamina.",
     "spear1": "Stab with LEFT mouse button with the spear to skewer an enemy. Shake them off to cause bleeding.",
     "spear2": "Hold LEFT mouse button to hold spear closer to self, but it's best to switch to a smaller weapon for close combat.",
-    "breaker": "Hold SHIFT to lock your main hand weapon from aiming. This stops it from draining stamina, and you can still use your Swordbreaker",
+    "breaker": "Hold SHIFT to lock your main hand weapon from aiming. This stops it from draining stamina, and you can still use your Swordbreaker.",
     "katar": "Hold RIGHT mouse button to immobilize an enemy with a katar and finish them with your main weapon. Works through shields!",
     "inventory": "Your inventory is above playing field. Press ESCAPE and drop one of the swords by holding mouse button on it to continue.",
     "weight": "Heavier weapons deal more damage, but light ones are faster to move and drain less stamina. Swap your weapons with mouse WHEEL.",

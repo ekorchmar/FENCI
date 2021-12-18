@@ -1,5 +1,6 @@
 import particle as pt
 import handler as hd
+import webbrowser as wb
 from primitive import *
 
 
@@ -412,6 +413,8 @@ class RUSureMenu(Menu):
 
 class PauseEnsemble(Menu):
     def __init__(self, scene):
+        prompt_in_menu = not isinstance(hd.SceneHandler.active, hd.TutorialSceneHandler)
+
         # Unpause button:
         unpause_rect = DEFAULT_BUTTON_RECT.copy()
         unpause_rect.topleft = scene.box.left + BASE_SIZE, scene.box.top + BASE_SIZE
@@ -446,7 +449,8 @@ class PauseEnsemble(Menu):
                     "title": string["menu"]["confirm_menu"],
                     "confirm_text": string['menu']['confirmed_menu'],
                     "action": scene.request_new_handler,
-                    "action_parameters": [hd.MainMenuSceneHandler]
+                    "action_parameters": [hd.MainMenuSceneHandler],
+                    "action_keywords": {"kwargs": {"web_prompt": prompt_in_menu}}
                 }
             },
             kb_index=2
@@ -563,7 +567,7 @@ class MainMenu(Menu):
 
         return buttons
 
-    def __init__(self, scene):
+    def __init__(self, scene, web_prompt=False):
         # Work within scene:
         self.scene = scene
 
@@ -581,8 +585,19 @@ class MainMenu(Menu):
             add_tnt=True
         )
 
+        self.web_prompt = web_prompt and not PROGRESS["disable_web_prompt"]
+
     def _start_skirmish(self, tier):
         self.scene.request_new_handler(scene_handler=hd.SkirmishSceneHandler, args=[tier])
+
+    def display(self, mouse_v, active=True):
+        # Add a web prompt menu on top of self if asked to
+        if self.web_prompt:
+            self.scene.menus.append(BrowserPrompt())
+            self.web_prompt = False
+            active = False
+
+        return super(MainMenu, self).display(mouse_v, active)
 
 
 class Victory(Menu):
@@ -595,6 +610,9 @@ class Victory(Menu):
             next_level_keywords=None,
             victory_text=None
     ):
+
+        prompt_in_menu = not isinstance(hd.SceneHandler.active, hd.TutorialSceneHandler)
+
         # Modify savefile to be next level
         if hd.SceneHandler.active.tier < 4:
             hd.SceneHandler.active.save(next_level=True)
@@ -632,12 +650,14 @@ class Victory(Menu):
                     "title": string["menu"]["confirm_menu"],
                     "confirm_text": string['menu']['confirmed_menu'],
                     "action": scene.request_new_handler,
-                    "action_parameters": [hd.MainMenuSceneHandler]
+                    "action_parameters": [hd.MainMenuSceneHandler],
+                    "action_keywords": {"kwargs": {"web_prompt": prompt_in_menu}}
                 }
             }
         } if next_level_button is not None else {
             'action': scene.request_new_handler,
-            "action_parameters": [hd.MainMenuSceneHandler]
+            "action_parameters": [hd.MainMenuSceneHandler],
+            "action_keywords": {"kwargs": {"web_prompt": prompt_in_menu}}
         }
 
         menu_button = Button(
@@ -751,7 +771,8 @@ class Defeat(Menu):
                     "title": string["menu"]["confirm_menu"],
                     "confirm_text": string['menu']['confirmed_menu'],
                     "action": scene.request_new_handler,
-                    "action_parameters": [hd.MainMenuSceneHandler]
+                    "action_parameters": [hd.MainMenuSceneHandler],
+                    "action_keywords": {"kwargs": {"web_prompt": True}}
                 }
             },
             kb_index=0
@@ -856,4 +877,55 @@ class LootHelp(Menu):
             background=True,
             title_surface=title,
             reposition_buttons=(1, 1)
+        )
+
+
+class BrowserPrompt(Menu):
+    _background_color = c(*colors["loot_card"], 255)
+
+    def never(self):
+        remove_browser_prompt()
+        self.fade()
+
+    def __init__(self):
+        title = ascii_draw_cascaded(
+            BASE_SIZE,
+            string["menu"]["web_prompt"]["prompt"],
+            colors["inventory_title"],
+            WINDOW_SIZE[0] * 3 // 4
+        )
+
+        buttons_list = [
+            # Never
+            Button(
+                text=[string["menu"]["web_prompt"]["never"]],
+                rect=r(0, 0, DEFAULT_BUTTON_RECT.width*3//2, DEFAULT_BUTTON_RECT.height),
+                action=self.never,
+                kb_index=0
+            ),
+
+            # No
+            Button(
+                text=[string["menu"]["web_prompt"]["no"]],
+                rect=r(0, 0, DEFAULT_BUTTON_RECT.width*3//2, DEFAULT_BUTTON_RECT.height),
+                action=self.fade,
+                kb_index=1
+            ),
+
+            # Yes
+            Button(
+                text=[string["menu"]["web_prompt"]["yes"]],
+                rect=r(0, 0, DEFAULT_BUTTON_RECT.width*3//2, DEFAULT_BUTTON_RECT.height),
+                action=wb.open,
+                action_keywords={"url": RATING_URL},
+                kb_index=2
+            ),
+        ]
+
+        super().__init__(
+            buttons_list=buttons_list,
+            background=True,
+            title_surface=title,
+            reposition_buttons=(1, 3),
+            escape_button_index=1
         )

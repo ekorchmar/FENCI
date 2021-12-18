@@ -658,7 +658,7 @@ class MainMenuSceneHandler(SceneHandler):
     _gladiator_capacity = 8
     theme = 'blkrbt_brokenlight.ogg'
 
-    def __init__(self):
+    def __init__(self, web_prompt=False):
 
         self.challenger_classes: list = [
             gladiator for
@@ -671,7 +671,7 @@ class MainMenuSceneHandler(SceneHandler):
         # Create a custom scene
         main_menu_scene = sc.Scene(None, SCREEN, EXTENDED_SCENE_BOUNDS, decorative=True)
 
-        super(MainMenuSceneHandler, self).__init__(
+        super().__init__(
             tier=0,
             pad_monster_classes=[],
             monster_total_cost=0,
@@ -684,7 +684,8 @@ class MainMenuSceneHandler(SceneHandler):
         self.scene.generate_menu_popup(
             menu_class=mn.MainMenu,
             keywords={
-                "scene": self.scene
+                "scene": self.scene,
+                "web_prompt": web_prompt and not PROGRESS["disable_web_prompt"]
             }
         )
 

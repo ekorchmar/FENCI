@@ -37,7 +37,10 @@ if __name__ == "__main__":
         print(f"Loaded artifacts at tier {tier}: {', '.join(level) or 'None'}")
 
     # Scene Handler to start:
-    hd.SceneHandler.active = hd.MainMenuSceneHandler() if PROGRESS["tutorial_completed"] else hd.TutorialSceneHandler()
+    if PROGRESS["tutorial_completed"]:
+        hd.SceneHandler.active = hd.MainMenuSceneHandler(web_prompt=False)
+    else:
+        hd.TutorialSceneHandler()
 
     while True:
         hd.SceneHandler.active.execute()

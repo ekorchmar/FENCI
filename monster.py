@@ -1327,6 +1327,8 @@ class DebugAI(AI):
         pass
 
     def execute(self):
+        if self.character.state in DISABLED and not self.character.anchor_timer > 0:
+            self.character.speed *= 0.5
         return v(), None
 
 

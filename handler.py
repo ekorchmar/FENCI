@@ -83,33 +83,8 @@ class SceneHandler:
 
         # Create backlog of loot
         # Spread by slot:
-        loot_by_slot = dict()
-        for loot_class in tuple(eq.Wielded.registry.values()):
-            if loot_class.prefer_slot in loot_by_slot:
-                loot_by_slot[loot_class.prefer_slot].append(loot_class)
-            else:
-                loot_by_slot[loot_class.prefer_slot] = [loot_class]
-
-        loot_slots = list(loot_by_slot.keys())
-        loot_slot_weights = [LOOT_OCCURRENCE_WEIGHTS[slot] for slot in loot_slots]
-
         self.loot = []
-
-        last_loot_classes = [None, None]
-        for _ in range(3 * loot_drops):
-            # Choose slot to generate piece of loot for:
-            loot_classes = loot_by_slot[random.choices(population=loot_slots, weights=loot_slot_weights)[0]]
-            # Prevent generating 3 of same class in a row:
-            if last_loot_classes[0] is last_loot_classes[1] in loot_classes:
-                loot_classes.remove(last_loot_classes[0])
-            loot_class = random.choice(loot_classes)
-
-            # Cycle last 2 classes:
-            del last_loot_classes[0]
-            last_loot_classes.append(loot_class)
-
-            # Append loot piece
-            self.loot.append(loot_class(tier_target=tier, size=BASE_SIZE))
+        self.generate_drops(queue=self.loot, amount=3*loot_drops)
 
         # Better loot last:
         if sort_loot:
@@ -149,6 +124,34 @@ class SceneHandler:
         # Play music
         if OPTIONS["music"] and self.theme and not pygame.mixer.music.get_busy():
             self.play_theme()
+
+    def generate_drops(self, queue, amount):
+        # Spread by slot:
+        loot_by_slot = dict()
+        for loot_class in tuple(eq.Wielded.registry.values()):
+            if loot_class.prefer_slot in loot_by_slot:
+                loot_by_slot[loot_class.prefer_slot].append(loot_class)
+            else:
+                loot_by_slot[loot_class.prefer_slot] = [loot_class]
+
+        loot_slots = list(loot_by_slot.keys())
+        loot_slot_weights = [LOOT_OCCURRENCE_WEIGHTS[slot] for slot in loot_slots]
+        last_loot_classes = [None, None]
+
+        for _ in range(amount):
+            # Choose slot to generate piece of loot for:
+            loot_classes = loot_by_slot[random.choices(population=loot_slots, weights=loot_slot_weights)[0]]
+            # Prevent generating 3 of same class in a row:
+            if last_loot_classes[0] is last_loot_classes[1] in loot_classes:
+                loot_classes.remove(last_loot_classes[0])
+            loot_class = random.choice(loot_classes)
+
+            # Cycle last 2 classes:
+            del last_loot_classes[0]
+            last_loot_classes.append(loot_class)
+
+            # Append loot piece
+            queue.append(loot_class(tier_target=self.tier, size=BASE_SIZE))
 
     def introduce_player(self):
         self.scene.player = self.player
@@ -258,26 +261,8 @@ class SceneHandler:
                 any(corpse for corpse in self.scene.particles if isinstance(corpse, pt.Remains) and corpse.lifetime > 3)
         ):
             self.batch_spawn_after_loot = True
-            loot_package = self.loot[:3]
+            self.drop_loot(self.loot[:3])
             del self.loot[:3]
-
-            # Loot label contains a hint if it's first in playthrough:
-            loot_label = random.choice(
-                string["gameplay"]["loot_label" if self.player.seen_loot_drops else "loot_label_first"]
-            )
-
-            # Animate overlay from last dead monster:
-            last_victim = self.scene.dead_characters[-1].position + self.scene.conversion_v
-
-            # Spawn explanation:
-            if not self.player.seen_loot_drops:
-                self.scene.menus.append(mn.LootHelp())
-            self.scene.loot_overlay = sc.LootOverlay(
-                loot_package,
-                self.player,
-                label=loot_label,
-                appear_from=last_victim
-            )
 
             # Boolean toggles:
             self.loot_querried = False
@@ -301,6 +286,10 @@ class SceneHandler:
             any(
                 corpse for corpse in self.scene.particles
                 if isinstance(corpse, pt.Remains) and corpse.blitting_list[0][-1] is not None
+            ),
+            # Any unresolved drops from level boss
+            any(
+                boss for boss in self.scene.dead_characters if isinstance(boss, bs.Boss) and boss.loot
             )
         ])
 
@@ -313,6 +302,25 @@ class SceneHandler:
 
         # Return True unless scenario is completed
         return not done
+
+    def drop_loot(self, loot_package):
+        # Loot label contains a hint if it's first in playthrough:
+        loot_label = random.choice(
+            string["gameplay"]["loot_label" if self.player.seen_loot_drops else "loot_label_first"]
+        )
+
+        # Animate overlay from last dead monster:
+        last_victim = self.scene.dead_characters[-1].position + self.scene.conversion_v
+
+        # Spawn explanation:
+        if not self.player.seen_loot_drops:
+            self.scene.menus.append(mn.LootHelp())
+        self.scene.loot_overlay = sc.LootOverlay(
+            loot_package,
+            self.player,
+            label=loot_label,
+            appear_from=last_victim
+        )
 
     def _process_handover(self):
         if self.scene.new_sh_hook is not None:
@@ -526,6 +534,11 @@ class SkirmishSceneHandler(SceneHandler):
             **kwargs
         )
 
+        # Make boss drop something:
+        if tier < 4:
+            boss.loot = []
+            self.generate_drops(boss.loot, 3)
+
         # Make sure Victory Screen has a button to go to the next difficulty level
         if tier < 4:
             self.next_level_options = {
@@ -570,6 +583,16 @@ class SkirmishSceneHandler(SceneHandler):
     def execute(self) -> bool:
         # If no custom loot drops are needed, proceed as normal:
         if self.spawn_enemies:
+
+            # If boss had died holding drops, and player has no enemies in scene spawn loot drop:
+            if (
+                    self.scene.dead_characters and
+                    isinstance(self.scene.dead_characters[-1], bs.Boss) and
+                    self.scene.dead_characters[-1].loot
+            ):
+                self.drop_loot(self.scene.dead_characters[-1].loot)
+                self.scene.dead_characters[-1].loot = None
+
             return super(SkirmishSceneHandler, self).execute()
 
         elif not any((self.offer_main_hand, self.offer_off_hand, self.scene.loot_overlay)):

@@ -579,6 +579,7 @@ class Character:
     remains_persistence = 1  # 0 to remain indefinitely in scene
     theme = None
     free_fall_range = 0.5, 1.2
+    loot = None
 
     # Logic:
     pct_cap = 0.15
@@ -1041,7 +1042,8 @@ class Character:
                 self.speed.xy = (0, 0)
 
         # Bounce off boundaries towards center if reached edge
-        boundaries = (scene.field_rect.left, scene.field_rect.right), (scene.field_rect.top, scene.field_rect.bottom)
+        boundaries = (scene.field_rect.left+BASE_SIZE, scene.field_rect.right-BASE_SIZE), \
+                     (scene.field_rect.top+BASE_SIZE, scene.field_rect.bottom-BASE_SIZE)
         center_v = scene.field_rect.center
 
         # Push disabled characters or characters somehow outside

@@ -160,17 +160,21 @@ class Scene:
             self.player.inventory.update()
 
     def alert_ai(self, victim):
-        for character in filter(lambda x: x.ai is not None, self.characters):
+        for character in filter(lambda x: x.ai is not None and not isinstance(x, bs.Boss), self.characters):
             # React to death:
             if victim in self.dead_characters:
-                # Rigid AI gains less morale, Cowardly AI loses more
-                character.ai.morale += 0.4 * character.ai.flexibility \
-                    if victim.collision_group != character.collision_group \
-                    else -0.2 - 0.1 * character.ai.courage
 
-                # Respect boundaries
-                character.ai.morale = min(character.ai.morale, 1.0)
-                character.ai.morale = max(character.ai.morale, 0.0)
+                if isinstance(victim, bs.Boss):
+                    character.ai.morale = 0.0
+                else:
+                    # Rigid AI gains less morale, Cowardly AI loses more
+                    character.ai.morale += 0.4 * character.ai.flexibility \
+                        if victim.collision_group != character.collision_group \
+                        else -0.2 - 0.1 * character.ai.courage
+
+                    # Respect boundaries
+                    character.ai.morale = min(character.ai.morale, 1.0)
+                    character.ai.morale = max(character.ai.morale, 0.0)
 
             character.ai.fight_or_flight(victim)
 
@@ -1356,7 +1360,7 @@ class Scene:
         self.alert_ai(character)
 
         # If target was a Boss, remove hp bar and stop music:
-        if isinstance(character, bs.Boss):
+        if isinstance(character, bs.Boss) and not character.loot:
             play_sound('loot', 1)
             self.boss_bar = None
             self.boss_name.tick_down = True

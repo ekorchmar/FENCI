@@ -23,9 +23,10 @@ class Boss(mo.Humanoid):
         super(Boss, self).set_state('active' if state in DISABLED else state, duration)
 
     # Remove bars; Scene should spawn giant HP bar:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, loot: list = None, **kwargs):
         super(Boss, self).__init__(*args, **kwargs)
         self.bars.clear()
+        self.loot = loot
 
     # Instantly restore all stamina:
     def breath(self):
@@ -42,7 +43,15 @@ class Elite(Boss):
     _size_modifier = 1.2
     _breakpoints = 3  # Reducing health below breakpoint causes the Boss to spawn reinforcements
 
-    def __init__(self, position, tier: int, base_creature, pack_difficulty: int = 5, team_color=None):
+    def __init__(
+            self,
+            position,
+            tier: int,
+            base_creature,
+            pack_difficulty: int = 5,
+            team_color=None,
+            loot: list = None
+    ):
         # Create a bigger version of base creature:
         body_stats = character_stats["body"][base_creature.__name__].copy()
         portraits = character_stats["mind"][base_creature.__name__].copy()
@@ -58,11 +67,13 @@ class Elite(Boss):
 
         # Initialize self:
         super().__init__(
-            position,
+            tier=tier,
+            position=position,
             **body_stats,
             **colors['enemy'],
             faces=portraits,
-            name=f"Elite {base_creature.__name__.capitalize()} Lv.{tier:.0f}"
+            name=f"Elite {base_creature.__name__.capitalize()} Lv.{tier:.0f}",
+            loot=loot
         )
 
         # Create an instance of a base creature to 'steal' it's properties

@@ -1841,7 +1841,6 @@ class Skeleton(Humanoid):
 
         def filter_func(x):
             return (
-                    x.name not in b.Material.collections["elven"] and
                     x.name not in b.Material.collections["celestial"] and
                     x.name not in b.Material.collections["silver"]
             )
@@ -1854,7 +1853,7 @@ class Skeleton(Humanoid):
                 filter_func
             )}}
 
-            # Handle material and colors would be filled in by the constructor, but we need to exclude elven.
+            # Handle material and colors would be filled in by the constructor, but we need to exclude silver.
 
             def new_handle_material():
                 # 20% of the time, pick same metal for METALLIC hilt
@@ -1975,7 +1974,6 @@ class Skeleton(Humanoid):
 
         def filter_func(x):
             return (
-                    x.name not in b.Material.collections["elven"] and
                     x.name not in b.Material.collections["celestial"] and
                     x.name not in b.Material.collections["silver"]
             )
@@ -1995,7 +1993,7 @@ class Skeleton(Humanoid):
 
         # Add materials by usual rules + filter func
         shield_builder["constructor"]["frame"]["material"] = b.Material.pick(
-            ['metal', 'reed', 'wood', 'bone'],
+            ['metal', 'wood', 'bone'],
             roll_tier(tier),
             filter_func
         )

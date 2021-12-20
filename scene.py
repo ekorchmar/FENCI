@@ -1360,8 +1360,10 @@ class Scene:
         self.alert_ai(character)
 
         # If target was a Boss, remove hp bar and stop music:
-        if isinstance(character, bs.Boss) and not character.loot:
-            play_sound('loot', 1)
+        if isinstance(character, bs.Boss):
+            # Make sure loot sounds do not override each other:
+            if not character.loot:
+                play_sound('loot', 1)
             self.boss_bar = None
             self.boss_name.tick_down = True
             end_theme()

@@ -1205,7 +1205,7 @@ class Spear(Pointed):
     downside = ["No swing attacks"]
     class_name = "Spear"
     stab_dash_modifier = 0
-    pushback = 1.5
+    pushback = 2
 
     _max_fallback = 1.0
     _fallback_distance = 0.4
@@ -3623,7 +3623,7 @@ class Mace(Sword):
 
         # Calculate pushback (HIGHER for lighter mace):
         weight_class = (self.weight - 4.6) / 2.4
-        self.pushback = 1 + lerp((1, 2), 1-weight_class)
+        self.pushback = 3 + lerp((0, 1), 1-weight_class)
 
         if self.roll_stats:
             self.pushback = triangle_roll(self.pushback, 0.07)

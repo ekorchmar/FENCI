@@ -1102,7 +1102,7 @@ class Scene:
                     shield = weapon.slots["off_hand"]
 
                     # Calculate collision vector
-                    collision_v = v(weapon.speed) * weapon.weight / target.weight
+                    collision_v = v(weapon.speed) * weapon.knockback_resistance / target.knockback_resistance
 
                     # Shield damage is static, push target for remaining charge duration + 0.5 s
                     shield_damage = shield.deal_damage(v())
@@ -1167,7 +1167,7 @@ class Scene:
                         damage_modifier = lerp(
                             (0.25 * POKE_THRESHOLD * POKE_THRESHOLD, 2.25 * POKE_THRESHOLD * POKE_THRESHOLD),
                             relative_v.length_squared())
-                        impact_damage = 0.05 * weapon.weight * damage_modifier
+                        impact_damage = 0.05 * weapon.knockback_resistance * damage_modifier
                         play_sound('collision', 0.01 * impact_damage)
 
                         # Cap impact damage at 15% of target health:
@@ -1193,7 +1193,7 @@ class Scene:
                         )
 
                         # Slow down hitting character
-                        weapon.speed *= 0.5 * weapon.weight / target.weight
+                        weapon.speed *= 0.5 * weapon.knockback_resistance / target.knockback_resistance
 
                 else:
                     # Play sound (but not too often)

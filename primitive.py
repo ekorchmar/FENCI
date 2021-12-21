@@ -10,7 +10,8 @@ import os
 import random
 import math
 import json
-import sys
+import platform
+from sys import exit
 
 # Start pygame:
 if not pygame.get_init():
@@ -27,10 +28,22 @@ c = pygame.color.Color
 r = pygame.rect.Rect
 s = pygame.surface.Surface
 
+# Workaround for macOS version:
+def get_path(filename):
+    name = os.path.splitext(filename)[0]
+    ext = os.path.splitext(filename)[1]
+
+    if platform.system() == "Darwin":
+        from AppKit import NSBundle
+        file = NSBundle.mainBundle().pathForResource_ofType_(name, ext)
+        return file or os.path.realpath(filename)
+    else:
+        return os.path.realpath(filename)
+
 
 # Load JSON dicts:
 def load_json(file_path, directory='resource'):
-    with open(os.path.join(directory, file_path), encoding="utf8") as resource_json:
+    with open(get_path(os.path.join(directory, file_path)), encoding="utf8") as resource_json:
         return json.loads(resource_json.read())
 
 
@@ -57,7 +70,7 @@ FPS_TARGET = 60
 FPS_TICK = 1 / FPS_TARGET
 BASE_SIZE = 24
 DISPLAY_COLOR = colors["background"]
-FONT = os.path.join('resource', 'DejaVuSansMono.ttf')
+FONT = get_path(os.path.join('resource', 'DejaVuSansMono.ttf'))
 
 # All sounds and constants:
 MUSIC_VOLUME = 0.5
@@ -369,7 +382,7 @@ def triangle_roll(value, offset):
 
 def exit_game():
     pygame.quit()
-    sys.exit()
+    exit()
 
 
 def draw_icon(size=64, output_file=None):
@@ -395,28 +408,28 @@ def unfocused():
 
 
 def save_state(state: dict):
-    with open(os.path.join('progress', 'saved.json'), 'w') as saved_game_json:
+    with open(get_path(os.path.join('progress', 'saved.json')), 'w') as saved_game_json:
         json.dump(state, saved_game_json)
 
 
 def mark_skirmish_progress(beaten_tier: int):
     PROGRESS["max_skirmish_beaten"] = max(PROGRESS["max_skirmish_beaten"], beaten_tier)
 
-    with open(os.path.join('progress', 'progress.json'), 'w') as progress_json:
+    with open(get_path(os.path.join('progress', 'progress.json')), 'w') as progress_json:
         json.dump(PROGRESS, progress_json)
 
 
 def tutorial_completed(state: bool):
     PROGRESS["tutorial_completed"] = state
 
-    with open(os.path.join('progress', 'progress.json'), 'w') as progress_json:
+    with open(get_path(os.path.join('progress', 'progress.json')), 'w') as progress_json:
         json.dump(PROGRESS, progress_json)
 
 
 def remove_browser_prompt():
     PROGRESS["disable_web_prompt"] = True
 
-    with open(os.path.join('progress', 'progress.json'), 'w') as progress_json:
+    with open(get_path(os.path.join('progress', 'progress.json')), 'w') as progress_json:
         json.dump(PROGRESS, progress_json)
 
 
@@ -583,6 +596,7 @@ def frame_surface(surface, color):
 
 # Sound management
 def play_theme(filepath):
+    filepath = get_path(filepath)
     if pygame.mixer.music.get_busy():
         pygame.mixer.music.stop()
         pygame.mixer.music.unload()
@@ -613,7 +627,7 @@ def load_sound_profile(profile_number, file_extension='wav'):
 
     profile = SOUND_PROFILES[profile_number]
     for sound in all_sounds:
-        SOUND[sound] = pygame.mixer.Sound(file=os.path.join('sound', profile, f"{sound}.{file_extension}"))
+        SOUND[sound] = pygame.mixer.Sound(file=get_path(os.path.join('sound', profile, f"{sound}.{file_extension}")))
 
 
 def play_sound(sound, volume, **kwargs):

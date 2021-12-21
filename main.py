@@ -13,8 +13,20 @@ import base_class as b
 import equipment as eq
 import handler as hd
 from primitive import *
+import argparse
+import cProfile
+import pstats
 
-if __name__ == "__main__":
+msg = "Enable profiling with --profiling <filename> or -p <filename>. Other arguments will raise an Exception."
+
+# Initialize arguments parsing:
+parser = argparse.ArgumentParser()
+parser.add_argument("-p", "--profiling", help="Enable profiling output to a specified filename")
+args = parser.parse_args()
+
+
+# Define the main loop:
+def main():
     # Initiate material registry:
     b.Material.init()
 
@@ -42,5 +54,24 @@ if __name__ == "__main__":
     else:
         hd.TutorialSceneHandler()
 
-    while True:
+    while not hd.SceneHandler.active.completed:
         hd.SceneHandler.active.execute()
+
+    pygame.quit()
+
+
+if __name__ == "__main__":
+
+    if args.profiling is None:
+        # Simply run the loop:
+        main()
+
+    else:
+        # If profiling is enabled, start profiling:
+        with cProfile.Profile() as pr:
+            main()
+
+        stats = pstats.Stats(pr)
+        stats.sort_stats(pstats.SortKey.TIME)
+        stats.print_stats()
+        stats.dump_stats(filename=args.profiling)

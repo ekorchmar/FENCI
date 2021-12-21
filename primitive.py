@@ -11,7 +11,6 @@ import random
 import math
 import json
 import platform
-from sys import exit
 
 # Start pygame:
 if not pygame.get_init():
@@ -27,6 +26,7 @@ v = pygame.math.Vector2
 c = pygame.color.Color
 r = pygame.rect.Rect
 s = pygame.surface.Surface
+
 
 # Workaround for macOS version:
 def get_path(filename):
@@ -65,7 +65,6 @@ RATING_URL = "https://ekorchmar.itch.io/fenci/rate?source=game"
 
 # Screen options:
 WINDOW_SIZE = 1024, 768
-# WINDOW_SIZE = 1440, 900
 FPS_TARGET = 60
 FPS_TICK = 1 / FPS_TARGET
 BASE_SIZE = 24
@@ -188,7 +187,7 @@ NUMBER_LABELS = {i: str(i+1) for i in range(9)}
 # Pygame display and clock
 SCREEN = None
 CLOCK = pygame.time.Clock()
-
+SURFACE_CACHE = dict()
 
 # Materials
 PAINTABLE = {"wood", "cloth", "leather"}
@@ -380,11 +379,6 @@ def triangle_roll(value, offset):
     return result
 
 
-def exit_game():
-    pygame.quit()
-    exit()
-
-
 def draw_icon(size=64, output_file=None):
     icon_surface = s((size, size), pygame.SRCALPHA)
     icon_surface.fill(colors['background'])
@@ -451,8 +445,14 @@ def update_screen():
 
 def ascii_draw(font_size: int, ascii_string: str, draw_color):
     """Create a surface from text. Input is font size, string, and color"""
+    # Render is expensive. Check cache for stored surface:
+    params = font_size, ascii_string, tuple(draw_color)
+    if params in SURFACE_CACHE:
+        return SURFACE_CACHE[params]
+
     use_font = pygame.font.Font(FONT, font_size)
     text_surface = use_font.render(ascii_string, True, draw_color)
+    SURFACE_CACHE[params] = text_surface
     return text_surface
 
 

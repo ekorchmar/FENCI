@@ -10,6 +10,7 @@ from primitive import *
 
 # Scene Handlers: 'brains' of Scenes
 class SceneHandler:
+    completed = False
     _batch_spawn_chance = 0.3
     theme = None
     # Stores persistent reference to active scene handler to help instances of SceneHandler exchange game states:
@@ -196,7 +197,8 @@ class SceneHandler:
 
     def execute(self) -> bool:
         # 1. Iterate the scene
-        self.scene.iterate()
+        if not self.completed:
+            self.scene.iterate()
 
         # 2. Affect the scene:
         # 2.1. Check and spawn monsters if needed
@@ -485,6 +487,9 @@ class SceneHandler:
     def save(self, next_level=False):
         return
 
+    def complete(self):
+        self.completed = True
+
 
 class SkirmishSceneHandler(SceneHandler):
     theme = 'blkrbt_stairs.ogg'
@@ -612,7 +617,7 @@ class SkirmishSceneHandler(SceneHandler):
             self._skirmish_init_equip('off_hand')
             self.offer_off_hand = False
 
-        return False
+        return self.completed
 
     def _skirmish_init_equip(self, slot):
         weapon_classes = set(filter(
@@ -733,11 +738,12 @@ class MainMenuSceneHandler(SceneHandler):
             self.spawn_timer -= FPS_TICK
 
         # 1. Iterate the scene
-        self.scene.iterate()
-        self._process_handover()
+        if not self.completed:
+            self.scene.iterate()
+            self._process_handover()
 
         # Main Menu is never completed
-        return False
+        return self.completed
 
     def load_save(self, cls):
         self.hand_off_to(cls.load())
@@ -1150,7 +1156,8 @@ class TutorialSceneHandler(SceneHandler):
 
     def execute(self) -> bool:
         # Usual processing:
-        self.scene.iterate()
+        if not self.completed:
+            self.scene.iterate()
         self._process_handover()
 
         # Make sure indicators are visible
@@ -1162,7 +1169,7 @@ class TutorialSceneHandler(SceneHandler):
             if self.stages:
                 self.next_stage()
 
-        return False
+        return self.completed
 
     def _win(self):
         tutorial_completed(True)

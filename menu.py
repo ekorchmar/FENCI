@@ -468,7 +468,7 @@ class PauseEnsemble(Menu):
                 "keywords": {
                     "title": string["menu"]["confirm_exit"],
                     "confirm_text": string['menu']['confirmed_exit_ingame'],
-                    "action": exit_game
+                    "action": hd.SceneHandler.active.complete
                 }
             },
             kb_index=3
@@ -553,7 +553,7 @@ class MainMenu(Menu):
                     "keywords": {
                         "title": string["menu"]["confirm_exit"],
                         "confirm_text": string['menu']['confirmed_exit'],
-                        "action": exit_game
+                        "action": hd.SceneHandler.active.complete
                     }
                 },
                 kb_index=4
@@ -678,7 +678,7 @@ class Victory(Menu):
                 "keywords": {
                     "title": string["menu"]["confirm_exit"],
                     "confirm_text": string['menu']['confirmed_exit'],
-                    "action": exit_game
+                    "action": hd.SceneHandler.active.complete
                 }
             },
             kb_index=index
@@ -788,7 +788,7 @@ class Defeat(Menu):
                 "keywords": {
                     "title": string["menu"]["confirm_exit"],
                     "confirm_text": string['menu']['confirmed_exit_ingame'],
-                    "action": exit_game
+                    "action": hd.SceneHandler.active.complete
                 }
             },
             kb_index=1

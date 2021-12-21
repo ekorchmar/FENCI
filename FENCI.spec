@@ -51,4 +51,4 @@ coll = COLLECT(exe,
 app = BUNDLE(coll,
              name='FENCI.app',
              icon='fenci.ico',
-             bundle_identifier='INRI')
+             bundle_identifier='Eduard Korchmar')

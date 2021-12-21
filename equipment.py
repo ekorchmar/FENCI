@@ -1172,7 +1172,7 @@ class Sword(Bladed, Pointed):
         )
 
         # Calculate damage range depending on weight, size and tier:
-        min_damage = int(2.3 * (50 + self.weight) * self._tier_scaling ** (self.tier - 1))
+        min_damage = int(2.3 * (25 + self.weight) * self._tier_scaling ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(1 + blade_len / 5))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()

@@ -579,6 +579,7 @@ class Character:
     remains_persistence = 1  # 0 to remain indefinitely in scene
     theme = None
     free_fall_range = 0.5, 1.2
+    knockback_resistance = 0
     loot = None
 
     # Logic:
@@ -1183,7 +1184,7 @@ class Character:
 
         if weapon:
             # Scale vector down depending on character weight:
-            vector *= 0.02 * weapon.pushback * weapon.weight * BASE_SIZE / self.size
+            vector *= 0.02 * weapon.pushback * weapon.weight * (1-self.knockback_resistance)
 
         if vector != v() and self.anchor_weapon is None:
             self.push(vector, duration, state='hurt')

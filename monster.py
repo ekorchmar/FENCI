@@ -1337,6 +1337,7 @@ class Goblin(Humanoid):
     skirmish_spawn_rate = 5
     class_name = "Goblin"
     difficulty = 2
+    knockback_resistance = 0.1
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
@@ -1544,6 +1545,7 @@ class Human(Humanoid):
     skirmish_spawn_rate = 2
     class_name = "Human"
     difficulty = 3
+    knockback_resistance = 0.5
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
@@ -1578,6 +1580,7 @@ class Orc(Humanoid):
     skirmish_spawn_rate = 1
     class_name = 'Orc'
     difficulty = 3.5
+    knockback_resistance = 0.65
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
@@ -1806,6 +1809,7 @@ class Skeleton(Humanoid):
     skirmish_spawn_rate = 4
     class_name = 'Skeleton'
     difficulty = 2.5
+    knockback_resistance = 0.3
 
     def __init__(self, position, tier, team_color=None):
         # Modify stats according to tier
@@ -2024,6 +2028,7 @@ class Player(Humanoid):
     drops_shields = False
     hit_immunity = 1.2
     remains_persistence = 0.3
+    knockback_resistance = 0.8
 
     def __init__(self, position, species='Human'):
         self.species = species
@@ -2169,7 +2174,7 @@ class Player(Humanoid):
 def make_dummy(cls, *args, hp=None, **kwargs):
     dummy = cls(*args, **kwargs)
     dummy.ai = DebugAI(dummy)
-    dummy.remains_persistence = 0.1
+    dummy.knockback_resistance = 1
     dummy.weight = 1000
     if hp is not None:
         dummy.hp = dummy.max_hp = hp

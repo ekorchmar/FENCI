@@ -17,6 +17,7 @@ class Boss(mo.Humanoid):
     _dps_pct_cap = 0.005
     drops_shields = False
     remains_persistence = 0
+    knockback_resistance = 0.9
 
     # Don't get disabled:
     def set_state(self, state, duration):
@@ -76,12 +77,8 @@ class Elite(Boss):
             loot=loot
         )
 
-        # Create an instance of a base creature to 'steal' it's properties
-        donor = base_creature(position=None, tier=tier, team_color=team_color)
-
         # Get slots and coordinates
-        self.slots = donor.slots
-        self.body_coordinates = donor.body_coordinates.copy()
+        self.body_coordinates = super().body_coordinates.copy()
         scale_body(self.body_coordinates, self._size_modifier)
 
         # Equip main hand:

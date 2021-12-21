@@ -1159,7 +1159,7 @@ class Sword(Bladed, Pointed):
         blade_len = len(self.builder["constructor"]["blade"]["str"])
 
         # Generate stats according to b.Material.registry
-        self.weight = 1 + hilt_material.weight + blade_len * (1 + math.sqrt(blade_material.weight))
+        self.weight = 0.5*(1 + hilt_material.weight + blade_len * (1 + math.sqrt(blade_material.weight)))
         self.tier = int((hilt_material.tier+blade_material.tier)*0.5)
 
         # reduced for blade weight, increased for hilt tier
@@ -1167,12 +1167,12 @@ class Sword(Bladed, Pointed):
         self.agility_modifier = math.sqrt((10.0 + hilt_material.tier) / (blade_len * blade_material.weight)) * .7
         # Increased for sword total weight, reduced for hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = 0.27 * math.sqrt(
+        self.stamina_drain = 1.08 * math.sqrt(
             self.weight / (math.sqrt(hilt_material.weight))
         )
 
         # Calculate damage range depending on weight, size and tier:
-        min_damage = int(1.15 * (50 + self.weight) * self._tier_scaling ** (self.tier - 1))
+        min_damage = int(2.3 * (50 + self.weight) * self._tier_scaling ** (self.tier - 1))
         max_damage = int(min_damage * math.sqrt(1 + blade_len / 5))
         self.damage_range = min_damage, max_damage
         self.redraw_loot()
@@ -3306,6 +3306,8 @@ class Knife(Pointed, OffHand):
     ]
     prevent_activation = False
     ignores_shield = True
+    _tier_scaling = 1.1
+    pushback = 0.3
 
     def __init__(self, *args, **kwargs):
         self.activation_rest_time = 0
@@ -3416,8 +3418,8 @@ class Knife(Pointed, OffHand):
         self.stamina_drain = 0
 
         # Calculate damage range depending on weight and tier:
-        min_damage = int((15 + 0.7 * self.weight) * 1.12 ** (self.tier - 1))
-        max_damage = int(min_damage * 1.5 * (4-self.weight) * 1.12 ** (blade.tier - 1))
+        min_damage = int((15 + 0.7 * self.weight) * self._tier_scaling ** (self.tier - 1))
+        max_damage = int(min_damage * 1.2 * math.sqrt(4-self.weight) * self._tier_scaling ** (blade.tier - 1))
         self.damage_range = min_damage, max_damage
 
         # Depends on total weight

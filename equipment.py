@@ -1167,7 +1167,7 @@ class Sword(Bladed, Pointed):
         self.agility_modifier = math.sqrt((10.0 + hilt_material.tier) / (blade_len * blade_material.weight)) * .7
         # Increased for sword total weight, reduced for hilt weight (1.3-1.6)
         # SQRT to bring closer to 1.0
-        self.stamina_drain = 1.08 * math.sqrt(
+        self.stamina_drain = 0.38 * math.sqrt(
             self.weight / (math.sqrt(hilt_material.weight))
         )
 

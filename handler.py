@@ -959,7 +959,7 @@ class TutorialSceneHandler(SceneHandler):
                     "off_hand": eq.Swordbreaker(BASE_SIZE, tier_target=4)
                 },
                 "text": string["tutorial"]["breaker"],
-                "dummies": [mo.make_dummy(mo.Human, tier=1, position=None)],
+                "dummies": [mo.make_dummy(mo.Skeleton, tier=2, position=None)],
                 "positions": [v(self.scene.box.width - PLAYER_SPAWN[0], PLAYER_SPAWN[1])],
                 "proceed_condition": lambda: (
                         self.scene.dead_characters and

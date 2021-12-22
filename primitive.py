@@ -457,9 +457,11 @@ def ascii_draw(font_size: int, ascii_string: str, draw_color):
 
 
 def ascii_draw_cascaded(font_size: int, ascii_string: str, draw_color, max_width: int = WINDOW_SIZE[0]):
-    use_font = pygame.font.Font(FONT, font_size)
     words = ascii_string.split(' ')
-    space, word_height = use_font.size(' ')
+
+    # Get size of blank space:
+    space, word_height = ascii_draw(font_size, ' ', (0, 0, 0)).get_size()
+
     x, y = 0, 0
     # Maximum possible size surface, will be blit on a resulting size surface
     total_surface = s((max_width, WINDOW_SIZE[1]), pygame.SRCALPHA)
@@ -527,8 +529,7 @@ def tint(surf, tint_color):
 
 def blit_cascade_text(surface, font_size, text, xy_topleft, color, right_offset=None):
     words = [word.split(' ') for word in text.splitlines()]  # 2D array where each row is a list of words.
-    font = pygame.font.Font(FONT, font_size)
-    space, word_height = font.size(' ')  # The width of a space.
+    space, word_height = ascii_draw(font_size, ' ', (0, 0, 0)).get_size()  # The width of a space.
     max_width, max_height = surface.get_size()
     x, y = xy_topleft
 
@@ -538,7 +539,7 @@ def blit_cascade_text(surface, font_size, text, xy_topleft, color, right_offset=
 
     for line in words:
         for word in line:
-            word_surface = font.render(word, True, color)
+            word_surface = ascii_draw(font_size, word, color)
             word_width, word_height = word_surface.get_size()
             if x + word_width >= max_width:
                 x = xy_topleft[0]  # Reset the x.

@@ -1,4 +1,4 @@
+pyobjc~=8.1
 pygame~=2.1.0
 perlin-noise~=1.9
 pyinstaller~=4.7
-pyobjc~=8.1

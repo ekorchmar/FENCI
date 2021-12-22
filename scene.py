@@ -190,7 +190,7 @@ class Scene:
         for event in pygame.event.get():  # User did something
 
             if event.type == pygame.QUIT:  # If user closed the window
-                exit_game()
+                hd.SceneHandler.active.complete()
 
             if event.type == pygame.MOUSEWHEEL:
                 wheel = True

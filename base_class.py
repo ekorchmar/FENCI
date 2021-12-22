@@ -579,7 +579,7 @@ class Character:
     remains_persistence = 1  # 0 to remain indefinitely in scene
     theme = None
     free_fall_range = 0.5, 1.2
-    knockback_resistance = 0
+    knockback_resistance = 0.1
     loot = None
 
     # Logic:

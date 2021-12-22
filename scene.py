@@ -1102,7 +1102,7 @@ class Scene:
                     shield = weapon.slots["off_hand"]
 
                     # Calculate collision vector
-                    collision_v = v(weapon.speed) * weapon.knockback_resistance / target.knockback_resistance
+                    collision_v = v(weapon.speed) * shield.weight * 0.1 * (1-target.knockback_resistance)
 
                     # Shield damage is static, push target for remaining charge duration + 0.5 s
                     shield_damage = shield.deal_damage(v())

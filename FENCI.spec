@@ -10,7 +10,7 @@ a = Analysis(['main.py'],
              pathex=[],
              binaries=[],
              datas=[],
-             hiddenimports=[],
+             hiddenimports=['pyobjc'],
              hookspath=[],
              hooksconfig={},
              runtime_hooks=[],
@@ -51,4 +51,10 @@ coll = COLLECT(exe,
 app = BUNDLE(coll,
              name='FENCI.app',
              icon='fenci.ico',
-             bundle_identifier='Eduard Korchmar')
+             bundle_identifier=None,
+             version='2021.12.2',
+             info_plist={
+                 'NSPrincipalClass': 'NSApplication',
+                 'NSAppleScriptEnabled': False
+             },
+             )

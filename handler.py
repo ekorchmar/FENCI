@@ -487,8 +487,9 @@ class SceneHandler:
     def save(self, next_level=False):
         return
 
-    def complete(self):
-        self.completed = True
+    @staticmethod
+    def complete():
+        SceneHandler.active.completed = True
 
 
 class SkirmishSceneHandler(SceneHandler):
@@ -742,7 +743,6 @@ class MainMenuSceneHandler(SceneHandler):
             self.scene.iterate()
             self._process_handover()
 
-        # Main Menu is never completed
         return self.completed
 
     def load_save(self, cls):

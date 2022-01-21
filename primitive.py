@@ -21,6 +21,22 @@ if not pygame.get_init():
 if not pygame.font.get_init():
     pygame.font.init()
 
+# Initialize Joystick (only one is supported):
+joy_num = pygame.joystick.get_count()
+if joy_num > 0:
+    joystick = pygame.joystick.Joystick(0)
+    joystick.init()
+
+    # Only support XBOX joysticks for now:
+    if 'xbox' not in joystick.get_name().lower():
+        print(f'Only XBox joysticks are supported for now. {joystick.get_name()} is not one.')
+        joystick = None
+    else:
+        joystick = None
+
+else:
+    joystick = None
+
 # Alisases
 v = pygame.math.Vector2
 c = pygame.color.Color
@@ -30,10 +46,12 @@ s = pygame.surface.Surface
 
 # Workaround for macOS version:
 def get_path(filename):
+    skip = True
+
     name = os.path.splitext(filename)[0]
     ext = os.path.splitext(filename)[1]
 
-    if platform.system() == "Darwin":
+    if skip or platform.system() == "Darwin":
         from AppKit import NSBundle
         file = NSBundle.mainBundle().pathForResource_ofType_(name, ext)
         return file or os.path.realpath(filename)

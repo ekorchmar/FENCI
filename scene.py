@@ -1,4 +1,6 @@
 # todo:
+#  add Scene.controls dict
+#  update controls that pr
 # After tech demo
 # todo:
 #  Split options into submenus; add options for: SFX volume;

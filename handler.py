@@ -5,6 +5,7 @@ import monster as mo
 import boss as bs
 import menu as mn
 import scene as sc
+import concurrent.futures
 from primitive import *
 
 
@@ -72,15 +73,25 @@ class SceneHandler:
         enemy_cost = sum(enemy.difficulty for enemy in self.monsters)
 
         # Fill level up to missing value by monsters of specified classes
+        # Define generation function:
+        def gen_monster(idx, cls):
+            self.monsters.insert(
+                idx,
+                cls(position=None, tier=self.tier, team_color=enemy_color)
+            )
+
+        # Get list of classes and indices
+        index_class = []
         while enemy_cost < monster_total_cost:
-            monster_instance = random.choices(pad_monster_classes, pad_monster_weights)[0]
-            enemy_cost += monster_instance.difficulty
+            monster_class = random.choices(pad_monster_classes, pad_monster_weights)[0]
+            enemy_cost += monster_class.difficulty
             # Insert in random spots EXCEPT for first: may contain bs.Bosses
             insert_idx = random.randint(1, len(self.monsters)) if self.monsters else 0
-            self.monsters.insert(
-                insert_idx,
-                monster_instance(position=None, tier=self.tier, team_color=enemy_color)
-            )
+            index_class.append((insert_idx, monster_class))
+
+        # Generate monsters:
+        with concurrent.futures.ProcessPoolExecutor() as executor:
+            executor.map(gen_monster, index_class)
 
         # Create backlog of loot
         # Spread by slot:
